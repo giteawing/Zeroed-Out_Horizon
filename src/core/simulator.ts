@@ -44,6 +44,8 @@ export interface Sample {
   totalEarned: number;
   netPerSecond: number;
   tapValue: number;
+  /** Нефть в резервуарах на момент сэмпла, тонн. */
+  oil: number;
   purchases: number;
 }
 
@@ -109,16 +111,20 @@ export function runSimulation(content: Content, options: SimulatorOptions = {}):
       decide(game, content, purchased);
     }
 
+    // Экспортная акция продаёт нефть со склада: ждём, пока резервуары
+    // наполнятся хотя бы наполовину, и смотрим на мировую цену.
     const exportDef = content.byId.get('p_export');
     if (exportDef && (state.cooldowns.p_export ?? 0) <= 0 && isUnlocked(exportDef, state)) {
-      if (state.worldPrice >= opts.exportPriceThreshold) {
+      const derived = game.derived();
+      const full = derived.oilCapacity > 0 ? state.oil / derived.oilCapacity : 0;
+      if (full >= 0.5 && state.worldPrice >= opts.exportPriceThreshold) {
         if (game.buy('p_export').ok) {
           exportWaitMs = 0;
           purchased.add('p_export');
         }
       } else {
         exportWaitMs += STEP_MS;
-        if (exportWaitMs >= opts.exportPatienceSeconds * 1000) {
+        if (exportWaitMs >= opts.exportPatienceSeconds * 1000 && full >= 0.5) {
           if (game.buy('p_export').ok) {
             exportWaitMs = 0;
             purchased.add('p_export');
@@ -148,6 +154,7 @@ export function runSimulation(content: Content, options: SimulatorOptions = {}):
         totalEarned: state.totalEarned,
         netPerSecond: d.netPerSecond,
         tapValue: d.tapValue,
+        oil: state.oil,
         purchases: state.totalPurchases,
       });
     }
@@ -180,12 +187,15 @@ export function decide(game: Game, content: Content, purchased: Set<string>): bo
 
   const winDef = content.upgrades.find((u) => u.win);
   if (winDef) {
-    const blocker = unlockBlocker(winDef, state);
+    const influence = derived.influence;
+    const blocker = unlockBlocker(winDef, state, influence);
     if (!blocker && state.coins >= winDef.baseCost) {
       const res = game.buy(winDef.id);
       if (res.ok) purchased.add(winDef.id);
       return res.ok;
     }
+    // До финала рукой подать — бот копит, а не тратит на роскошь.
+    if (!blocker && state.coins >= winDef.baseCost * 0.55) return false;
   }
 
   const candidates: Array<{ def: UpgradeDef; score: number }> = [];
@@ -213,15 +223,44 @@ export function decide(game: Game, content: Content, purchased: Set<string>): bo
   return boughtAny;
 }
 
-/** Оценка прироста дохода за секунду от покупки одного уровня. */
+/**
+ * Оценка прироста дохода за секунду от покупки одного уровня.
+ *
+ * Здесь важно, что считать «полезным»: нефть приносит деньги только когда
+ * продана, поэтому при полных резервуарах ценность добычи падает до нуля,
+ * а при пустых — падает ценность сбыта. Бот ведёт себя как живой игрок:
+ * качает добычу, потом расширяет сбыт.
+ */
 export function estimatedGain(def: UpgradeDef, derived: DerivedStats, cost: number): number {
   const e = def.effect;
   const netFactor = 1 - derived.taxRate;
+  const fill = derived.oilCapacity > 0 ? Math.min(1, derived.oil / derived.oilCapacity) : 0;
+  // Сколько добытой нефти реально удастся продать: 1 при пустых резервуарах.
+  const drain = Math.max(0.05, 1 - fill);
+  // Контракты берут любой объём, поэтому добыча всегда находит сбыт.
+  const hasUnlimited = derived.channels.contract.rate >= 0;
   switch (def.type) {
     case 'perTap':
-      return (e.value ?? 0) * 5 * 0.85 * derived.multiplier;
+      // Тонны за тап: бот делает ~5 тапов в секунду, каждая тонна уходит по цене канала.
+      return (e.value ?? 0) * 5 * 0.85 * derived.multiplier * derived.oilPricePerTon;
+    case 'storage': {
+      // Ёмкость нужна, когда добыча превышает сбыт и нефть некуда девать.
+      const overflow = Math.max(0, derived.oilPerSecond + derived.tapValue * 4 - derived.sellPerSecond);
+      return overflow * derived.oilPricePerTon + Math.max(1, derived.grossPerSecond) * 0.2 * fill;
+    }
+    case 'sell': {
+      const channel = e.channel ?? 'contract';
+      const rate = derived.channels[channel];
+      // Расширение сбыта полезно, когда нефть упирается в ёмкость канала.
+      const pressure = channel === 'contract' ? 0.35 : Math.max(fill, 0.3);
+      const gain = (e.value ?? 0) * rate.price;
+      const rel = e.percent ? rate.rate * (e.percent / 100) : 0;
+      const unblock = hasUnlimited && derived.oil > derived.sellPerSecond * 3 ? 1.4 : 1;
+      return (gain + rel * rate.price) * pressure * unblock;
+    }
     case 'passive':
-      return (e.value ?? 0) * netFactor * derived.priceMultiplier * derived.multiplier;
+      return (e.value ?? 0) * netFactor * derived.priceMultiplier * derived.multiplier *
+        derived.oilPricePerTon;
     case 'multiplier': {
       const scope = e.scope ?? 'all';
       const base = scope === 'tap' ? derived.tapValue * 5 : derived.grossPerSecond * netFactor;

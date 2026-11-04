@@ -8,7 +8,7 @@
  */
 import { clear, el } from './dom';
 import type { Texts } from './texts';
-import { formatMoney, formatPercent } from '../core/format';
+import { formatMoney, formatNumber, formatPercent } from '../core/format';
 import { icon as iconPath } from '../core/assets';
 import type { BuyCheck, Game } from '../core/game';
 import type { Tab, UpgradeDef } from '../core/types';
@@ -27,7 +27,7 @@ export interface ShopOptions {
   onError: (check: BuyCheck) => void;
 }
 
-const TABS: Tab[] = ['political', 'technical', 'luxury', 'goals'];
+const TABS: Tab[] = ['technical', 'sales', 'political', 'luxury', 'goals'];
 
 export class Shop {
   readonly root: HTMLElement;
@@ -183,12 +183,14 @@ export class Shop {
 
     refs.root.classList.toggle('card--locked', !check.unlocked);
     refs.root.classList.toggle('card--maxed', maxed);
+    refs.root.classList.toggle('card--conquest', !!def.conquest);
     refs.root.classList.toggle('card--win', !!def.win);
     refs.root.classList.toggle('card--ready', def.win ? check.ok : false);
   }
 
   private describeEffect(def: UpgradeDef, level: number): string {
     const e = def.effect;
+    void level;
     const t = (key: string, params: Record<string, string | number>) =>
       this.texts.get(`shop.${key}`, params);
     switch (def.type) {
@@ -218,6 +220,19 @@ export class Shop {
         return t('effectPeriodic', { seconds: e.seconds ?? 0, value: e.value ?? 0 });
       case 'autoTap':
         return t('effectPassive', { value: formatMoney(e.value ?? 0, this.currency) });
+      case 'sell': {
+        const channel = e.channel ?? 'contract';
+        const parts = [
+          t('effectSell', { value: formatNumber((e.value ?? 0) * Math.max(1, level)) }),
+        ];
+        if (e.percent) {
+          parts.push(t('effectSellPrice', { value: formatPercent(e.percent / 100, 1) }));
+        }
+        const channelName = this.texts.get(`sales.${channel}`);
+        return `${channelName}: ${parts.join(' · ')}`;
+      }
+      case 'storage':
+        return t('effectStorage', { value: formatNumber((e.value ?? 0) * Math.max(1, level)) });
       case 'luxury':
         return t('effectLuxury', {});
       case 'win':
@@ -236,6 +251,9 @@ export class Shop {
       return this.texts.get('shop.unlockHint', {
         cost: formatMoney(blocker.value, this.currency),
       });
+    }
+    if (blocker.kind === 'influence') {
+      return this.texts.get('shop.unlockHintInfluence', { value: blocker.value });
     }
     const target = this.game.content.byId.get(blocker.id);
     return this.texts.get('shop.unlockHintUpgrade', { name: target?.name ?? blocker.id });

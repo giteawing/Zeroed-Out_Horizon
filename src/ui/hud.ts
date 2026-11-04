@@ -1,22 +1,38 @@
 /**
- * Верхняя панель: баланс, чистый доход, доход за тап, налог/расходы,
- * мировая цена нефти и прогресс до «Упыря-Абсолюта».
+ * Верхняя панель империи: деньги, нефть, добыча, сбыт, доход/расходы,
+ * влияние и прогресс до «Упыря-Абсолюта».
+ *
+ * Это «правый столбец» на десктопе: он никогда не перекрывается магазином
+ * и не уезжает при прокрутке — на телефоне стоит первым в колонке.
  */
 import { el } from './dom';
 import type { Texts } from './texts';
-import { formatMoney, formatPercent, interpolate } from '../core/format';
+import { formatMoney, formatNumber, formatPercent, interpolate } from '../core/format';
 import type { DerivedStats, GameState } from '../core/types';
+
+interface Row {
+  root: HTMLElement;
+  value: HTMLElement;
+  last: string;
+}
 
 export class Hud {
   readonly root: HTMLElement;
   private readonly balance: HTMLElement;
-  private readonly perSecond: HTMLElement;
-  private readonly perTap: HTMLElement;
+  private readonly rows = new Map<string, Row>();
   private readonly tax: HTMLElement;
   private readonly price: HTMLElement;
   private readonly priceBar: HTMLElement;
+  private readonly oilBar: HTMLElement;
+  private readonly oilFill: HTMLElement;
+  private readonly channels: Record<'contract' | 'export' | 'refine', HTMLElement> = {
+    contract: el('span', { class: 'sale__value' }, '—'),
+    export: el('span', { class: 'sale__value' }, '—'),
+    refine: el('span', { class: 'sale__value' }, '—'),
+  };
+  private readonly influenceFill: HTMLElement;
+  private readonly influenceValue: HTMLElement;
   private readonly progressFill: HTMLElement;
-  private readonly progressLabel: HTMLElement;
   private readonly progressValue: HTMLElement;
   private lastCoins = '';
 
@@ -25,38 +41,88 @@ export class Hud {
     private readonly currency: string,
   ) {
     this.balance = el('strong', { class: 'hud__balance' }, '—');
-    this.perSecond = el('span', { class: 'hud__value' }, '—');
-    this.perTap = el('span', { class: 'hud__value' }, '—');
     this.tax = el('span', { class: 'hud__chip' }, '—');
     this.price = el('span', { class: 'hud__chip hud__chip--price' }, '—');
     this.priceBar = el('i', { class: 'hud__pricebar-fill' });
+    this.oilFill = el('i', { class: 'hud__oil-fill' });
+    this.oilBar = el('div', { class: 'hud__oilbar' }, [this.oilFill]);
+    this.influenceFill = el('i', { class: 'hud__influence-fill' });
+    this.influenceValue = el('span', { class: 'hud__influence-value' }, '—');
     this.progressFill = el('i', { class: 'hud__progress-fill' });
-    this.progressLabel = el('span', { class: 'hud__progress-label' }, '—');
     this.progressValue = el('span', { class: 'hud__progress-value' }, '—');
 
-    this.root = el('header', { class: 'hud' }, [
-      el('div', { class: 'hud__top' }, [
-        el('div', { class: 'hud__wallet' }, [
+    const row = (key: string, label: string, cls = ''): Row => {
+      const value = el('span', { class: `hud__row-value ${cls}` }, '—');
+      const root = el('div', { class: 'hud__row' }, [
+        el('span', { class: 'hud__row-label' }, label),
+        value,
+      ]);
+      const entry: Row = { root, value, last: '' };
+      this.rows.set(key, entry);
+      return entry;
+    };
+
+    const salesRow = (
+      key: 'contract' | 'export' | 'refine',
+      label: string,
+    ): HTMLElement =>
+      el('div', { class: 'sale', 'data-channel': key }, [
+        el('span', { class: 'sale__label' }, label),
+        this.channels[key],
+      ]);
+
+    this.root = el('section', { class: 'hud', 'data-testid': 'hud' }, [
+      el('div', { class: 'hud__wallet' }, [
+        el('div', { class: 'hud__wallet-main' }, [
           el('span', { class: 'hud__label' }, texts.get('hud.balance')),
           this.balance,
         ]),
-        el('div', { class: 'hud__stats' }, [
-          el('div', { class: 'hud__stat' }, [
-            el('span', { class: 'hud__label' }, texts.get('hud.perSecond')),
-            this.perSecond,
-          ]),
-          el('div', { class: 'hud__stat' }, [
-            el('span', { class: 'hud__label' }, texts.get('hud.perTap')),
-            this.perTap,
-          ]),
-        ]),
-      ]),
-      el('div', { class: 'hud__chips' }, [
-        this.tax,
         el('div', { class: 'hud__pricebar' }, [this.price, this.priceBar]),
       ]),
+
+      // Нефть в резервуарах — главный ресурс игры.
+      el('div', { class: 'hud__oil' }, [
+        el('div', { class: 'hud__oil-head' }, [
+          el('span', { class: 'hud__label' }, texts.get('hud.oil')),
+          row('oil', '').value,
+        ]),
+        this.oilBar,
+      ]),
+
+      el('div', { class: 'hud__rows' }, [
+        row('oilRate', texts.get('hud.oilRate'), 'hud__row-value--oil').root,
+        row('sellRate', texts.get('hud.sellRate'), 'hud__row-value--sell').root,
+        row('pricePerTon', texts.get('hud.pricePerTon'), 'hud__row-value--price').root,
+        row('gross', texts.get('hud.gross'), 'hud__row-value--plus').root,
+        row('net', texts.get('hud.perSecond'), 'hud__row-value--plus').root,
+        row('perTap', texts.get('hud.perTap'), 'hud__row-value--oil').root,
+        row('salaries', texts.get('hud.salaries'), 'hud__row-value--minus').root,
+        row('officials', texts.get('hud.officials'), 'hud__row-value--minus').root,
+        row('expenses', texts.get('hud.expenses'), 'hud__row-value--minus').root,
+        row('taxRate', texts.get('hud.taxRate'), 'hud__row-value--minus').root,
+        row('capacity', texts.get('hud.capacity')).root,
+      ]),
+
+      el('div', { class: 'hud__sales' }, [
+        el('span', { class: 'hud__label' }, texts.get('sales.title')),
+        salesRow('refine', texts.get('sales.refine')),
+        salesRow('export', texts.get('sales.export')),
+        salesRow('contract', texts.get('sales.contract')),
+      ]),
+
+      el('div', { class: 'hud__influence' }, [
+        el('div', { class: 'hud__row' }, [
+          el('span', { class: 'hud__row-label' }, texts.get('hud.influence')),
+          this.influenceValue,
+        ]),
+        el('div', { class: 'hud__influence-track' }, [this.influenceFill]),
+      ]),
+
       el('div', { class: 'hud__progress' }, [
-        el('div', { class: 'hud__progress-head' }, [this.progressLabel, this.progressValue]),
+        el('div', { class: 'hud__progress-head' }, [
+          el('span', { class: 'hud__progress-label' }, texts.get('hud.progress')),
+          this.progressValue,
+        ]),
         el('div', {
           class: 'hud__progress-track',
           role: 'progressbar',
@@ -64,6 +130,8 @@ export class Hud {
           'aria-valuemax': 100,
         }, [this.progressFill]),
       ]),
+
+      el('div', { class: 'hud__chips' }, [this.tax]),
     ]);
   }
 
@@ -73,22 +141,63 @@ export class Hud {
       this.balance.textContent = money;
       this.lastCoins = money;
     }
-    this.perSecond.textContent = `+${formatMoney(derived.netPerSecond, this.currency)}`;
-    this.perTap.textContent = formatMoney(derived.tapValue, this.currency);
-    this.tax.textContent = `${this.texts.get('hud.taxRate')}: ${formatPercent(derived.taxRate)}`;
-    const pricePercent = Math.round(
-      ((state.worldPrice - 0.7) / 0.6) * 100,
-    );
-    this.price.textContent = `${this.texts.get('hud.worldPrice')}: ${formatPercent(state.worldPrice)}`;
+
+    const set = (key: string, value: string) => {
+      const row = this.rows.get(key);
+      if (!row || row.last === value) return;
+      row.last = value;
+      row.value.textContent = value;
+    };
+
+    set('oil', `${formatNumber(state.oil)} / ${formatNumber(derived.oilCapacity)} т`);
+    set('oilRate', `${formatNumber(derived.oilPerSecond)} т/с`);
+    set('sellRate', `${formatNumber(derived.sellPerSecond)} т/с`);
+    set('pricePerTon', `${formatMoney(derived.oilPricePerTon, this.currency)}/т`);
+    set('gross', `+${formatMoney(derived.grossPerSecond, this.currency)}/с`);
+    set('net', `+${formatMoney(derived.netPerSecond, this.currency)}/с`);
+    set('perTap', `${formatNumber(derived.tapValue)} т`);
+    set('salaries', `−${formatMoney(derived.salaries, this.currency)}/с`);
+    set('officials', `−${formatMoney(derived.officials, this.currency)}/с`);
+    set('expenses', `−${formatMoney(derived.expensesPerSecond, this.currency)}/с`);
+    set('taxRate', formatPercent(derived.taxRate));
+    set('capacity', `${formatNumber(derived.oilCapacity)} т`);
+
+    const fill = Math.max(0, Math.min(1, derived.oilCapacity > 0 ? state.oil / derived.oilCapacity : 0));
+    this.oilFill.style.width = `${(fill * 100).toFixed(1)}%`;
+    this.oilFill.dataset.level = fill > 0.97 ? 'full' : fill > 0.75 ? 'high' : 'ok';
+
+    for (const key of ['contract', 'export', 'refine'] as const) {
+      const channel = derived.channels[key];
+      const node = this.channels[key];
+      const text = channel.rate > 0
+        ? interpolate(this.texts.get('sales.rate'), { value: formatNumber(channel.rate) })
+        : this.texts.get('sales.locked');
+      if (node.textContent !== text) node.textContent = text;
+      node.dataset.active = channel.rate > 0 ? '1' : '0';
+    }
+
+    const pricePercent = Math.round(((state.worldPrice - 0.7) / 0.6) * 100);
+    const priceText = `${this.texts.get('hud.worldPrice')}: ${formatPercent(state.worldPrice)}`;
+    if (this.price.textContent !== priceText) this.price.textContent = priceText;
     this.priceBar.style.width = `${Math.max(4, Math.min(100, pricePercent))}%`;
-    this.priceBar.dataset.trend = state.worldPrice >= 1.15 ? 'high' : state.worldPrice <= 0.85 ? 'low' : 'mid';
+    this.priceBar.dataset.trend =
+      state.worldPrice >= 1.15 ? 'high' : state.worldPrice <= 0.85 ? 'low' : 'mid';
+
+    this.tax.textContent = `${this.texts.get('hud.taxRate')}: ${formatPercent(derived.taxRate)}`;
+
+    const influenceShare = Math.min(1, derived.influence / 400);
+    this.influenceFill.style.width = `${(influenceShare * 100).toFixed(1)}%`;
+    const influenceText = String(derived.influence);
+    if (this.influenceValue.textContent !== influenceText) {
+      this.influenceValue.textContent = influenceText;
+    }
 
     const progress = Math.min(1, winCost > 0 ? state.coins / winCost : 0);
     this.progressFill.style.width = `${(progress * 100).toFixed(2)}%`;
-    this.progressLabel.textContent = this.texts.get('hud.progress');
-    this.progressValue.textContent = interpolate('{percent}', {
-      percent: formatPercent(progress, 1),
-    });
-    this.progressFill.parentElement?.setAttribute('aria-valuenow', String(Math.round(progress * 100)));
+    this.progressValue.textContent = formatPercent(progress, 1);
+    this.progressFill.parentElement?.setAttribute(
+      'aria-valuenow',
+      String(Math.round(progress * 100)),
+    );
   }
 }

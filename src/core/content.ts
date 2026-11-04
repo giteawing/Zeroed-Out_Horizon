@@ -15,10 +15,10 @@ import type {
   UpgradesFile,
 } from './types';
 
-const TABS = new Set(['political', 'technical', 'luxury', 'goals']);
+const TABS = new Set(['political', 'technical', 'sales', 'luxury', 'goals']);
 const TYPES = new Set([
   'perTap', 'passive', 'multiplier', 'taxCut', 'costCut', 'periodic',
-  'oneShot', 'gamble', 'priceBoost', 'luxury', 'autoTap', 'win',
+  'oneShot', 'gamble', 'priceBoost', 'luxury', 'autoTap', 'sell', 'storage', 'win',
 ]);
 
 /** Плейсхолдер из ТЗ (§7.4): пока владелец не положил стихотворение. */

@@ -4,15 +4,18 @@
 import type { Content, GameConfig, GameState } from './types';
 import { randomSeed } from './rng';
 
-export const SAVE_KEY = 'zeroed-out-horizon:save:v1';
-export const SAVE_VERSION = 1;
+export const SAVE_KEY = 'zeroed-out-horizon:save:v2';
+export const SAVE_VERSION = 2;
 
 export function createInitialState(config: GameConfig, seed = randomSeed()): GameState {
   return {
     version: SAVE_VERSION,
     coins: config.startCoins,
+    oil: config.oil.startOil,
     totalEarned: config.startCoins,
     totalTaps: 0,
+    totalSold: 0,
+    log: [],
     totalPurchases: 0,
     luxurySpent: 0,
     levels: {},
@@ -43,6 +46,8 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
   const state: GameState = { ...base };
 
   state.coins = Math.max(0, num(src.coins, base.coins));
+  state.oil = Math.max(0, num((src as { oil?: number }).oil, base.oil));
+  state.totalSold = Math.max(0, num((src as { totalSold?: number }).totalSold, 0));
   state.totalEarned = Math.max(state.coins, num(src.totalEarned, base.totalEarned));
   state.totalTaps = Math.max(0, num(src.totalTaps, 0));
   state.totalPurchases = Math.max(0, num(src.totalPurchases, 0));
@@ -99,6 +104,25 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
           factor: Math.max(1, num(g.factor, 1)),
           resolveAt: num(g.resolveAt, state.clockMs),
         }))
+    : [];
+
+  state.log = Array.isArray((src as { log?: unknown }).log)
+    ? ((src as { log: unknown[] }).log
+        .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object')
+        .slice(0, 40)
+        .map((e) => ({
+          at: Math.max(0, num(e.at, 0)),
+          kind: (typeof e.kind === 'string' ? e.kind : 'event') as GameState['log'][number]['kind'],
+          upgradeId: typeof e.upgradeId === 'string' ? e.upgradeId : undefined,
+          channel:
+            typeof e.channel === 'string'
+              ? (e.channel as GameState['log'][number]['channel'])
+              : undefined,
+          tonnes: typeof e.tonnes === 'number' ? e.tonnes : undefined,
+          price: typeof e.price === 'number' ? e.price : undefined,
+          money: typeof e.money === 'number' ? e.money : undefined,
+          textKey: typeof e.textKey === 'string' ? e.textKey : undefined,
+        })))
     : [];
 
   state.achievements = Array.isArray(src.achievements)
