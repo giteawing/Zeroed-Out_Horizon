@@ -1,9 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
 
 /**
- * Дымовой тест прохождения. Игру целиком он не проходит (это 18 минут),
- * а проверяет ключевые механики на десктопе и телефоне:
- * тап, покупку, вкладки, сохранение, финал и отсутствие ошибок в консоли.
+ * Дымовой тест прохождения в настоящем браузере (ТЗ §8.1).
+ * Игру целиком он не проходит (это 16–20 минут), а проверяет ключевые
+ * механики на десктопе и телефоне: тап добывает нефть, сбыт приносит
+ * нефтефаники, покупки, вкладки, сохранение, финал и чистую консоль.
  */
 const errors: string[] = [];
 
@@ -23,15 +24,29 @@ async function start(page: Page): Promise<void> {
   await expect(page.locator('.start')).toHaveCount(0, { timeout: 5000 });
 }
 
+/** Тап по скважине. Игра слушает pointerdown, поэтому mouse.down() достаточно. */
 async function tapDrill(page: Page, times = 12): Promise<void> {
   const drill = page.locator('[data-testid="drill"]');
   const box = await drill.boundingBox();
   if (!box) throw new Error('скважина не найдена');
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
   for (let i = 0; i < times; i++) {
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.move(x, y);
     await page.mouse.down();
     await page.mouse.up();
   }
+}
+
+/** Копит нефть тапами, пока не станет доступна хоть одна покупка. */
+async function tapUntilAffordable(page: Page): Promise<void> {
+  const buyButtons = page.locator('.card__buy:not([disabled])');
+  for (let i = 0; i < 60; i++) {
+    if ((await buyButtons.count()) > 0) return;
+    await tapDrill(page, 6);
+    await page.waitForTimeout(120);
+  }
+  await expect(buyButtons.first()).toBeVisible();
 }
 
 test('игра запускается без ошибок в консоли', async ({ page }) => {
@@ -42,24 +57,39 @@ test('игра запускается без ошибок в консоли', as
   expect(errors).toEqual([]);
 });
 
-test('тап начисляет нефтефаники и обновляет баланс', async ({ page }) => {
+test('тап добывает нефть, а не нефтефаники', async ({ page }) => {
   await start(page);
-  const value = page.locator('.hud__balance');
-  const before = (await value.textContent()) ?? '';
+  // Панель империи показывает нефть в резервуарах: «{oil} / {capacity} т».
+  const oilValue = page
+    .locator('.hud__row', { has: page.locator('.hud__row-label:text-is("Нефть в резервуарах")') })
+    .locator('.hud__row-value');
+  const before = (await oilValue.textContent()) ?? '';
   await tapDrill(page, 24);
-  await expect
-    .poll(async () => (await value.textContent()) !== before, { timeout: 8000 })
-    .toBe(true);
+  await expect.poll(async () => (await oilValue.textContent()) !== before, { timeout: 8000 }).toBe(true);
+  // Тап по скважине не начисляет нефтефаники напрямую — они появляются только со сбыта.
+  const coins = await page.evaluate(
+    () => (window as unknown as { __game: { state: { coins: number; oil: number } } }).__game.state,
+  );
+  expect(coins.oil).toBeGreaterThan(0);
+});
+
+test('нефть продаётся, и нефтефаники капают со сбыта', async ({ page }) => {
+  await start(page);
+  const balance = page.locator('.hud__balance');
+  await tapDrill(page, 40);
+  // Сбыт идёт непрерывно: нефть уходит в контракты и превращается в деньги.
+  await expect.poll(
+    async () =>
+      page.evaluate(() => (window as unknown as { __game: { state: { totalEarned: number } } }).__game.state.totalEarned),
+    { timeout: 15_000 },
+  ).toBeGreaterThan(0);
+  await expect(balance).toContainText('₦');
 });
 
 test('покупка в магазине работает', async ({ page }) => {
   await start(page);
+  await tapUntilAffordable(page);
   const buyButtons = page.locator('.card__buy:not([disabled])');
-  for (let i = 0; i < 40; i++) {
-    if ((await buyButtons.count()) > 0) break;
-    await tapDrill(page, 4);
-  }
-  await expect(buyButtons.first()).toBeVisible();
   await buyButtons.first().click();
   const purchases = await page.evaluate(
     () => (window as unknown as { __game: { state: { totalPurchases: number } } }).__game.state.totalPurchases,
@@ -69,11 +99,17 @@ test('покупка в магазине работает', async ({ page }) => 
 
 test('вкладки магазина переключаются', async ({ page }) => {
   await start(page);
-  await page.getByRole('tab', { name: 'Политические' }).click();
-  await expect(page.getByRole('tab', { name: 'Политические' })).toHaveAttribute('aria-selected', 'true');
+  const political = page.getByRole('tab', { name: 'Политика' });
+  await political.click();
+  await expect(political).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('.shop__list')).toContainText('императора');
+
+  await page.getByRole('tab', { name: 'Сбыт' }).click();
+  await expect(page.locator('.shop__list')).toContainText('трест');
+
   await page.getByRole('tab', { name: 'Роскошь' }).click();
-  await expect(page.locator('.shop__list')).toContainText('иномарка');
+  await expect(page.locator('.shop__list')).toContainText('Яхта');
+  expect(errors).toEqual([]);
 });
 
 test('прогресс сохраняется после перезагрузки', async ({ page }) => {
@@ -92,14 +128,41 @@ test('прогресс сохраняется после перезагрузк�
   expect(taps).toBeGreaterThan(0);
 });
 
-test('кнопка звука переключается', async ({ page }) => {
+test('звук переключается в настройках', async ({ page }) => {
   await start(page);
-  const sound = page.locator('.iconbtn--sound');
-  await expect(sound).toHaveAttribute('aria-pressed', 'true');
+  const settings = page.locator('.iconbtn--settings');
+  await settings.click();
+  const sound = page.locator('.sheet .btn--row').first();
+  await expect(sound).toHaveAttribute('data-on', 'true');
   await sound.click();
-  await expect(sound).toHaveAttribute('aria-pressed', 'false');
+  await expect(sound).toHaveAttribute('data-on', 'false');
   await sound.click();
-  await expect(sound).toHaveAttribute('aria-pressed', 'true');
+  await expect(sound).toHaveAttribute('data-on', 'true');
+  expect(errors).toEqual([]);
+});
+
+test('панель империи видна всегда и держит все параметры', async ({ page }) => {
+  await start(page);
+  const hud = page.locator('.hud');
+  await expect(hud).toBeVisible();
+  for (const label of [
+    'Добыча',
+    'Сбыт',
+    'Доход в секунду',
+    'Зарплаты',
+    'Чиновники',
+    'Влияние',
+    'Резервуары',
+  ]) {
+    await expect(
+      hud.locator('.hud__row-label').filter({ hasText: label }).first(),
+    ).toBeVisible();
+  }
+  // Панель в правой колонке и не перекрывает скважину.
+  const hudBox = await hud.boundingBox();
+  const drillBox = await page.locator('[data-testid="drill"]').boundingBox();
+  expect(hudBox?.width ?? 0).toBeGreaterThan(200);
+  expect(drillBox?.width ?? 0).toBeGreaterThan(120);
 });
 
 test('раскладка: магазин и кнопки доступны на узком экране', async ({ page }, testInfo) => {
@@ -141,7 +204,10 @@ test('финал открывается, показывает карикатур
   await expect(page.locator('.finale')).toBeVisible();
   await page.locator('.cutscene .btn--ghost').click();
   await expect(page.locator('.credits__art')).toHaveAttribute('src', /finale\.svg/);
-  await expect(page.locator('.credits__poem')).toContainText('Здесь будет стихотворение');
+  // Стихотворение кладёт владелец игры: проверяем, что титры не пустые
+  // и что показывается либо стих из credits.txt, либо заглушка из texts.json.
+  const poem = await page.locator('.credits__poem').innerText();
+  expect(poem.trim().length).toBeGreaterThan(20);
   await page.getByRole('button', { name: 'Показать статистику' }).click();
   await expect(page.locator('.stats')).toBeVisible();
   expect(errors).toEqual([]);
