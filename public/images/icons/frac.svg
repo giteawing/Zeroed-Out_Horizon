@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img">
+
+<defs>
+  <radialGradient id="soft" cx="38%" cy="28%" r="85%">
+    <stop offset="0%" stop-color="#ffffff" stop-opacity="0.98" />
+    <stop offset="60%" stop-color="#fdf3dd" stop-opacity="0.98" />
+    <stop offset="100%" stop-color="#e6d6b4" stop-opacity="0.98" />
+  </radialGradient>
+  <linearGradient id="gold" x1="0" y1="0" x2="0.4" y2="1">
+    <stop offset="0%" stop-color="#ffd766" />
+    <stop offset="55%" stop-color="#f2b430" />
+    <stop offset="100%" stop-color="#c8860f" />
+  </linearGradient>
+  <linearGradient id="green" x1="0" y1="0" x2="0.3" y2="1">
+    <stop offset="0%" stop-color="#63d18d" />
+    <stop offset="60%" stop-color="#2f9e5f" />
+    <stop offset="100%" stop-color="#1d7048" />
+  </linearGradient>
+  <linearGradient id="oil" x1="0" y1="0" x2="0.2" y2="1">
+    <stop offset="0%" stop-color="#4a4a52" />
+    <stop offset="100%" stop-color="#2b2b30" />
+  </linearGradient>
+  <linearGradient id="sky" x1="0" y1="0" x2="0.2" y2="1">
+    <stop offset="0%" stop-color="#bfe9ff" />
+    <stop offset="100%" stop-color="#6ec6f0" />
+  </linearGradient>
+  <linearGradient id="crimson" x1="0" y1="0" x2="0.3" y2="1">
+    <stop offset="0%" stop-color="#e0485f" />
+    <stop offset="100%" stop-color="#b3243b" />
+  </linearGradient>
+  <linearGradient id="steel" x1="0" y1="0" x2="0.3" y2="1">
+    <stop offset="0%" stop-color="#d7dee3" />
+    <stop offset="55%" stop-color="#9aa4ad" />
+    <stop offset="100%" stop-color="#6d7780" />
+  </linearGradient>
+  <linearGradient id="purple" x1="0" y1="0" x2="0.3" y2="1">
+    <stop offset="0%" stop-color="#a563cc" />
+    <stop offset="100%" stop-color="#7b3fa0" />
+  </linearGradient>
+  <linearGradient id="skin" x1="0" y1="0" x2="0.3" y2="1">
+    <stop offset="0%" stop-color="#ffd0ac" />
+    <stop offset="100%" stop-color="#f3b98c" />
+  </linearGradient>
+</defs>
+  <circle cx="50" cy="50" r="47" fill="url(#soft)" />
+  <circle cx="50" cy="50" r="47" fill="none" stroke="#17110c" stroke-width="2.2" opacity="0.14" />
+<path d="M10 74q40 -12 80 0v12H10Z" fill="#8a5c2c" opacity="0.85" /><path d="M50 22v30" fill="none" stroke="url(#steel)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" /><polygon points="50,52 34,72 40,74 50,62" fill="#3b2f26" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><polygon points="50,52 66,72 60,74 50,62" fill="#3b2f26" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><polygon points="50,52 50,78 44,74" fill="#3b2f26" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><path d="M28 27L29.96 32.04L35 34L29.96 35.96L28 41L26.04 35.96L21 34L26.04 32.04Z" fill="#ffd766" opacity="0.95" /><path d="M72 24L73.68 28.32L78 30L73.68 31.68L72 36L70.32 31.68L66 30L70.32 28.32Z" fill="#ffd766" opacity="0.95" /><path d="M50 9L51.4 12.6L55 14L51.4 15.4L50 19L48.6 15.4L45 14L48.6 12.6Z" fill="#ffd766" opacity="0.95" />
+</svg>

@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'arena/**']
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Типы и сборка
+        run: npm run build
+      - name: Юнит- и DOM-тесты (включая тест баланса 12–25 минут)
+        run: npm test
+      - name: Playwright-браузер
+        run: npx playwright install --with-deps chromium
+      - name: Дымовой e2e (desktop + iPhone 13 + Pixel 7)
+        run: npm run test:e2e
+      - name: Сохранить отчёты при падении
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

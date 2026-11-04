@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 330" role="img">
+
+<defs>
+  <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#1d2b45" />
+    <stop offset="45%" stop-color="#5a3b56" />
+    <stop offset="100%" stop-color="#c8763a" />
+  </linearGradient>
+  <linearGradient id="oilGrad" x1="0" y1="0" x2="0.3" y2="1">
+    <stop offset="0%" stop-color="#4a4a52" />
+    <stop offset="100%" stop-color="#1c1c20" />
+  </linearGradient>
+  <linearGradient id="goldGrad" x1="0" y1="0" x2="0.35" y2="1">
+    <stop offset="0%" stop-color="#ffd766" />
+    <stop offset="55%" stop-color="#f2b430" />
+    <stop offset="100%" stop-color="#c8860f" />
+  </linearGradient>
+  <linearGradient id="steelGrad" x1="0" y1="0" x2="0.25" y2="1">
+    <stop offset="0%" stop-color="#d7dee3" />
+    <stop offset="55%" stop-color="#9aa4ad" />
+    <stop offset="100%" stop-color="#6d7780" />
+  </linearGradient>
+  <linearGradient id="rockGrad" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#8a6a4a" />
+    <stop offset="100%" stop-color="#5c4029" />
+  </linearGradient>
+  <linearGradient id="skinGrad" x1="0" y1="0" x2="0.3" y2="1">
+    <stop offset="0%" stop-color="#ffd3ae" />
+    <stop offset="100%" stop-color="#e8a878" />
+  </linearGradient>
+</defs>
+  <g transform="translate(6,4)">
+    <!-- подложка-плашка -->
+    <path d="M8 168h644a30 30 0 0 1 -30 30H38a30 30 0 0 1 -30 -30Z" fill="#1c1c20" opacity="0.22" />
+
+    <!-- вышка с монетой -->
+    <path d="M72.5 250L104 100L135.5 250Z" fill="#17110c" opacity="0.9" /><path d="M72.5 250L135.5 250" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M82.58 197.5L125.42 197.5" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M91.4 148L116.6 148" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M82.58 197.5L116.6 148" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M125.42 197.5L91.4 148" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" />
+    <circle cx="104" cy="92" r="44" fill="url(#goldGrad)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" />
+    <circle cx="104" cy="92" r="31" fill="#17110c" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" />
+    <path d="M104 66v26l18 11" fill="none" stroke="#ffd766" stroke-width="8" stroke-linecap="round" />
+    <rect x="72" y="244" width="64" height="12" rx="4" fill="#17110c" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" />
+
+    <!-- текст -->
+    <text x="196" y="96" font-family="Georgia, 'Times New Roman', serif" font-size="54" font-weight="700"
+      fill="url(#goldGrad)" stroke="#17110c" stroke-width="8" paint-order="stroke" letter-spacing="1">ИМПЕРИЯ</text>
+    <text x="196" y="164" font-family="Georgia, 'Times New Roman', serif" font-size="50" font-weight="700"
+      fill="#fdf3dd" stroke="#17110c" stroke-width="8" paint-order="stroke" letter-spacing="1">НУЛЕВОГО</text>
+    <text x="196" y="232" font-family="Georgia, 'Times New Roman', serif" font-size="50" font-weight="700"
+      fill="#fdf3dd" stroke="#17110c" stroke-width="8" paint-order="stroke" letter-spacing="2">ГОРИЗОНТА</text>
+
+    <!-- акценты -->
+    <path d="M268 35.2c5.5 6.6 7.7 9.9 7.7 12.1a7.7 7.7 0 0 1 -15.4 0c0 -2.2 2.2 -5.5 7.7 -12.1Z" fill="url(#oil)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  /><path d="M300 24.4c3.5 4.2 4.9 6.3 4.9 7.7a4.9 4.9 0 0 1 -9.8 0c0 -1.4 1.4 -3.5 4.9 -7.7Z" fill="url(#oil)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  /><path d="M600 260c5 6 7 9 7 11a7 7 0 0 1 -14 0c0 -2 2 -5 7 -11Z" fill="url(#oil)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  />
+    <path d="M628 48L631.36 56.64L640 60L631.36 63.36L628 72L624.64 63.36L616 60L624.64 56.64Z" fill="#ffd766" opacity="0.95" /><path d="M40 31L42.52 37.48L49 40L42.52 42.52L40 49L37.48 42.52L31 40L37.48 37.48Z" fill="#ffd766" opacity="0.95" />
+  </g>
+</svg>

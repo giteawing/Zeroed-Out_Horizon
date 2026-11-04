@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" role="img">
+
+<defs>
+  <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#1d2b45" />
+    <stop offset="45%" stop-color="#5a3b56" />
+    <stop offset="100%" stop-color="#c8763a" />
+  </linearGradient>
+  <linearGradient id="oilGrad" x1="0" y1="0" x2="0.3" y2="1">
+    <stop offset="0%" stop-color="#4a4a52" />
+    <stop offset="100%" stop-color="#1c1c20" />
+  </linearGradient>
+  <linearGradient id="goldGrad" x1="0" y1="0" x2="0.35" y2="1">
+    <stop offset="0%" stop-color="#ffd766" />
+    <stop offset="55%" stop-color="#f2b430" />
+    <stop offset="100%" stop-color="#c8860f" />
+  </linearGradient>
+  <linearGradient id="steelGrad" x1="0" y1="0" x2="0.25" y2="1">
+    <stop offset="0%" stop-color="#d7dee3" />
+    <stop offset="55%" stop-color="#9aa4ad" />
+    <stop offset="100%" stop-color="#6d7780" />
+  </linearGradient>
+  <linearGradient id="rockGrad" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#8a6a4a" />
+    <stop offset="100%" stop-color="#5c4029" />
+  </linearGradient>
+  <linearGradient id="skinGrad" x1="0" y1="0" x2="0.3" y2="1">
+    <stop offset="0%" stop-color="#ffd3ae" />
+    <stop offset="100%" stop-color="#e8a878" />
+  </linearGradient>
+</defs>
+  <rect width="1920" height="1080" fill="url(#skyGrad)" />
+  <circle cx="1520" cy="250" r="120" fill="#ffd766" opacity="0.18" />
+  <circle cx="1520" cy="250" r="72" fill="#ffdf8a" opacity="0.5" />
+  <!-- дальние вышки -->
+  <g opacity="0.32" fill="#141b2a">
+    <path d="M108.5 760L140 610L171.5 760Z" fill="#141b2a" opacity="0.9" /><path d="M108.5 760L171.5 760" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M118.58 707.5L161.42 707.5" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M127.4 658L152.6 658" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M118.58 707.5L152.6 658" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M161.42 707.5L127.4 658" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M380.1 760L420 570L459.9 760Z" fill="#141b2a" opacity="0.9" /><path d="M380.1 760L459.9 760" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M392.87 693.5L447.13 693.5" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M404.04 630.8L435.96 630.8" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M392.87 693.5L435.96 630.8" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M447.13 693.5L404.04 630.8" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M651.7 760L700 530L748.3 760Z" fill="#141b2a" opacity="0.9" /><path d="M651.7 760L748.3 760" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M667.16 679.5L732.84 679.5" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M680.68 603.6L719.32 603.6" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M667.16 679.5L719.32 603.6" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M732.84 679.5L680.68 603.6" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M948.5 760L980 610L1011.5 760Z" fill="#141b2a" opacity="0.9" /><path d="M948.5 760L1011.5 760" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M958.58 707.5L1001.42 707.5" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M967.4 658L992.6 658" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M958.58 707.5L992.6 658" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M1001.42 707.5L967.4 658" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M1220.1 760L1260 570L1299.9 760Z" fill="#141b2a" opacity="0.9" /><path d="M1220.1 760L1299.9 760" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M1232.87 693.5L1287.13 693.5" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M1244.04 630.8L1275.96 630.8" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M1232.87 693.5L1275.96 630.8" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M1287.13 693.5L1244.04 630.8" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M1491.7 760L1540 530L1588.3 760Z" fill="#141b2a" opacity="0.9" /><path d="M1491.7 760L1588.3 760" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M1507.16 679.5L1572.84 679.5" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M1520.68 603.6L1559.32 603.6" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M1507.16 679.5L1559.32 603.6" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M1572.84 679.5L1520.68 603.6" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M1788.5 760L1820 610L1851.5 760Z" fill="#141b2a" opacity="0.9" /><path d="M1788.5 760L1851.5 760" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M1798.58 707.5L1841.42 707.5" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M1807.4 658L1832.6 658" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M1798.58 707.5L1832.6 658" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" /><path d="M1841.42 707.5L1807.4 658" stroke="#17110c" stroke-width="2.4" fill="none" stroke-linecap="round" />
+  </g>
+  <!-- заводы -->
+  <g opacity="0.45">
+    <rect x="240" y="700" width="260" height="130" rx="6" fill="#1c2434" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="270" y="620" width="26" height="84" rx="2" fill="#1c2434" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="268.5" y="617" width="29" height="5" rx="2" fill="#3b2f26" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="320" y="580" width="22" height="124" rx="2" fill="#1c2434" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="318.5" y="577" width="25" height="5" rx="2" fill="#3b2f26" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="430" y="640" width="24" height="64" rx="2" fill="#1c2434" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="428.5" y="637" width="27" height="5" rx="2" fill="#3b2f26" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="980" y="700" width="260" height="130" rx="6" fill="#1c2434" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="1010" y="620" width="26" height="84" rx="2" fill="#1c2434" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="1008.5" y="617" width="29" height="5" rx="2" fill="#3b2f26" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="1060" y="580" width="22" height="124" rx="2" fill="#1c2434" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="1058.5" y="577" width="25" height="5" rx="2" fill="#3b2f26" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="1170" y="640" width="24" height="64" rx="2" fill="#1c2434" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="1168.5" y="637" width="27" height="5" rx="2" fill="#3b2f26" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="1620" y="700" width="260" height="130" rx="6" fill="#1c2434" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="1650" y="620" width="26" height="84" rx="2" fill="#1c2434" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="1648.5" y="617" width="29" height="5" rx="2" fill="#3b2f26" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="1700" y="580" width="22" height="124" rx="2" fill="#1c2434" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="1698.5" y="577" width="25" height="5" rx="2" fill="#3b2f26" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="1810" y="640" width="24" height="64" rx="2" fill="#1c2434" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="1808.5" y="637" width="27" height="5" rx="2" fill="#3b2f26" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" />
+  </g>
+  <!-- дым -->
+  <g opacity="0.22">
+    <circle cx="300" cy="540" r="20.4" fill="#d7dee3" stroke="none" /><circle cx="323.8" cy="519.6" r="17" fill="#fdf3dd" stroke="none" /><circle cx="279.6" cy="523" r="13.6" fill="#d7dee3" stroke="none" /><circle cx="380" cy="480" r="15.6" fill="#d7dee3" stroke="none" /><circle cx="398.2" cy="464.4" r="13" fill="#fdf3dd" stroke="none" /><circle cx="364.4" cy="467" r="10.4" fill="#d7dee3" stroke="none" /><circle cx="1040" cy="520" r="22.8" fill="#d7dee3" stroke="none" /><circle cx="1066.6" cy="497.2" r="19" fill="#fdf3dd" stroke="none" /><circle cx="1017.2" cy="501" r="15.2" fill="#d7dee3" stroke="none" /><circle cx="1100" cy="450" r="16.8" fill="#d7dee3" stroke="none" /><circle cx="1119.6" cy="433.2" r="14" fill="#fdf3dd" stroke="none" /><circle cx="1083.2" cy="436" r="11.2" fill="#d7dee3" stroke="none" /><circle cx="1690" cy="560" r="19.2" fill="#d7dee3" stroke="none" /><circle cx="1712.4" cy="540.8" r="16" fill="#fdf3dd" stroke="none" /><circle cx="1670.8" cy="544" r="12.8" fill="#d7dee3" stroke="none" />
+  </g>
+  <!-- факел -->
+  <g opacity="0.5">
+    <path d="M1400 700L1400 430" stroke="#1c2434" stroke-width="10" stroke-linecap="round" fill="none" />
+    <ellipse cx="1400" cy="404" rx="26" ry="46" fill="#ffb03a" opacity="0.9" />
+    <ellipse cx="1400" cy="418" rx="14" ry="28" fill="#fff2b0" opacity="0.9" />
+  </g>
+  <!-- земля -->
+  <path d="M0 810q480 -34 960 -6t960 10v266H0Z" fill="#241a14" />
+  <path d="M0 860q480 -26 960 -4t960 14v180H0Z" fill="#171210" />
+  <!-- нефтяной пласт в разрезе -->
+  <g opacity="0.85">
+    <path d="M0 980q480 -30 960 -2t960 6v96H0Z" fill="url(#oilGrad)" stroke="#17110c" stroke-width="8" />
+    <circle cx="90" cy="1000" r="8" fill="#15151a" opacity="0.9" /><circle cx="230" cy="1022" r="13" fill="#15151a" opacity="0.9" /><circle cx="370" cy="1044" r="18" fill="#15151a" opacity="0.9" /><circle cx="510" cy="1000" r="23" fill="#15151a" opacity="0.9" /><circle cx="650" cy="1022" r="8" fill="#15151a" opacity="0.9" /><circle cx="790" cy="1044" r="13" fill="#15151a" opacity="0.9" /><circle cx="930" cy="1000" r="18" fill="#15151a" opacity="0.9" /><circle cx="1070" cy="1022" r="23" fill="#15151a" opacity="0.9" /><circle cx="1210" cy="1044" r="8" fill="#15151a" opacity="0.9" /><circle cx="1350" cy="1000" r="13" fill="#15151a" opacity="0.9" /><circle cx="1490" cy="1022" r="18" fill="#15151a" opacity="0.9" /><circle cx="1630" cy="1044" r="23" fill="#15151a" opacity="0.9" /><circle cx="1770" cy="1000" r="8" fill="#15151a" opacity="0.9" /><circle cx="1910" cy="1022" r="13" fill="#15151a" opacity="0.9" />
+  </g>
+  <!-- трубы по горизонту -->
+  <g opacity="0.35">
+    <path d="M0 940L1920 928" stroke="#3a3a42" stroke-width="14" stroke-linecap="round" fill="none" /><path d="M0 908L1920 898" stroke="#2b2b32" stroke-width="8" stroke-linecap="round" fill="none" />
+  </g>
+  <!-- световые блики -->
+  <circle cx="300" cy="180" r="220" fill="#fff" opacity="0.04" />
+  <circle cx="1200" cy="120" r="320" fill="#fff" opacity="0.03" />
+</svg>
