@@ -8,11 +8,9 @@ import {
   computeDerived,
   costFor,
   eventPayout,
-  exportTonnes,
   isUnlocked,
   isWinReady,
   levelOf,
-  saleProceeds,
   sellOil,
   tapReward,
   unlockBlocker,
@@ -292,28 +290,31 @@ export class Game {
       if (def.effect.sellsOil && def.effect.usesWorldPrice) {
         // Экспортные акции продают реальную нефть со склада: тонны уходят,
         // деньги приходят по цене канала (и по мировой цене).
-        const tonnes = exportTonnes(this.config, derived, this.state.oil);
+        // Если экспортный канал ещё не построен, акция всё равно работает:
+        // нефть уходит по цене контрактов — «сбагрили через границу».
+        const channel = def.effect.burstChannel ?? 'export';
+        const price =
+          derived.channels[channel].price || derived.channels.contract.price;
+        const desired = Math.min(this.state.oil, Math.max(1, this.state.oil * 0.5));
+        const tonnes = this.config.oil.channels[channel].unlimited
+          ? desired
+          : Math.min(desired, derived.channels[channel].rate * this.config.oil.exportBurstSeconds || desired);
         if (tonnes <= 0) return payouts;
-        const amount = Math.round(saleProceeds(def, derived, tonnes));
+        const amount = Math.round(tonnes * price * (1 + (def.effect.exportBonus ?? 0)));
         this.state.oil -= tonnes;
         this.state.totalSold += tonnes;
         this.addCoins(amount);
         this.pushLog({
           kind: 'sold',
           upgradeId: def.id,
-          channel: def.effect.burstChannel ?? 'export',
+          channel,
           tonnes,
-          price: derived.channels[def.effect.burstChannel ?? 'export'].price,
+          price,
           money: amount,
         });
         payouts.push({ id: def.id, amount });
         this.emit({ type: 'oneShot', id: def.id, amount });
-        this.emit({
-          type: 'sold',
-          channel: def.effect.burstChannel ?? 'export',
-          tonnes,
-          money: amount,
-        });
+        this.emit({ type: 'sold', channel, tonnes, money: amount });
         return payouts;
       }
       const amount = eventPayout(def, derived, level, cost);

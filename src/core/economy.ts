@@ -180,6 +180,11 @@ export function computeDerived(
     // Явно заданное влияние в эффекте покупки (например, ЧВК, газеты).
     if (e.influence) influenceFromLevels += e.influence * level;
     if (e.conquestCut) conquestCut += e.conquestCut * level;
+    // Влияние усиливает отжатия: каждые 100 единиц дают ещё 5% скидки.
+    if (GROUPS_INFLUENCE.has(def.group)) {
+      const per = config.influence.perGroup[def.group] ?? 1;
+      conquestCut += (per * level) / 2000;
+    }
 
     switch (def.type) {
       case 'perTap':
