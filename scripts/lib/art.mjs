@@ -32,6 +32,8 @@ export const PALETTE = {
   skin: '#f3b98c',
   skinDark: '#d4956a',
   white: '#ffffff',
+  olive: '#4d6142',
+  oliveDark: '#36452f',
 };
 
 export const STROKE = 3.4;
