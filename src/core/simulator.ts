@@ -8,6 +8,7 @@
  */
 import { Game } from './game';
 import { costFor, isUnlocked, levelOf, unlockBlocker } from './economy';
+import { isRepeatable } from './game';
 import { createInitialState } from './state';
 import { Rng } from './rng';
 import type { Content, DerivedStats, UpgradeDef } from './types';
@@ -196,11 +197,40 @@ export function decide(game: Game, content: Content, purchased: Set<string>): bo
     }
     // До финала рукой подать — бот копит, а не тратит на роскошь.
     if (!blocker && state.coins >= winDef.baseCost * 0.55) return false;
+
+  }
+
+  // Что нужно для финала: бот покупает эти покупки, даже если они «дорогие».
+  const needed = new Set<string>();
+  for (const req of content.config.winRequirements) {
+    if (!req.upgrade) continue;
+    if (levelOf(state, req.upgrade) < (req.level ?? 1)) needed.add(req.upgrade);
+  }
+
+  // Сначала — то, что нужно для финала. Если не хватает денег, бот копит,
+  // а не тратит всё на дешёвые прокачки.
+  for (const id of needed) {
+    const reqDef = content.byId.get(id);
+    if (!reqDef || !isUnlocked(reqDef, state, derived.influence)) continue;
+    if ((state.cooldowns[id] ?? 0) > 0) continue;
+    const cost = costFor(content.config, reqDef, levelOf(state, id));
+    if (cost <= state.coins) {
+      if (game.buy(id).ok) {
+        purchased.add(id);
+        return true;
+      }
+      continue;
+    }
+    // Копим на важное: не больше чем в 40 раз дороже текущего баланса.
+    if (cost <= state.coins * 40) return false;
   }
 
   const candidates: Array<{ def: UpgradeDef; score: number }> = [];
   for (const def of content.upgrades) {
     if (def.win) continue;
+    // Разовые акции (экспорт, отмывание, гэмблы) обрабатываются отдельно:
+    // в общем скоринге у них нулевая «цена», и бот крутил бы их вечно.
+    if (isRepeatable(def)) continue;
     const level = levelOf(state, def.id);
     if (level >= def.maxLevel) continue;
     if (!isUnlocked(def, state)) continue;
@@ -235,10 +265,8 @@ export function estimatedGain(def: UpgradeDef, derived: DerivedStats, cost: numb
   const e = def.effect;
   const netFactor = 1 - derived.taxRate;
   const fill = derived.oilCapacity > 0 ? Math.min(1, derived.oil / derived.oilCapacity) : 0;
-  // Сколько добытой нефти реально удастся продать: 1 при пустых резервуарах.
-  const drain = Math.max(0.05, 1 - fill);
   // Контракты берут любой объём, поэтому добыча всегда находит сбыт.
-  const hasUnlimited = derived.channels.contract.rate >= 0;
+  const hasUnlimited = true;
   switch (def.type) {
     case 'perTap':
       // Тонны за тап: бот делает ~5 тапов в секунду, каждая тонна уходит по цене канала.

@@ -353,14 +353,15 @@
   "log": {
     "title": "Журнал операций",
     "empty": "Пока ничего не продано. Тапните по долоту.",
-    "sold": "Продано {tonnes} т по {price}/т — итого {money}",
-    "soldChannel": "{channel}: {tonnes} т по {price}/т — {money}",
+    "sold": "Продано {tonnes} {unit} по {price}/{unit} — итого {money}",
+    "soldChannel": "{channel}: {tonnes} {unit} по {price}/{unit} — {money}",
     "bought": "Куплено: {name} за {money}",
     "conquest": "Отжато: {name} за {money}",
     "event": "{name} — {money}",
     "launder": "{name} — {money} мимо налогов",
     "achievement": "Достижение: {name}",
-    "more": "Ещё {n}"
+    "more": "Ещё {n}",
+    "drill": "Добыча: {tonnes} {unit}"
   },
   "upgrades": {
     "t_well": "Пробурить скважину",
@@ -507,5 +508,16 @@
     "p_hideprofit": "Провести уход от налогов через банк",
     "p_tranche": "Спрятать очередной транш в убыточном банке",
     "p_parliament": "Купить голоса в парламенте"
+  },
+  "units": {
+    "tonnes": "т",
+    "perSecond": "/с",
+    "perSecondTonnes": "т/с",
+    "oilInTank": "{oil} / {capacity} {tonnes}",
+    "tonnesValue": "{value} {tonnes}",
+    "tonnesRate": "{value} {tonnes}/{s}",
+    "moneyRate": "{value}/{s}",
+    "minusRate": "−{value}/{s}",
+    "pricePerTon": "{price}/{tonnes}"
   }
 }

@@ -44,12 +44,14 @@ export class OperationLog {
     const name = entry.upgradeId
       ? this.texts.upgradeName(entry.upgradeId)
       : '';
+    const tonnes = this.texts.get('units.tonnes');
     switch (entry.kind) {
       case 'sold':
         if (entry.tonnes === undefined) return this.texts.get('log.sold');
         return this.texts.get('log.soldChannel', {
           channel: this.channelName(entry),
           tonnes: formatNumber(entry.tonnes),
+          unit: tonnes,
           price: entry.price !== undefined
             ? formatMoney(entry.price, this.currency)
             : formatMoney(0, this.currency),
@@ -62,7 +64,10 @@ export class OperationLog {
       case 'achievement':
         return this.texts.get('log.achievement', { name: this.texts.achievementName(entry.upgradeId ?? '') });
       case 'drill':
-        return this.texts.get('log.drill', { tonnes: formatNumber(entry.tonnes ?? 0) });
+        return this.texts.get('log.drill', {
+          tonnes: formatNumber(entry.tonnes ?? 0),
+          unit: tonnes,
+        });
       case 'bought':
         return this.texts.get('log.bought', { name, money });
       default:

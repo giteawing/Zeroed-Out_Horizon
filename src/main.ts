@@ -97,7 +97,12 @@ function boot(): void {
       if (gain <= 0) return;
       sound.tap();
       effects.splash(x, y, 1);
-      effects.floatText(x, y - 10, `+${formatNumber(gain)} т`, 'gain');
+      effects.floatText(
+        x,
+        y - 10,
+        texts.get('units.tonnesValue', { value: formatNumber(gain), tonnes: texts.get('units.tonnes') }),
+        'gain',
+      );
       scheduleUi();
     },
     onFirstTouch: () => {

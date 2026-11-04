@@ -208,7 +208,8 @@ patch('p_field', {
 });
 
 // --------------------------------------------------------------- вкладка сбыта
-const salesTab: Def[] = [
+type SalesRow = [string, string, string, string, number, number, Record<string, unknown>, number];
+const salesTab: SalesRow[] = [
   ['c_local', 'Договориться с местным трестом', 'Скупают всё, что льётся, по грабительской цене. Зато стабильно.',
     'contractor', 540, 30, { channel: 'contract', value: 12, percent: 6 }, 3_000],
   ['c_broker', 'Нанять трейдера-брокера', 'Знает всех, кому нужна нефть. Контракты растут и дорожают.',
@@ -241,7 +242,7 @@ const salesTab: Def[] = [
     'rail', 620_000, 20, { channel: 'export', value: 26 }, 6_000_000],
   ['s_metering', 'Поставить узлы учёта расхода нефти', 'Считать то, что продаёшь. Революционная идея.',
     'dashboard', 4_300_000, 18, { channel: 'contract', value: 90, percent: 6 }, 40_000_000],
-] as const;
+];
 
 for (const [id, name, description, icon, cost, maxLevel, effect, unlock] of salesTab) {
   add({
@@ -255,7 +256,7 @@ for (const [id, name, description, icon, cost, maxLevel, effect, unlock] of sale
     type: 'sell',
     baseCost: cost,
     maxLevel,
-    effect: effect as Record<string, unknown>,
+    effect,
     unlockAt: { balance: unlock },
     costGrowth: 1.15,
   });

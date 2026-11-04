@@ -75,17 +75,8 @@
     "cap": 400
   },
   "autosaveSeconds": 10,
-  "winCost": 3000000000000.0,
-  "winRequirements": [
-    {
-      "upgrade": "t_pump4",
-      "level": 5
-    },
-    {
-      "upgrade": "t_smart",
-      "level": 3
-    }
-  ],
+  "winCost": 80000000000.0,
+  "winRequirements": [],
   "achievementsTickSeconds": 1,
   "particles": {
     "maxParticles": 40,

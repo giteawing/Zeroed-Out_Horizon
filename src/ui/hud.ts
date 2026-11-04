@@ -26,9 +26,9 @@ export class Hud {
   private readonly oilBar: HTMLElement;
   private readonly oilFill: HTMLElement;
   private readonly channels: Record<'contract' | 'export' | 'refine', HTMLElement> = {
-    contract: el('span', { class: 'sale__value' }, '—'),
-    export: el('span', { class: 'sale__value' }, '—'),
-    refine: el('span', { class: 'sale__value' }, '—'),
+    contract: el('span', { class: 'sale__value' }, ''),
+    export: el('span', { class: 'sale__value' }, ''),
+    refine: el('span', { class: 'sale__value' }, ''),
   };
   private readonly influenceFill: HTMLElement;
   private readonly influenceValue: HTMLElement;
@@ -40,19 +40,19 @@ export class Hud {
     private readonly texts: Texts,
     private readonly currency: string,
   ) {
-    this.balance = el('strong', { class: 'hud__balance' }, '—');
-    this.tax = el('span', { class: 'hud__chip' }, '—');
-    this.price = el('span', { class: 'hud__chip hud__chip--price' }, '—');
+    this.balance = el('strong', { class: 'hud__balance' }, '');
+    this.tax = el('span', { class: 'hud__chip' }, '');
+    this.price = el('span', { class: 'hud__chip hud__chip--price' }, '');
     this.priceBar = el('i', { class: 'hud__pricebar-fill' });
     this.oilFill = el('i', { class: 'hud__oil-fill' });
     this.oilBar = el('div', { class: 'hud__oilbar' }, [this.oilFill]);
     this.influenceFill = el('i', { class: 'hud__influence-fill' });
-    this.influenceValue = el('span', { class: 'hud__influence-value' }, '—');
+    this.influenceValue = el('span', { class: 'hud__influence-value' }, '');
     this.progressFill = el('i', { class: 'hud__progress-fill' });
-    this.progressValue = el('span', { class: 'hud__progress-value' }, '—');
+    this.progressValue = el('span', { class: 'hud__progress-value' }, '');
 
     const row = (key: string, label: string, cls = ''): Row => {
-      const value = el('span', { class: `hud__row-value ${cls}` }, '—');
+      const value = el('span', { class: `hud__row-value ${cls}` }, '');
       const root = el('div', { class: 'hud__row' }, [
         el('span', { class: 'hud__row-label' }, label),
         value,
@@ -149,18 +149,56 @@ export class Hud {
       row.value.textContent = value;
     };
 
-    set('oil', `${formatNumber(state.oil)} / ${formatNumber(derived.oilCapacity)} т`);
-    set('oilRate', `${formatNumber(derived.oilPerSecond)} т/с`);
-    set('sellRate', `${formatNumber(derived.sellPerSecond)} т/с`);
-    set('pricePerTon', `${formatMoney(derived.oilPricePerTon, this.currency)}/т`);
-    set('gross', `+${formatMoney(derived.grossPerSecond, this.currency)}/с`);
-    set('net', `+${formatMoney(derived.netPerSecond, this.currency)}/с`);
-    set('perTap', `${formatNumber(derived.tapValue)} т`);
-    set('salaries', `−${formatMoney(derived.salaries, this.currency)}/с`);
-    set('officials', `−${formatMoney(derived.officials, this.currency)}/с`);
-    set('expenses', `−${formatMoney(derived.expensesPerSecond, this.currency)}/с`);
+    const units = (key: string, params: Record<string, string | number>) =>
+      this.texts.get(`units.${key}`, params);
+    const tonnes = this.texts.get('units.tonnes');
+    const perSecond = this.texts.get('units.perSecond');
+
+    set('oil', units('oilInTank', {
+      oil: formatNumber(state.oil),
+      capacity: formatNumber(derived.oilCapacity),
+      tonnes,
+    }));
+    set('oilRate', units('tonnesRate', {
+      value: formatNumber(derived.oilPerSecond),
+      tonnes,
+      s: perSecond.replace('/', ''),
+    }));
+    set('sellRate', units('tonnesRate', {
+      value: formatNumber(derived.sellPerSecond),
+      tonnes,
+      s: perSecond.replace('/', ''),
+    }));
+    set('pricePerTon', units('pricePerTon', {
+      price: formatMoney(derived.oilPricePerTon, this.currency),
+      tonnes,
+    }));
+    set('gross', units('moneyRate', {
+      value: formatMoney(derived.grossPerSecond, this.currency),
+      s: perSecond.replace('/', ''),
+    }));
+    set('net', units('moneyRate', {
+      value: formatMoney(derived.netPerSecond, this.currency),
+      s: perSecond.replace('/', ''),
+    }));
+    set('perTap', units('tonnesValue', { value: formatNumber(derived.tapValue), tonnes }));
+    set('salaries', units('minusRate', {
+      value: formatMoney(derived.salaries, this.currency),
+      s: perSecond.replace('/', ''),
+    }));
+    set('officials', units('minusRate', {
+      value: formatMoney(derived.officials, this.currency),
+      s: perSecond.replace('/', ''),
+    }));
+    set('expenses', units('minusRate', {
+      value: formatMoney(derived.expensesPerSecond, this.currency),
+      s: perSecond.replace('/', ''),
+    }));
     set('taxRate', formatPercent(derived.taxRate));
-    set('capacity', `${formatNumber(derived.oilCapacity)} т`);
+    set('capacity', units('tonnesValue', {
+      value: formatNumber(derived.oilCapacity),
+      tonnes,
+    }));
 
     const fill = Math.max(0, Math.min(1, derived.oilCapacity > 0 ? state.oil / derived.oilCapacity : 0));
     this.oilFill.style.width = `${(fill * 100).toFixed(1)}%`;

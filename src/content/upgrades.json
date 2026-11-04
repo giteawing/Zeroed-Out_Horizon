@@ -11,7 +11,7 @@
       "baseCost": 73,
       "maxLevel": 45,
       "effect": {
-        "value": 1
+        "value": 0.1
       },
       "costGrowth": 1.34
     },
@@ -27,7 +27,7 @@
       "maxLevel": 16,
       "effect": {
         "channel": "refine",
-        "value": 30
+        "value": 900
       },
       "unlockAt": {
         "balance": 8000000000
@@ -66,7 +66,7 @@
       "maxLevel": 45,
       "effect": {
         "channel": "contract",
-        "value": 300
+        "value": 9000
       },
       "unlockAt": {
         "balance": 4000
@@ -85,7 +85,7 @@
       "maxLevel": 45,
       "effect": {
         "channel": "export",
-        "value": 540
+        "value": 16200
       },
       "unlockAt": {
         "balance": 15000
@@ -104,7 +104,7 @@
       "maxLevel": 45,
       "effect": {
         "channel": "export",
-        "value": 1440,
+        "value": 43200,
         "exportBonus": 0.15
       },
       "unlockAt": {
@@ -124,7 +124,7 @@
       "maxLevel": 45,
       "effect": {
         "channel": "export",
-        "value": 4200
+        "value": 126000
       },
       "unlockAt": {
         "balance": 400000
@@ -143,7 +143,7 @@
       "maxLevel": 45,
       "effect": {
         "channel": "refine",
-        "value": 4800
+        "value": 144000
       },
       "unlockAt": {
         "balance": 2000000
@@ -162,7 +162,7 @@
       "maxLevel": 45,
       "effect": {
         "channel": "refine",
-        "value": 13200,
+        "value": 396000,
         "costCut": 0.03
       },
       "unlockAt": {
@@ -367,12 +367,12 @@
       "baseCost": 1701945636,
       "maxLevel": 45,
       "effect": {
-        "value": 400
+        "value": 8
       },
       "unlockAt": {
         "balance": 2000000
       },
-      "costGrowth": 1.34
+      "costGrowth": 1.12
     },
     {
       "id": "t_carat",
@@ -585,7 +585,8 @@
       },
       "unlockAt": {
         "balance": 600000
-      }
+      },
+      "costGrowth": 1.12
     },
     {
       "id": "t_esp",
@@ -615,7 +616,7 @@
       "baseCost": 99,
       "maxLevel": 45,
       "effect": {
-        "value": 1
+        "value": 0.1
       },
       "unlockAt": {
         "balance": 200
@@ -651,7 +652,7 @@
       "baseCost": 401,
       "maxLevel": 45,
       "effect": {
-        "value": 1,
+        "value": 0.1,
         "salaryAdd": 0.4
       },
       "unlockAt": {
@@ -1041,7 +1042,7 @@
       "baseCost": 36667,
       "maxLevel": 45,
       "effect": {
-        "value": 32
+        "value": 0.64
       },
       "unlockAt": {
         "balance": 18000
@@ -1061,7 +1062,7 @@
       "maxLevel": 14,
       "effect": {
         "channel": "refine",
-        "value": 30
+        "value": 900
       },
       "unlockAt": {
         "balance": 90000000000,
@@ -1885,7 +1886,7 @@
       "description": "Полный контроль над всей империей. Качает всё: нефть, бюджет, горизонт и соседей.",
       "icon": "win-pump",
       "type": "win",
-      "baseCost": 3000000000000,
+      "baseCost": 80000000000.0,
       "maxLevel": 1,
       "win": true,
       "tag": "strict",
@@ -1938,7 +1939,7 @@
       "baseCost": 420,
       "maxLevel": 45,
       "effect": {
-        "value": 1
+        "value": 0.1
       },
       "costGrowth": 1.34
     },
@@ -1953,7 +1954,7 @@
       "baseCost": 1900,
       "maxLevel": 45,
       "effect": {
-        "value": 1
+        "value": 0.1
       },
       "costGrowth": 1.34
     },
@@ -1968,7 +1969,7 @@
       "baseCost": 22000,
       "maxLevel": 45,
       "effect": {
-        "value": 6,
+        "value": 0.12,
         "costCut": 0.01
       },
       "costGrowth": 1.34
@@ -1985,7 +1986,7 @@
       "maxLevel": 30,
       "effect": {
         "channel": "contract",
-        "value": 72,
+        "value": 2160,
         "percent": 6
       },
       "unlockAt": {
@@ -2005,7 +2006,7 @@
       "maxLevel": 25,
       "effect": {
         "channel": "contract",
-        "value": 240,
+        "value": 7200,
         "percent": 9
       },
       "unlockAt": {
@@ -2025,7 +2026,7 @@
       "maxLevel": 20,
       "effect": {
         "channel": "contract",
-        "value": 840,
+        "value": 25200,
         "percent": 12
       },
       "unlockAt": {
@@ -2045,7 +2046,7 @@
       "maxLevel": 18,
       "effect": {
         "channel": "contract",
-        "value": 2760,
+        "value": 82800,
         "percent": 15
       },
       "unlockAt": {
@@ -2065,7 +2066,7 @@
       "maxLevel": 16,
       "effect": {
         "channel": "contract",
-        "value": 8400,
+        "value": 252000,
         "percent": 20
       },
       "unlockAt": {
@@ -2085,7 +2086,7 @@
       "maxLevel": 25,
       "effect": {
         "channel": "export",
-        "value": 48,
+        "value": 1440,
         "percent": 8
       },
       "unlockAt": {
@@ -2105,7 +2106,7 @@
       "maxLevel": 20,
       "effect": {
         "channel": "export",
-        "value": 160,
+        "value": 4800,
         "percent": 10
       },
       "unlockAt": {
@@ -2125,7 +2126,7 @@
       "maxLevel": 18,
       "effect": {
         "channel": "export",
-        "value": 480,
+        "value": 14400,
         "percent": 14
       },
       "unlockAt": {
@@ -2145,7 +2146,7 @@
       "maxLevel": 16,
       "effect": {
         "channel": "export",
-        "value": 1440,
+        "value": 43200,
         "percent": 18
       },
       "unlockAt": {
@@ -2165,7 +2166,7 @@
       "maxLevel": 14,
       "effect": {
         "channel": "export",
-        "value": 4160,
+        "value": 124800,
         "percent": 22
       },
       "unlockAt": {
@@ -2185,7 +2186,7 @@
       "maxLevel": 16,
       "effect": {
         "channel": "refine",
-        "value": 112,
+        "value": 3360,
         "percent": 10
       },
       "unlockAt": {
@@ -2205,7 +2206,7 @@
       "maxLevel": 14,
       "effect": {
         "channel": "refine",
-        "value": 368,
+        "value": 11040,
         "percent": 14
       },
       "unlockAt": {
@@ -2225,7 +2226,7 @@
       "maxLevel": 12,
       "effect": {
         "channel": "refine",
-        "value": 1200,
+        "value": 36000,
         "percent": 18
       },
       "unlockAt": {
@@ -2245,7 +2246,7 @@
       "maxLevel": 10,
       "effect": {
         "channel": "refine",
-        "value": 3360,
+        "value": 100800,
         "percent": 25
       },
       "unlockAt": {
@@ -2265,7 +2266,7 @@
       "maxLevel": 20,
       "effect": {
         "channel": "export",
-        "value": 208
+        "value": 6240
       },
       "unlockAt": {
         "balance": 6000000
@@ -2284,7 +2285,7 @@
       "maxLevel": 18,
       "effect": {
         "channel": "contract",
-        "value": 540,
+        "value": 16200,
         "percent": 6
       },
       "unlockAt": {
@@ -2414,7 +2415,7 @@
       "baseCost": 260000000,
       "maxLevel": 10,
       "effect": {
-        "value": 300
+        "value": 6
       },
       "conquest": true,
       "unlockAt": {

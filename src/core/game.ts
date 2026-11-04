@@ -12,7 +12,6 @@ import {
   isUnlocked,
   isWinReady,
   levelOf,
-  netForInterval,
   saleProceeds,
   sellOil,
   tapReward,

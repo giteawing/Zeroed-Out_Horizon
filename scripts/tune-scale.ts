@@ -38,16 +38,6 @@ function contentWith(k: number): Content {
   return content;
 }
 
-function minutesFor(k: number, seed = 202): number {
-  const result = runSimulation(contentWith(k), {
-    tapsPerSecond: 5,
-    tapDiligence: 0.85,
-    seed,
-    maxSeconds: 60 * 40,
-  });
-  return result.won ? result.seconds / 60 : 40;
-}
-
 // Цены НЕ масштабируем: округление мелких цен до нуля делало покупки
 // бесплатными и роняло баланс. Подбираем только цену финальной цели.
 const K = 1;

@@ -214,6 +214,8 @@ export interface TextsFile {
   stats: Record<string, string>;
   sales: Record<string, string>;
   log: Record<string, string>;
+  /** Единицы измерения: чтобы в коде не было даже «т» и «₦/с». */
+  units: Record<string, string>;
   finale: {
     pumpName: string;
     buyButton: string;
