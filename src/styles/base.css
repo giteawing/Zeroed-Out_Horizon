@@ -302,8 +302,10 @@ img {
 
 .stage {
   display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: 1fr;
+  /* Телефон: сцена сверху, магазин снизу. Каждая строка растягивается,
+     но не больше доступной высоты — иначе список покупок «уезжает». */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 0.92fr) minmax(0, 1.08fr);
   min-height: 0;
   gap: 8px;
 }
@@ -313,12 +315,14 @@ img {
   display: grid;
   place-items: center;
   min-height: 0;
+  overflow: visible;
 }
 
 .stage__side {
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 /* ------------------------------------------------------------------ скважина */
@@ -730,7 +734,7 @@ img {
   padding: 0;
   display: grid;
   gap: 1px;
-  max-height: 52px;
+  max-height: 34px; /* телефон: одна строка, десктоп расширяет ниже */
   overflow: hidden;
 }
 
@@ -1145,6 +1149,7 @@ img {
 
   .stage {
     grid-template-columns: minmax(0, 1fr) minmax(360px, 460px);
+    grid-template-rows: minmax(0, 1fr);
     align-items: stretch;
     gap: 16px;
   }
@@ -1158,7 +1163,7 @@ img {
   }
 
   .newspane {
-    min-height: 62px;
+    min-height: 74px;
   }
 }
 
@@ -1196,7 +1201,8 @@ img {
 /* Телефон в горизонтальной ориентации: магазин становится уже, сцена — шире. */
 @media (max-height: 520px) and (orientation: landscape) {
   .stage {
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 40%);
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 42%);
+    grid-template-rows: minmax(0, 1fr);
   }
 
   .newspane {

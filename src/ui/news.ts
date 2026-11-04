@@ -22,6 +22,7 @@ export class NewsFeed {
       el('h2', { class: 'news__title' }, this.texts.get('panel.news')),
       this.list,
     ]);
+    this.root.dataset.count = String(MAX_ITEMS);
     this.push('start');
   }
 
