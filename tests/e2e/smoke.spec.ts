@@ -60,9 +60,7 @@ test('игра запускается без ошибок в консоли', as
 test('тап добывает нефть, а не нефтефаники', async ({ page }) => {
   await start(page);
   // Панель империи показывает нефть в резервуарах: «{oil} / {capacity} т».
-  const oilValue = page
-    .locator('.hud__row', { has: page.locator('.hud__row-label:text-is("Нефть в резервуарах")') })
-    .locator('.hud__row-value');
+  const oilValue = page.locator('.hud__oil .hud__row-value');
   const before = (await oilValue.textContent()) ?? '';
   await tapDrill(page, 24);
   await expect.poll(async () => (await oilValue.textContent()) !== before, { timeout: 8000 }).toBe(true);
@@ -104,11 +102,13 @@ test('вкладки магазина переключаются', async ({ page
   await expect(political).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('.shop__list')).toContainText('императора');
 
+  // «Сбыт» показывает ближайшие по цене каналы: контракты и экспорт.
   await page.getByRole('tab', { name: 'Сбыт' }).click();
   await expect(page.locator('.shop__list')).toContainText('трест');
 
+  // «Роскошь» открывается с самой дешёвой покупки, а не с яхты.
   await page.getByRole('tab', { name: 'Роскошь' }).click();
-  await expect(page.locator('.shop__list')).toContainText('Яхта');
+  await expect(page.locator('.shop__list')).toContainText('иномарка');
   expect(errors).toEqual([]);
 });
 
@@ -151,13 +151,14 @@ test('панель империи видна всегда и держит все
     'Доход в секунду',
     'Зарплаты',
     'Чиновники',
-    'Влияние',
     'Резервуары',
   ]) {
     await expect(
       hud.locator('.hud__row-label').filter({ hasText: label }).first(),
     ).toBeVisible();
   }
+  // «Влияние» — отдельный блок со шкалой, а не строка.
+  await expect(hud.locator('.hud__influence')).toContainText('Влияние');
   // Панель в правой колонке и не перекрывает скважину.
   const hudBox = await hud.boundingBox();
   const drillBox = await page.locator('[data-testid="drill"]').boundingBox();
