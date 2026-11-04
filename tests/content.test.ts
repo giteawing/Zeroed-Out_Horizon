@@ -287,10 +287,26 @@ describe('тексты', () => {
     }
   });
 
-  it('в credits.txt пока заглушка — интерфейс покажет замену', () => {
+  it('credits.txt либо заглушка, либо настоящий стих — интерфейс понимает оба случая', () => {
     const raw = readFileSync(resolve(root, 'src/content/credits.txt'), 'utf8');
-    expect(creditsIsPlaceholder(raw)).toBe(true);
     expect(content.texts.finale.creditsFallback).toBe('Здесь будет стихотворение.');
+    // Стих кладёт владелец игры, поэтому тест не требует конкретного состояния,
+    // а проверяет, что заглушка распознаётся и что текст не пустой.
+    if (creditsIsPlaceholder(raw)) {
+      expect(raw).toContain('Здесь будет стихотворение');
+    } else {
+      expect(raw.trim().length).toBeGreaterThan(200);
+    }
+  });
+
+  it('стихотворение из credits.txt готово к показу в титрах', () => {
+    const raw = readFileSync(resolve(root, 'src/content/credits.txt'), 'utf8');
+    if (creditsIsPlaceholder(raw)) return;
+    // В браузере файл подставляется через Vite (?raw), поэтому здесь проверяем
+    // сам источник: он не обрезан, читается целиком и содержит авторский текст.
+    const poem = raw.trim();
+    expect(poem.split('\n').length).toBeGreaterThan(10);
+    expect(poem.toLowerCase()).toContain('капитал');
   });
 
   it('все обязательные разделы текстов заполнены', () => {

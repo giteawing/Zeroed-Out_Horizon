@@ -18,7 +18,7 @@ jobs:
       - name: Типы и сборка
         run: npm run build
       - name: Юнит- и DOM-тесты (включая тест баланса 12–25 минут)
-        run: npm test
+        run: npm test -- --reporter=verbose
       - name: Playwright-браузер
         run: npx playwright install --with-deps chromium
       - name: Дымовой e2e (desktop + iPhone 13 + Pixel 7)
