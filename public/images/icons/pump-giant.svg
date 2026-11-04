@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img">
+
+<defs>
+  <radialGradient id="soft" cx="38%" cy="28%" r="85%">
+    <stop offset="0%" stop-color="#ffffff" stop-opacity="0.98" />
+    <stop offset="60%" stop-color="#fdf3dd" stop-opacity="0.98" />
+    <stop offset="100%" stop-color="#e6d6b4" stop-opacity="0.98" />
+  </radialGradient>
+  <linearGradient id="gold" x1="0" y1="0" x2="0.4" y2="1">
+    <stop offset="0%" stop-color="#ffd766" />
+    <stop offset="55%" stop-color="#f2b430" />
+    <stop offset="100%" stop-color="#c8860f" />
+  </linearGradient>
+  <linearGradient id="green" x1="0" y1="0" x2="0.3" y2="1">
+    <stop offset="0%" stop-color="#63d18d" />
+    <stop offset="60%" stop-color="#2f9e5f" />
+    <stop offset="100%" stop-color="#1d7048" />
+  </linearGradient>
+  <linearGradient id="oil" x1="0" y1="0" x2="0.2" y2="1">
+    <stop offset="0%" stop-color="#4a4a52" />
+    <stop offset="100%" stop-color="#2b2b30" />
+  </linearGradient>
+  <linearGradient id="sky" x1="0" y1="0" x2="0.2" y2="1">
+    <stop offset="0%" stop-color="#bfe9ff" />
+    <stop offset="100%" stop-color="#6ec6f0" />
+  </linearGradient>
+  <linearGradient id="crimson" x1="0" y1="0" x2="0.3" y2="1">
+    <stop offset="0%" stop-color="#e0485f" />
+    <stop offset="100%" stop-color="#b3243b" />
+  </linearGradient>
+  <linearGradient id="steel" x1="0" y1="0" x2="0.3" y2="1">
+    <stop offset="0%" stop-color="#d7dee3" />
+    <stop offset="55%" stop-color="#9aa4ad" />
+    <stop offset="100%" stop-color="#6d7780" />
+  </linearGradient>
+  <linearGradient id="purple" x1="0" y1="0" x2="0.3" y2="1">
+    <stop offset="0%" stop-color="#a563cc" />
+    <stop offset="100%" stop-color="#7b3fa0" />
+  </linearGradient>
+  <linearGradient id="skin" x1="0" y1="0" x2="0.3" y2="1">
+    <stop offset="0%" stop-color="#ffd0ac" />
+    <stop offset="100%" stop-color="#f3b98c" />
+  </linearGradient>
+</defs>
+  <circle cx="50" cy="50" r="47" fill="url(#soft)" />
+  <circle cx="50" cy="50" r="47" fill="none" stroke="#17110c" stroke-width="2.2" opacity="0.14" />
+<rect x="14" y="32" width="72" height="46" rx="8" fill="url(#gold)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><circle cx="50" cy="55" r="18" fill="url(#steel)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><circle cx="50" cy="55" r="8" fill="url(#crimson)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="30" y="72" width="40" height="10" rx="3" fill="#3b2f26" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><polygon points="50,15 52.38,20.72 58.56,21.22 53.85,25.25 55.29,31.28 50,28.05 44.71,31.28 46.15,25.25 41.44,21.22 47.62,20.72" fill="#f2b430" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><path d="M16 19L17.4 22.6L21 24L17.4 25.4L16 29L14.6 25.4L11 24L14.6 22.6Z" fill="#ffd766" opacity="0.95" /><path d="M84 24L85.68 28.32L90 30L85.68 31.68L84 36L82.32 31.68L78 30L82.32 28.32Z" fill="#ffd766" opacity="0.95" />
+</svg>
