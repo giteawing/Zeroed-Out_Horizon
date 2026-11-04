@@ -228,7 +228,12 @@ describe('настройки', () => {
 });
 
 describe('финал', () => {
-  it('открывает титры и показывает заглушку стихотворения', async () => {
+  /**
+   * Стихотворение кладёт владелец игры, поэтому тест не требует конкретного
+   * текста: он проверяет либо заглушку из texts.json, либо реальный стих
+   * из credits.txt (в браузере он подставляется через Vite ?raw).
+   */
+  it('открывает титры и показывает стихотворение из credits.txt', async () => {
     game.state.coins = game.config.winCost * 2;
     for (const req of game.config.winRequirements) {
       if (req.upgrade) game.state.levels[req.upgrade] = req.level ?? 1;
@@ -244,9 +249,14 @@ describe('финал', () => {
     skip?.click();
     await flush();
     expect(document.querySelector('.credits')).not.toBeNull();
-    expect(document.querySelector('.credits__poem')?.textContent).toContain(
-      'Здесь будет стихотворение',
-    );
+    const poem = document.querySelector('.credits__poem')?.textContent?.trim() ?? '';
+    const fallback = game.content.texts.finale.creditsFallback;
+    const realPoem = game.content.credits.trim();
+    expect(poem.length).toBeGreaterThan(0);
+    expect(poem === fallback || poem === realPoem).toBe(true);
+    if (!poem.includes('Здесь будет стихотворение')) {
+      expect(poem.toLowerCase()).toContain('капитал');
+    }
     expect(document.querySelector('.credits__art')?.getAttribute('src')).toBe('images/finale.svg');
     expect(document.querySelector('.stats')).not.toBeNull();
   });
