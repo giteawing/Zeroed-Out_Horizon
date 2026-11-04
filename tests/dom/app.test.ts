@@ -75,10 +75,10 @@ describe('сцена с долотом', () => {
     expect(document.querySelector('.drill__fx')).not.toBeNull();
   });
 
-  it('тап через pointerdown начисляет нефтефаники', async () => {
+  it('тап через pointerdown добывает нефть', async () => {
     const stage = document.querySelector<HTMLElement>('[data-testid="drill"]');
     expect(stage).not.toBeNull();
-    const before = game.state.coins;
+    const before = game.state.oil;
     stage?.dispatchEvent(
       new PointerEvent('pointerdown', {
         bubbles: true,
@@ -88,7 +88,8 @@ describe('сцена с долотом', () => {
       }),
     );
     await flush();
-    expect(game.state.coins).toBeGreaterThan(before);
+    // Деньги за тап не начисляются: сначала нефть, потом продажа.
+    expect(game.state.oil).toBeGreaterThan(before);
     expect(game.state.totalTaps).toBe(1);
   });
 
@@ -114,12 +115,28 @@ describe('сцена с долотом', () => {
 });
 
 describe('HUD', () => {
-  it('показывает баланс, доход за тап и прогресс', () => {
+  it('показывает баланс, нефть, каналы сбыта и прогресс', () => {
     const balance = document.querySelector('.hud__balance');
     expect(balance?.textContent ?? '').toMatch(/₦/);
-    expect(document.querySelector('.hud__value')).not.toBeNull();
+    // Панель империи: нефть в резервуарах, цена тонны, влияние.
+    expect(document.querySelector('.hud__oilbar')).not.toBeNull();
+    expect(document.querySelector('.hud__influence-fill')).not.toBeNull();
+    expect(document.querySelectorAll('.sale').length).toBe(3);
+    expect(document.querySelectorAll('.hud__row').length).toBeGreaterThan(8);
     expect(document.querySelector('.hud__progress-label')?.textContent).toBe('До «Упыря-Абсолюта»');
     expect(document.querySelector('.hud__progress-fill')).not.toBeNull();
+  });
+
+  it('панель империи стоит в правом столбце и не прячется', () => {
+    const side = document.querySelector('.stage__side');
+    expect(side?.querySelector('.hud')).not.toBeNull();
+    // HUD внутри боковой колонки доходит до магазина, но не перекрывается им.
+    expect(side?.firstElementChild?.classList.contains('hud')).toBe(true);
+  });
+
+  it('под долотом есть журнал операций', () => {
+    const middle = document.querySelector('.stage__middle');
+    expect(middle?.querySelector('[data-testid="oplog"]')).not.toBeNull();
   });
 
   it('пересчитывает значения после тапа', async () => {
@@ -129,24 +146,25 @@ describe('HUD', () => {
     }
     await flush();
     // Ждём кадр, чтобы интерфейс перерисовался.
-    await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
-    const values = [...document.querySelectorAll('.hud__value')].map((n) => n.textContent ?? '');
-    expect(values.some((v) => v.includes('₦'))).toBe(true);
+    await nextFrame();
+    // После тапов в панели появляется значение нефти в тоннах.
+    const values = [...document.querySelectorAll('.hud__row-value')].map((n) => n.textContent ?? '');
+    expect(values.some((v) => v.includes('т'))).toBe(true);
   });
 });
 
 describe('магазин', () => {
   it('по умолчанию открывает техническую вкладку с карточками', () => {
     const active = document.querySelector('.tab--active');
-    expect(active?.textContent).toBe('Технические');
+    expect(active?.textContent).toBe('Техника');
     expect(document.querySelectorAll('.card').length).toBeGreaterThan(0);
   });
 
   it('переключает вкладки и показывает свои покупки', () => {
     const tabs = [...document.querySelectorAll<HTMLButtonElement>('.tab')];
-    const political = tabs.find((tab) => tab.textContent === 'Политические');
+    const political = tabs.find((tab) => tab.textContent === 'Политика');
     political?.click();
-    expect(document.querySelector('.tab--active')?.textContent).toBe('Политические');
+    expect(document.querySelector('.tab--active')?.textContent).toBe('Политика');
     expect(document.querySelector('.shop__list')?.textContent ?? '').toContain('императора');
 
     const luxury = tabs.find((tab) => tab.textContent === 'Роскошь');

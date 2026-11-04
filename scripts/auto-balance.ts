@@ -24,7 +24,7 @@ const upgradesPath = resolve(root, 'src/content/upgrades.json');
 const configPath = resolve(root, 'src/content/config.json');
 
 const WRITE = process.argv.includes('--write');
-const ROUNDS = WRITE ? 10 : 1;
+const ROUNDS = WRITE ? 18 : 1;
 
 /** Первая покупка примерно на 25-й секунде, последняя (кроме победы) — на ~15,5 мин. */
 const T_FIRST = 25;
@@ -32,7 +32,7 @@ const T_LAST = 940;
 /** Какую долю накопленного на тот момент заработка отдаём за покупку. */
 const SHARE = 0.3;
 /** Демпфирование шага, чтобы процесс не раскачивался. */
-const DAMPING = 0.75;
+const DAMPING = 0.6;
 const SAMPLE_TIMES = [30, 60, 120, 180, 240, 300, 420, 540, 660, 780, 900, 1020, 1140];
 
 function readUpgradesFile(): UpgradeDef[] {
@@ -49,7 +49,7 @@ function contentWithCosts(costs: Map<string, number>): Content {
   const content = loadContent();
   for (const def of content.upgrades) {
     const cost = costs.get(def.id);
-    if (cost !== undefined && !def.win) def.baseCost = cost;
+    if (cost !== undefined && !def.win && def.tag !== 'pinned') def.baseCost = cost;
   }
   return content;
 }
@@ -85,7 +85,12 @@ function buildCurve(costs: Map<string, number>): (t: number) => number {
 
 function main(): void {
   const upgrades = readUpgradesFile();
-  const repeatable = upgrades.filter((u) => !u.win).sort((a, b) => a.baseCost - b.baseCost);
+  // Закреплённые цены (НПЗ 80 млрд → 630 млрд, нефтебаза 40 млн → 2 млрд) не трогаем:
+  // они заданы владельцем игры. Остальные подгоняем под кривую дохода.
+  const repeatable = upgrades
+    .filter((u) => !u.win && u.tag !== 'pinned')
+    .sort((a, b) => a.baseCost - b.baseCost);
+  const pinned = upgrades.filter((u) => u.tag === 'pinned');
   const targets = new Map<string, number>();
   repeatable.forEach((def, index) => {
     const k = index / Math.max(1, repeatable.length - 1);
@@ -123,6 +128,7 @@ function main(): void {
     return;
   }
 
+  console.log(`Закреплённые цены (не меняются): ${pinned.map((u) => `${u.id} ${u.baseCost.toExponential(1)}`).join(', ')}`);
   for (const def of upgrades) {
     if (def.win) def.baseCost = winCost;
     else if (def.baseCost > 0) def.baseCost = costs.get(def.id) ?? def.baseCost;

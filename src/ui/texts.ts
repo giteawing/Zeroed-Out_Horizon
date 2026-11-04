@@ -27,6 +27,17 @@ export class Texts {
     return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
   }
 
+  /** Название покупки — из texts.json (upgrades), чтобы журнал не хардкодил строки. */
+  upgradeName(id: string): string {
+    const names = (this.data as unknown as { upgrades?: Record<string, string> }).upgrades;
+    return names?.[id] ?? id;
+  }
+
+  /** Название достижения по id. */
+  achievementName(id: string): string {
+    return this.data.achievements.list.find((a) => a.id === id)?.name ?? id;
+  }
+
   /** Все категории новостей, кроме служебных. */
   newsCategories(): string[] {
     return Object.keys(this.data.news).filter((key) => key !== 'prefix');

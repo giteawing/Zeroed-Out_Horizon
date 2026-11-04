@@ -1,116 +1,2529 @@
 {
-  "_comment": "Все покупки игры. Имя = id, иконка = public/images/icons/<icon>.svg. Строки из ТЗ помечены tag:strict и менять их нельзя.",
   "upgrades": [
-    {"id": "t_well", "tab": "technical", "group": "infrastructure", "name": "Пробурить скважину", "description": "Просто скважина. Пока одна, но уже с нефтью.", "icon": "well", "type": "passive", "baseCost": 73, "maxLevel": 45, "effect": {"value": 0.5}},
-    {"id": "t_refinery", "tab": "technical", "group": "infrastructure", "name": "Построить нефтеперерабатывающий завод", "description": "Нефть заходит с одной стороны, деньги выходят с другой. Магия.", "icon": "refinery", "type": "passive", "baseCost": 91, "maxLevel": 45, "effect": {"value": 3}, "unlockAt": {"balance": 100}},
-    {"id": "t_depot", "tab": "technical", "group": "infrastructure", "name": "Построить нефтебазу", "description": "Резервуары блестят. Налоговая тоже блестит.", "icon": "depot", "type": "passive", "baseCost": 167, "maxLevel": 45, "effect": {"value": 12}, "unlockAt": {"balance": 800}},
-    {"id": "t_azs", "tab": "technical", "group": "infrastructure", "name": "Построить сеть АЗС", "description": "Заправки по всему региону. Бензин — по цене совести, а совести нет.", "icon": "azs", "type": "passive", "baseCost": 720, "maxLevel": 45, "effect": {"value": 45}, "unlockAt": {"balance": 4000}},
-    {"id": "t_pipeline", "tab": "technical", "group": "infrastructure", "name": "Проложить трубопровод «Чёрная змея»", "description": "Пассивный доход и минус логистика. Змея ползёт сама.", "icon": "pipeline", "type": "passive", "baseCost": 7066, "maxLevel": 45, "effect": {"value": 130, "costCut": 0.02}, "unlockAt": {"balance": 15000}},
-    {"id": "t_terminal", "tab": "technical", "group": "infrastructure", "name": "Построить морской терминал с собственным танкером", "description": "Усиливает «пихнуть нефть заграницу». Танкер гудит на удачу.", "icon": "terminal", "type": "passive", "baseCost": 1005077, "maxLevel": 45, "effect": {"value": 420, "exportBonus": 0.15}, "unlockAt": {"balance": 80000}},
-    {"id": "t_rail", "tab": "technical", "group": "infrastructure", "name": "Построить железнодорожную эстакаду", "description": "Налив цистерн: быстро, громко, с матом.", "icon": "rail", "type": "passive", "baseCost": 13532435, "maxLevel": 45, "effect": {"value": 1400}, "unlockAt": {"balance": 400000}},
-    {"id": "t_gasplant", "tab": "technical", "group": "infrastructure", "name": "Построить газоперерабатывающий завод", "description": "Попутный газ больше не сгорает в факеле. Теперь он сгорает в кассе.", "icon": "gasplant", "type": "passive", "baseCost": 609957739, "maxLevel": 45, "effect": {"value": 4200}, "unlockAt": {"balance": 2000000}},
-    {"id": "t_power", "tab": "technical", "group": "infrastructure", "name": "Построить электростанцию на попутном газе", "description": "Электричество своё, счётчики чужие. Счётчики не согласны.", "icon": "power", "type": "passive", "baseCost": 30306737268, "maxLevel": 45, "effect": {"value": 12000, "costCut": 0.03}, "unlockAt": {"balance": 8000000}},
-    {"id": "d1_blade", "tab": "technical", "group": "drills", "name": "Лопастное долото", "description": "Устаревшее, базовое, но своё. Как первая машина.", "icon": "drill-blade", "type": "perTap", "baseCost": 70, "maxLevel": 50, "effect": {"value": 1}},
-    {"id": "d2_milled", "tab": "technical", "group": "drills", "name": "Шарошечное долото с фрезерованными стальными зубьями", "description": "Для мягких пород и мягких подрядчиков.", "icon": "drill-milled", "type": "perTap", "baseCost": 85, "maxLevel": 50, "effect": {"value": 4}, "unlockAt": {"upgrade": "d1_blade", "level": 3}},
-    {"id": "d3_tci", "tab": "technical", "group": "drills", "name": "Шарошечное долото с твердосплавными вставками (TCI)", "description": "Для средних и твёрдых пород. Твёрдый характер прилагается.", "icon": "drill-tci", "type": "perTap", "baseCost": 138, "maxLevel": 50, "effect": {"value": 14}, "unlockAt": {"upgrade": "d2_milled", "level": 3}},
-    {"id": "d4_hybrid", "tab": "technical", "group": "drills", "name": "Гибридное долото (шарошки + резцы PDC)", "description": "Два в одном: и жуёт, и режет. Инженеры гордятся, бухгалтер плачет.", "icon": "drill-hybrid", "type": "perTap", "baseCost": 607, "maxLevel": 50, "effect": {"value": 45}, "unlockAt": {"upgrade": "d3_tci", "level": 3}},
-    {"id": "d5_pdc", "tab": "technical", "group": "drills", "name": "Долото PDC с резцами из поликристаллического алмаза", "description": "Быстрое, износостойкое, дорогое как мечта.", "icon": "drill-pdc", "type": "perTap", "baseCost": 111706, "maxLevel": 50, "effect": {"value": 140}, "unlockAt": {"upgrade": "d4_hybrid", "level": 3}},
-    {"id": "d6_impreg", "tab": "technical", "group": "drills", "name": "Импрегнированное алмазное долото", "description": "Для самых твёрдых пород и самых мягких переговоров.", "icon": "drill-impreg", "type": "perTap", "baseCost": 5900053, "maxLevel": 50, "effect": {"value": 420}, "unlockAt": {"upgrade": "d5_pdc", "level": 3}},
-    {"id": "d7_terminator", "tab": "technical", "group": "drills", "name": "Долото-Терминатор", "description": "Проходит породу, бюджет и здравый смысл. Выдумка игры, но мы уже заказали.", "icon": "drill-terminator", "type": "perTap", "baseCost": 233532022, "maxLevel": 50, "effect": {"value": 1400}, "achievement": "a_drill7", "unlockAt": {"upgrade": "d6_impreg", "level": 3}},
-    {"id": "t_pump1", "tab": "technical", "group": "pumps", "name": "Поршневой буровой насос", "description": "Качает раствор и настроение.", "icon": "pump-piston", "type": "perTap", "baseCost": 79, "maxLevel": 50, "effect": {"value": 2}, "unlockAt": {"balance": 40}},
-    {"id": "t_pump2", "tab": "technical", "group": "pumps", "name": "Усиленный насос высокого давления", "description": "Давление выше, вопросы к подрядчику тоже.", "icon": "pump-hp", "type": "perTap", "baseCost": 116, "maxLevel": 50, "effect": {"value": 8}, "unlockAt": {"upgrade": "t_pump1", "level": 3}},
-    {"id": "t_pump3", "tab": "technical", "group": "pumps", "name": "Насос с цифровым управлением", "description": "Теперь насос сам решает, когда качать. Мы только подписываем.", "icon": "pump-digital", "type": "perTap", "baseCost": 1501, "maxLevel": 50, "effect": {"value": 30}, "unlockAt": {"upgrade": "t_pump2", "level": 3}},
-    {"id": "t_pump4", "tab": "technical", "group": "pumps", "name": "Насос-Гигант", "description": "Нужен для финальной цели. Соседи слышат его через горизонт.", "icon": "pump-giant", "type": "passive", "baseCost": 1701945636, "maxLevel": 45, "effect": {"value": 2000}, "unlockAt": {"balance": 2000000}},
-    {"id": "t_carat", "tab": "technical", "group": "geology", "name": "Улучшенные каротажные приборы", "description": "Несколько уровней честности измерений. Почти честных.", "icon": "carat", "type": "multiplier", "baseCost": 107, "maxLevel": 10, "effect": {"factor": 1.06}, "unlockAt": {"balance": 250}},
-    {"id": "t_imager", "tab": "technical", "group": "geology", "name": "Имиджер", "description": "Чтобы красиво видеть пласт и свою зарплату.", "icon": "imager", "type": "multiplier", "baseCost": 251, "maxLevel": 10, "effect": {"factor": 1.05}, "unlockAt": {"upgrade": "t_carat", "level": 2}},
-    {"id": "t_cartographer", "tab": "technical", "group": "geology", "name": "Картограф", "description": "По резистивиметрии и каротажам узнаёт пласт лучше, чем вы свою жизнь.", "icon": "cartographer", "type": "multiplier", "baseCost": 15448, "maxLevel": 10, "effect": {"factor": 1.08}, "unlockAt": {"upgrade": "t_imager", "level": 2}},
-    {"id": "t_mwd", "tab": "technical", "group": "geology", "name": "Телеметрия MWD/LWD", "description": "Данные с забоя в реальном времени. Забой в шоке от такой огласки.", "icon": "mwd", "type": "perTap", "baseCost": 857, "maxLevel": 50, "effect": {"value": 60}, "unlockAt": {"balance": 5000}},
-    {"id": "t_resist", "tab": "technical", "group": "geology", "name": "Азимутальный резистивиметр", "description": "Видит границы пласта вокруг долота. Усиливает эффект геонавигатора.", "icon": "resist", "type": "multiplier", "baseCost": 570553, "maxLevel": 10, "effect": {"factor": 1.07}, "unlockAt": {"upgrade": "t_cartographer", "level": 2}},
-    {"id": "t_core", "tab": "technical", "group": "geology", "name": "Лаборатория керна", "description": "Хорошая нефтеотдача для новых месторождений. Керн одобряет.", "icon": "core", "type": "periodic", "baseCost": 1229631, "maxLevel": 10, "effect": {"seconds": 45, "value": 12}, "unlockAt": {"upgrade": "t_mwd", "level": 2}},
-    {"id": "t_motor", "tab": "technical", "group": "equipment", "name": "Винтовой забойный двигатель", "description": "Прибавка к доходу за тап и к самоуважению.", "icon": "motor", "type": "perTap", "baseCost": 315, "maxLevel": 50, "effect": {"value": 20}, "unlockAt": {"balance": 2500}},
-    {"id": "t_rss", "tab": "technical", "group": "equipment", "name": "Роторная управляемая система (РУС)", "description": "Большая прибавка к тапу и к скорости горизонтального участка.", "icon": "rss", "type": "perTap", "baseCost": 9091, "maxLevel": 50, "effect": {"value": 60}, "unlockAt": {"upgrade": "t_motor", "level": 3}},
-    {"id": "t_topdrive", "tab": "technical", "group": "equipment", "name": "Верхний привод", "description": "Автоматический тап с низкой частотой. Пока вы обедаете, империя растёт.", "icon": "topdrive", "type": "autoTap", "baseCost": 2255, "maxLevel": 8, "effect": {"value": 0.5}, "unlockAt": {"balance": 12000}},
-    {"id": "t_mud", "tab": "technical", "group": "equipment", "name": "Буровой раствор «Премиум»", "description": "Инвертно-эмульсионный. Аварии меньше, счёт больше.", "icon": "mud", "type": "costCut", "baseCost": 1238, "maxLevel": 8, "effect": {"percent": 3}, "unlockAt": {"balance": 6000}},
-    {"id": "t_frac", "tab": "technical", "group": "equipment", "name": "Многостадийный ГРП", "description": "Гидроразрыв пласта. Пласт не подписывал согласие.", "icon": "frac", "type": "multiplier", "baseCost": 2701764, "maxLevel": 10, "effect": {"factor": 1.1}, "unlockAt": {"balance": 120000}},
-    {"id": "t_smart", "tab": "technical", "group": "equipment", "name": "Умная скважина", "description": "Автоматизация: пассивный доход растёт сам, отчётность — тоже сама.", "icon": "smart", "type": "multiplier", "baseCost": 32836322, "maxLevel": 10, "effect": {"factor": 1.12}, "unlockAt": {"balance": 600000}},
-    {"id": "t_esp", "tab": "technical", "group": "equipment", "name": "Электроцентробежный насос (ЭЦН)", "description": "Увеличивает добычу действующих скважин. Соседние скважины завидуют.", "icon": "esp", "type": "multiplier", "baseCost": 188357, "maxLevel": 10, "effect": {"factor": 1.06}, "unlockAt": {"balance": 40000}},
-    {"id": "t_geonav", "tab": "technical", "group": "staff", "name": "Нанять геонавигатора", "description": "Монеты прибавляются автоматически и без вашего участия.", "icon": "geomav", "type": "passive", "baseCost": 99, "maxLevel": 45, "effect": {"value": 1.5}, "unlockAt": {"balance": 200}},
-    {"id": "t_gti", "tab": "technical", "group": "staff", "name": "Нанять ГТИ-шника", "description": "Специалист по ГТИ. Монет больше, чем у геонавигатора, а кофе тот же.", "icon": "gti", "type": "passive", "baseCost": 226, "maxLevel": 45, "effect": {"value": 6}, "unlockAt": {"upgrade": "t_geonav", "level": 2}},
-    {"id": "t_brigade", "tab": "technical", "group": "staff", "name": "Нанять буровую бригаду-стахановцев", "description": "Прибавка к тапу, но растут зарплаты. Стахановцы просят ещё тушёнки.", "icon": "brigade", "type": "perTap", "baseCost": 401, "maxLevel": 50, "effect": {"value": 25, "salaryAdd": 0.5}, "unlockAt": {"balance": 3000}},
-    {"id": "t_technolog", "tab": "technical", "group": "staff", "name": "Нанять главного технолога", "description": "Снижает аварийные расходы. Его не любит никто, но он прав.", "icon": "technolog", "type": "costCut", "baseCost": 88198, "maxLevel": 8, "effect": {"percent": 4}, "unlockAt": {"balance": 25000}},
-    {"id": "t_twin", "tab": "technical", "group": "digital", "name": "Цифровой двойник месторождения", "description": "Множитель ко всему пассивному доходу. Двойник тоже хочет премию.", "icon": "twin", "type": "multiplier", "baseCost": 2108063, "maxLevel": 10, "effect": {"factor": 1.15}, "unlockAt": {"balance": 100000}},
-    {"id": "t_neuro", "tab": "technical", "group": "digital", "name": "Нейросеть «Пластогадалка»", "description": "Раз в минуту предсказывает удачное место и даёт бонус. Ошибается редко, но дорого.", "icon": "neuro", "type": "periodic", "baseCost": 164207, "maxLevel": 10, "effect": {"seconds": 60, "value": 15}, "unlockAt": {"balance": 30000}},
-    {"id": "t_drones", "tab": "technical", "group": "digital", "name": "Дроны-обходчики", "description": "Снижают расходы на персонал. Персонал снижает расходы на обед.", "icon": "drones", "type": "costCut", "baseCost": 403163, "maxLevel": 8, "effect": {"percent": 5}, "unlockAt": {"balance": 50000}},
-    {"id": "t_roga", "tab": "technical", "group": "digital", "name": "Сервисная компания «Рога и Копыта-Сервис»", "description": "Подрядчик-прокладка: приносит доход, но съедает часть в налоги и откаты.", "icon": "roga", "type": "passive", "baseCost": 10072152, "maxLevel": 45, "effect": {"value": 5000, "taxAdd": 0.008}, "unlockAt": {"balance": 300000}},
-    {"id": "t_krs", "tab": "technical", "group": "digital", "name": "Цех капитального ремонта скважин (КРС)", "description": "Возвращает к жизни старые скважины. Старые скважины не в восторге, но возвращаются.", "icon": "krs", "type": "periodic", "baseCost": 3078074, "maxLevel": 10, "effect": {"seconds": 90, "value": 18}, "unlockAt": {"balance": 150000}},
-    {"id": "t_dashboard", "tab": "technical", "group": "digital", "name": "Корпоративный «Единый дашборд»", "description": "Красивые графики вместо реальной работы. Небольшой множитель к доходу.", "icon": "dashboard", "type": "multiplier", "baseCost": 20411, "maxLevel": 10, "effect": {"factor": 1.04}, "unlockAt": {"balance": 20000}},
-    {"id": "p_monarch", "tab": "political", "group": "grants", "name": "Попросить монет у императора «на поддержание штанов»", "description": "Разовая выплата из личного фонда. Перезарядка — пока император не остынет.", "icon": "monarch", "type": "oneShot", "baseCost": 0, "maxLevel": 1, "cooldownSeconds": 60, "effect": {"value": 25}, "tag": "strict", "repeatable": true},
-    {"id": "p_forum", "tab": "political", "group": "grants", "name": "Пойти на фуршет на экономическом форуме", "description": "Большой контракт: на время автоматически идёт много монет.", "icon": "forum", "type": "oneShot", "baseCost": 0, "maxLevel": 1, "cooldownSeconds": 150, "effect": {"value": 110}, "unlockAt": {"balance": 2000}, "repeatable": true},
-    {"id": "p_forum2", "tab": "political", "group": "grants", "name": "Устроить экономический форум с икорной вечеринкой", "description": "Большой контракт, много икры, мало вопросов. Икра за счёт империи.", "icon": "forum2", "type": "oneShot", "baseCost": 99063, "maxLevel": 1, "cooldownSeconds": 240, "effect": {"value": 300}, "unlockAt": {"balance": 30000}, "repeatable": true},
-    {"id": "p_ministry", "tab": "political", "group": "grants", "name": "Занести в «министерство нефтяных ресурсов»", "description": "Периодически бесплатно появляются новые месторождения с хорошей нефтеотдачей.", "icon": "ministry", "type": "periodic", "baseCost": 457, "maxLevel": 10, "cooldownSeconds": 0, "effect": {"seconds": 75, "value": 14}, "tag": "strict", "unlockAt": {"balance": 3000}},
-    {"id": "p_sauna", "tab": "political", "group": "taxes", "name": "Сходить в сауну с главой «комитета по промышленности»", "description": "Налоги снижаются. Вопросы к веникам остаются.", "icon": "sauna", "type": "taxCut", "baseCost": 127, "maxLevel": 10, "effect": {"percent": 2}, "tag": "strict", "unlockAt": {"balance": 500}},
-    {"id": "p_senate", "tab": "political", "group": "taxes", "name": "Пропихнуть своего человека в сенат", "description": "Периодически снижаются налоги. Сенат периодически не в курсе.", "icon": "senate", "type": "periodic", "baseCost": 78823, "maxLevel": 10, "effect": {"seconds": 60, "value": 8, "taxCut": 0.5}, "unlockAt": {"balance": 20000}},
-    {"id": "p_fund", "tab": "political", "group": "taxes", "name": "Открыть благотворительный фонд (для себя)", "description": "Благотворительность начинается с себя. Ставка налога это ценит.", "icon": "fund", "type": "taxCut", "baseCost": 2791, "maxLevel": 10, "effect": {"percent": 1.5}, "unlockAt": {"balance": 10000}},
-    {"id": "p_offshore", "tab": "political", "group": "taxes", "name": "Найти оффшор на Мальдивах", "description": "Расходы падают, загар растёт. Бухгалтерия на острове.", "icon": "offshore", "type": "costCut", "baseCost": 217063, "maxLevel": 8, "effect": {"percent": 6}, "unlockAt": {"balance": 40000}},
-    {"id": "p_optimize", "tab": "political", "group": "taxes", "name": "Оптимизировать зарплату", "description": "Снижение издержек. Сотрудники называют это «оптимизацией себя».", "icon": "optimize", "type": "costCut", "baseCost": 184, "maxLevel": 8, "effect": {"percent": 4}, "unlockAt": {"balance": 900}},
-    {"id": "p_export", "tab": "political", "group": "deals", "name": "Пихнуть нефть заграницу", "description": "Единовременный большой платёж по мировой цене на нефть. Лучше пихать, когда цена высокая.", "icon": "export", "type": "oneShot", "baseCost": 0, "maxLevel": 1, "cooldownSeconds": 40, "effect": {"value": 40, "usesWorldPrice": true}, "tag": "strict", "unlockAt": {"balance": 1500}, "repeatable": true},
-    {"id": "p_crisis", "tab": "political", "group": "deals", "name": "Устроить мировой нефтяной кризис", "description": "Дорого, результат ×10. Или тишина и счёт за юристов.", "icon": "crisis", "type": "gamble", "baseCost": 4632485, "maxLevel": 1, "cooldownSeconds": 30, "effect": {"factor": 10, "seconds": 30, "chance": 0.55}, "unlockAt": {"balance": 150000}, "repeatable": true},
-    {"id": "p_fuelcrisis", "tab": "political", "group": "deals", "name": "Устроить топливный кризис", "description": "Недорого, но отдача очень большая. Люди заправляются и грустят.", "icon": "fuelcrisis", "type": "gamble", "baseCost": 27225, "maxLevel": 1, "cooldownSeconds": 25, "effect": {"factor": 12, "seconds": 18, "chance": 0.5}, "unlockAt": {"balance": 15000}, "repeatable": true},
-    {"id": "p_lawyer", "tab": "political", "group": "deals", "name": "Нанять юриста с говорящей фамилией", "description": "Фамилия многое решает. Риск ниже, отдача скромнее.", "icon": "lawyer", "type": "gamble", "baseCost": 4373, "maxLevel": 1, "cooldownSeconds": 60, "effect": {"factor": 3, "seconds": 40, "chance": 0.9}, "unlockAt": {"balance": 12000}, "repeatable": true},
-    {"id": "p_field", "tab": "political", "group": "conquest", "name": "Отжать месторождение у конкурентов", "description": "Месторождение переходит вместе с вахтовым посёлком и его проблемами.", "icon": "field", "type": "passive", "baseCost": 36667, "maxLevel": 45, "effect": {"value": 300}, "unlockAt": {"balance": 18000}},
-    {"id": "p_refinery", "tab": "political", "group": "conquest", "name": "Отжать нефтеперерабатывающий завод у конкурентов", "description": "Завод теперь ваш. Конкурент теперь в санатории.", "icon": "refinery-grab", "type": "passive", "baseCost": 3522305, "maxLevel": 45, "effect": {"value": 1600}, "unlockAt": {"balance": 130000}},
-    {"id": "p_press", "tab": "political", "group": "conquest", "name": "Нагнуть конкурента", "description": "Прибыль растёт. Конкурент учится уважать горизонт.", "icon": "press", "type": "multiplier", "baseCost": 1514656, "maxLevel": 10, "effect": {"factor": 1.1}, "unlockAt": {"balance": 80000}},
-    {"id": "p_gov", "tab": "political", "group": "conquest", "name": "Пропихнуть своего человека в правительство", "description": "Цены на «мою» нефть и нефтепродукты всегда высокие.", "icon": "gov", "type": "priceBoost", "baseCost": 251347, "maxLevel": 6, "effect": {"factor": 1.15}, "unlockAt": {"balance": 35000}},
-    {"id": "p_contractor", "tab": "political", "group": "conquest", "name": "Швырнуть подрядчика", "description": "Бесплатно, небольшая разовая добавка монет. Подрядчик улетел красиво.", "icon": "contractor", "type": "oneShot", "baseCost": 0, "maxLevel": 1, "cooldownSeconds": 20, "effect": {"value": 8}, "unlockAt": {"balance": 500}, "repeatable": true},
-    {"id": "p_newspaper", "tab": "political", "group": "conquest", "name": "Купить местную газету", "description": "Теперь хорошие новости пишутся по вашему заказу. И по вашему прайсу.", "icon": "newspaper", "type": "priceBoost", "baseCost": 11799, "maxLevel": 5, "effect": {"factor": 1.08}, "unlockAt": {"balance": 15000}},
-    {"id": "p_puppy", "tab": "political", "group": "favors", "name": "Подарить борзого щенка депутату", "description": "Щенок борзый, депутат довольный, бюджет империи слегка покусанный.", "icon": "puppy", "type": "oneShot", "baseCost": 355, "maxLevel": 1, "cooldownSeconds": 90, "effect": {"value": 60}, "unlockAt": {"balance": 3000}, "repeatable": true},
-    {"id": "p_temple", "tab": "political", "group": "favors", "name": "Пожертвовать на храм (и на уход за храмом)", "description": "Скромно, но с расчётом: небесная бухгалтерия тоже бухгалтерия.", "icon": "temple", "type": "oneShot", "baseCost": 0, "maxLevel": 1, "cooldownSeconds": 45, "effect": {"value": 12}, "unlockAt": {"balance": 2000}, "repeatable": true},
-    {"id": "p_expertise", "tab": "political", "group": "favors", "name": "Заказать экспертизу, которая доказывает всё", "description": "Экспертиза подтверждает: империя эффективна, вы правы, налоги — недоразумение.", "icon": "expertise", "type": "multiplier", "baseCost": 126474, "maxLevel": 10, "effect": {"factor": 1.05}, "unlockAt": {"balance": 25000}},
-    {"id": "l_boat", "tab": "luxury", "group": "yachts", "name": "Лодка с мотором", "description": "Скромно, но уже на воде. Мотор заводится с третьего раза.", "icon": "lux-boat", "type": "luxury", "baseCost": 203, "maxLevel": 1, "unlockAt": {"balance": 1500}},
-    {"id": "l_speedboat", "tab": "luxury", "group": "yachts", "name": "Катер «Нефтяной ручеёк»", "description": "Нос задран, музыка громкая, все смотрят.", "icon": "lux-speedboat", "type": "luxury", "baseCost": 3481, "maxLevel": 1, "unlockAt": {"balance": 10000}},
-    {"id": "l_yacht", "tab": "luxury", "group": "yachts", "name": "Яхта «Скважина-1»", "description": "Название гордое, палуба деревянная, гости голодные.", "icon": "lux-yacht", "type": "luxury", "baseCost": 684782, "maxLevel": 1, "unlockAt": {"balance": 60000}},
-    {"id": "l_superyacht", "tab": "luxury", "group": "yachts", "name": "Суперяхта с вертолётной площадкой", "description": "Вертолёт уже есть, площадка на всякий случай.", "icon": "lux-superyacht", "type": "luxury", "baseCost": 43824203, "maxLevel": 1, "unlockAt": {"balance": 600000}},
-    {"id": "l_islandyacht", "tab": "luxury", "group": "yachts", "name": "Яхта размером с остров", "description": "Формально не остров. Фактически — уже да.", "icon": "lux-islandyacht", "type": "luxury", "baseCost": 80000000000.0, "maxLevel": 1, "unlockAt": {"balance": 25000000}},
-    {"id": "l_usedcar", "tab": "luxury", "group": "cars", "name": "Подержанная иномарка «для скромных начал»", "description": "Один владелец, который был очень аккуратен. Верим.", "icon": "lux-car-old", "type": "luxury", "baseCost": 152, "maxLevel": 1, "unlockAt": {"balance": 800}},
-    {"id": "l_suv", "tab": "luxury", "group": "cars", "name": "Внедорожник", "description": "Парковка — это состояние души.", "icon": "lux-car-suv", "type": "luxury", "baseCost": 1834, "maxLevel": 1, "unlockAt": {"balance": 8000}},
-    {"id": "l_limo", "tab": "luxury", "group": "cars", "name": "Лимузин", "description": "Диван с колёсами и перегородкой от народа.", "icon": "lux-car-limo", "type": "luxury", "baseCost": 342130, "maxLevel": 1, "unlockAt": {"balance": 40000}},
-    {"id": "l_retro", "tab": "luxury", "group": "cars", "name": "Раритетный ретро-автомобиль", "description": "Едет 40 км/ч, стоит как эскадрилья.", "icon": "lux-car-retro", "type": "luxury", "baseCost": 11646149, "maxLevel": 1, "unlockAt": {"balance": 300000}},
-    {"id": "l_cortege", "tab": "luxury", "group": "cars", "name": "Бронированный кортеж", "description": "Пробки расступаются сами. Из уважения или из страха — неважно.", "icon": "lux-cortege", "type": "luxury", "baseCost": 105907329371, "maxLevel": 1, "unlockAt": {"balance": 15000000}},
-    {"id": "l_ring", "tab": "luxury", "group": "bling", "name": "Брюлики: колечко", "description": "Маленькое, но с очень большим количеством карат.", "icon": "lux-ring", "type": "luxury", "baseCost": 281, "maxLevel": 1, "unlockAt": {"balance": 2000}},
-    {"id": "l_signet", "tab": "luxury", "group": "bling", "name": "Брюлики: печатка", "description": "Держите руку так, чтобы её было видно из космоса.", "icon": "lux-signet", "type": "luxury", "baseCost": 5536, "maxLevel": 1, "unlockAt": {"balance": 12000}},
-    {"id": "l_necklace", "tab": "luxury", "group": "bling", "name": "Брюлики: ожерелье", "description": "Тяжёлое. Как ответственность, только красивее.", "icon": "lux-necklace", "type": "luxury", "baseCost": 5217486, "maxLevel": 1, "unlockAt": {"balance": 150000}},
-    {"id": "l_crown", "tab": "luxury", "group": "bling", "name": "Брюлики: корона", "description": "Носить только по праздникам и по понедельникам.", "icon": "lux-crown", "type": "luxury", "baseCost": 1010219645, "maxLevel": 1, "unlockAt": {"balance": 2000000}},
-    {"id": "l_watch1", "tab": "luxury", "group": "bling", "name": "Часы «солидные»", "description": "Ходят точно, показывают примерно.", "icon": "lux-watch-1", "type": "luxury", "baseCost": 1027, "maxLevel": 1, "unlockAt": {"balance": 5000}},
-    {"id": "l_watch2", "tab": "luxury", "group": "bling", "name": "Часы «очень солидные»", "description": "Страна производства — легенда, цена — тоже.", "icon": "lux-watch-2", "type": "luxury", "baseCost": 1873407, "maxLevel": 1, "unlockAt": {"balance": 80000}},
-    {"id": "l_watch3", "tab": "luxury", "group": "bling", "name": "Часы «стоят дороже квартиры»", "description": "Время у них есть. У вас оно теперь тоже.", "icon": "lux-watch-3", "type": "luxury", "baseCost": 153825090, "maxLevel": 1, "unlockAt": {"balance": 1200000}},
-    {"id": "l_jacket1", "tab": "luxury", "group": "bling", "name": "Пиджак малиновый, как положено", "description": "Классика жанра. Император одобрил ваши штаны.", "icon": "lux-jacket-1", "type": "luxury", "baseCost": 520, "maxLevel": 1, "achievement": "a_hat", "unlockAt": {"balance": 4000}},
-    {"id": "l_jacket2", "tab": "luxury", "group": "bling", "name": "Пиджак золотой", "description": "Золотой, но по-прежнему малиновый внутри.", "icon": "lux-jacket-2", "type": "luxury", "baseCost": 2381602, "maxLevel": 1, "achievement": "a_hat", "unlockAt": {"balance": 100000}},
-    {"id": "l_jacket3", "tab": "luxury", "group": "bling", "name": "Пиджак с вышитым гербом империи", "description": "Герб вышит вручную, ночная смена не спала.", "icon": "lux-jacket-3", "type": "luxury", "baseCost": 2918369070, "maxLevel": 1, "achievement": "a_hat", "unlockAt": {"balance": 2500000}},
-    {"id": "l_cane", "tab": "luxury", "group": "bling", "name": "Трость с золотым набалдашником", "description": "Ходить не нужно, носить обязательно.", "icon": "lux-cane", "type": "luxury", "baseCost": 49885, "maxLevel": 1, "unlockAt": {"balance": 20000}},
-    {"id": "l_fur", "tab": "luxury", "group": "bling", "name": "Шуба из «искусственного» меха", "description": "Исключительно искусственная. Почти наверняка.", "icon": "lux-fur", "type": "luxury", "baseCost": 292496, "maxLevel": 1, "unlockAt": {"balance": 35000}},
-    {"id": "l_cigars", "tab": "luxury", "group": "bling", "name": "Сигары в позолоченной коробке", "description": "Дым дорогой, кашель тоже как у богатых.", "icon": "lux-cigars", "type": "luxury", "baseCost": 143798, "maxLevel": 1, "unlockAt": {"balance": 25000}},
-    {"id": "l_courchevel", "tab": "luxury", "group": "realty", "name": "Вилла в Куршевеле", "description": "Обязательно. Без вариантов. У камина стоит лыжа.", "icon": "lux-courchevel", "type": "luxury", "baseCost": 7640577, "maxLevel": 1, "achievement": "a_courchevel", "unlockAt": {"balance": 250000}},
-    {"id": "l_penthouse", "tab": "luxury", "group": "realty", "name": "Пентхаус в столице с видом на собственную нефтебазу", "description": "Вид на нефтебазу — тот самый, который не купить за деньги. Хотя...", "icon": "lux-penthouse", "type": "luxury", "baseCost": 80408365, "maxLevel": 1, "unlockAt": {"balance": 1000000}},
-    {"id": "l_castle", "tab": "luxury", "group": "realty", "name": "Замок с привидениями (оплачивается отдельно)", "description": "Привидения милые, но счёт за отопление средневековый.", "icon": "lux-castle", "type": "luxury", "baseCost": 9047982609, "maxLevel": 1, "unlockAt": {"balance": 5000000}},
-    {"id": "l_island", "tab": "luxury", "group": "realty", "name": "Собственный остров", "description": "Границы острова спорные, аппетит — нет.", "icon": "lux-island", "type": "luxury", "baseCost": 60000000000.0, "maxLevel": 1, "unlockAt": {"balance": 40000000}},
-    {"id": "l_heli", "tab": "luxury", "group": "transport", "name": "Вертолёт", "description": "Летает низко, статус высоко.", "icon": "lux-heli", "type": "luxury", "baseCost": 59062945, "maxLevel": 1, "unlockAt": {"balance": 800000}},
-    {"id": "l_plane", "tab": "luxury", "group": "transport", "name": "Частный самолёт", "description": "Салон кожаный, экипаж вежливый, маршрут по настроению.", "icon": "lux-plane", "type": "luxury", "baseCost": 57204345103, "maxLevel": 1, "unlockAt": {"balance": 8000000}},
-    {"id": "l_icebreaker", "tab": "luxury", "group": "transport", "name": "Ледокол «для рыбалки»", "description": "Рыбалка серьёзная, улов символический.", "icon": "lux-icebreaker", "type": "luxury", "baseCost": 194903949755, "maxLevel": 1, "unlockAt": {"balance": 20000000}},
-    {"id": "l_airship", "tab": "luxury", "group": "transport", "name": "Личный дирижабль", "description": "Медленно, громоздко, абсолютно великолепно.", "icon": "lux-airship", "type": "luxury", "baseCost": 40000000000.0, "maxLevel": 1, "unlockAt": {"balance": 30000000}},
-    {"id": "l_toilet", "tab": "luxury", "group": "fun", "name": "Золотой унитаз", "description": "Сантехника мечты. Многофункциональная.", "icon": "lux-toilet", "type": "luxury", "baseCost": 68578, "maxLevel": 1, "unlockAt": {"balance": 18000}},
-    {"id": "l_champagne", "tab": "luxury", "group": "fun", "name": "Бассейн с шампанским", "description": "Вода тёплая, пузырьки бесконечные, простыня мокрая.", "icon": "lux-champagne", "type": "luxury", "baseCost": 6699728, "maxLevel": 1, "unlockAt": {"balance": 220000}},
-    {"id": "l_chef", "tab": "luxury", "group": "fun", "name": "Личный повар со «звёздами»", "description": "Три звезды, один характер, ваша кухня.", "icon": "lux-chef", "type": "luxury", "baseCost": 826969, "maxLevel": 1, "unlockAt": {"balance": 60000}},
-    {"id": "l_wine", "tab": "luxury", "group": "fun", "name": "Коллекция вин, которую никто не откроет", "description": "Пыль — часть рецепта. Она охраняет инвестицию.", "icon": "lux-wine", "type": "luxury", "baseCost": 4049075, "maxLevel": 1, "unlockAt": {"balance": 120000}},
-    {"id": "l_caviar", "tab": "luxury", "group": "fun", "name": "Икра ложками, на завтрак, обед и ужин", "description": "Ложка — не сервировка, ложка — способ убеждения.", "icon": "lux-caviar", "type": "luxury", "baseCost": 478228, "maxLevel": 1, "unlockAt": {"balance": 50000}},
-    {"id": "l_square", "tab": "luxury", "group": "fun", "name": "Картина «Чёрный квадрат» (копия, но дорогая)", "description": "Копия настолько дорогая, что разницы не видно.", "icon": "lux-square", "type": "luxury", "baseCost": 15804307, "maxLevel": 1, "unlockAt": {"balance": 400000}},
-    {"id": "l_orchestra", "tab": "luxury", "group": "fun", "name": "Личный оркестр, играющий «пока ты ешь»", "description": "Аппетит под струнные. Суп остывает, но красиво.", "icon": "lux-orchestra", "type": "luxury", "baseCost": 374416392, "maxLevel": 1, "unlockAt": {"balance": 1500000}},
-    {"id": "l_footballclub", "tab": "luxury", "group": "fun", "name": "Футбольный клуб", "description": "Покупки игроков — отдельная строка бюджета и отдельная трагедия.", "icon": "lux-footballclub", "type": "luxury", "baseCost": 16393761002, "maxLevel": 1, "unlockAt": {"balance": 6000000}},
-    {"id": "l_stadium", "tab": "luxury", "group": "fun", "name": "Собственный стадион", "description": "Клуб играет, стадион стоит. Оба довольны.", "icon": "lux-stadium", "type": "luxury", "baseCost": 30000000000.0, "maxLevel": 1, "unlockAt": {"balance": 30000000}},
-    {"id": "l_monument", "tab": "luxury", "group": "fun", "name": "Памятник самому себе в натуральную величину", "description": "Охрана просит надбавку за смелость.", "icon": "lux-monument", "type": "luxury", "baseCost": 110616725, "maxLevel": 1, "unlockAt": {"balance": 1200000}},
-    {"id": "l_portrait", "tab": "luxury", "group": "fun", "name": "Парадный портрет в образе императора", "description": "Художник старался. Корона немного велика.", "icon": "lux-portrait", "type": "luxury", "baseCost": 18958737, "maxLevel": 1, "unlockAt": {"balance": 450000}},
-    {"id": "l_fountain", "tab": "luxury", "group": "fun", "name": "Фонтан, из которого бьёт «нефть»", "description": "Пока только на вид. Но выглядит как будущее.", "icon": "lux-fountain", "type": "luxury", "baseCost": 5091817411, "maxLevel": 1, "unlockAt": {"balance": 3000000}},
-    {"id": "l_throne", "tab": "luxury", "group": "fun", "name": "Трон с подогревом", "description": "Править холодно, сидеть тепло.", "icon": "lux-throne", "type": "luxury", "baseCost": 8752379, "maxLevel": 1, "unlockAt": {"balance": 250000}},
-    {"id": "l_santa", "tab": "luxury", "group": "fun", "name": "Личный Дед Мороз на постоянном окладе", "description": "Новый год круглый год. Борода приклеена, оклад серьёзный.", "icon": "lux-santa", "type": "luxury", "baseCost": 24836919, "maxLevel": 1, "unlockAt": {"balance": 500000}},
-    {"id": "win_pump", "tab": "goals", "group": "win", "name": "Магистральный Насос «Упырь-Абсолют»", "description": "Полный контроль над всей империей. Качает всё: нефть, бюджет, горизонт и соседей.", "icon": "win-pump", "type": "win", "baseCost": 3000000000000.0, "maxLevel": 1, "win": true, "tag": "strict"}
+    {
+      "id": "t_well",
+      "tab": "technical",
+      "group": "infrastructure",
+      "name": "Пробурить скважину",
+      "description": "Фонтанный способ: нефть сама идёт в резервуары.",
+      "icon": "well",
+      "type": "passive",
+      "baseCost": 73,
+      "maxLevel": 45,
+      "effect": {
+        "value": 0.1
+      },
+      "costGrowth": 1.34
+    },
+    {
+      "id": "t_refinery",
+      "tab": "technical",
+      "group": "infrastructure",
+      "name": "Построить нефтеперерабатывающий завод",
+      "description": "Свой завод: гонит мазут в бензин и приносит втрое больше, чем сырая нефть.",
+      "icon": "refinery",
+      "type": "sell",
+      "baseCost": 80000000000,
+      "maxLevel": 16,
+      "effect": {
+        "channel": "refine",
+        "value": 900
+      },
+      "unlockAt": {
+        "balance": 8000000000
+      },
+      "costGrowth": 1.1475,
+      "tag": "pinned"
+    },
+    {
+      "id": "t_depot",
+      "tab": "technical",
+      "group": "infrastructure",
+      "name": "Построить нефтебазу",
+      "description": "Резервуарный парк. Больше ёмкость — больше нефти можно накопить и продать в удачный момент.",
+      "icon": "depot",
+      "type": "storage",
+      "baseCost": 40000000,
+      "maxLevel": 29,
+      "effect": {
+        "value": 25000
+      },
+      "unlockAt": {
+        "balance": 4000000
+      },
+      "costGrowth": 1.15,
+      "tag": "pinned"
+    },
+    {
+      "id": "t_azs",
+      "tab": "technical",
+      "group": "infrastructure",
+      "name": "Построить сеть АЗС",
+      "description": "Заправки по всему региону. Бензин — по цене совести, а совести нет.",
+      "icon": "azs",
+      "type": "sell",
+      "baseCost": 720,
+      "maxLevel": 45,
+      "effect": {
+        "channel": "contract",
+        "value": 9000
+      },
+      "unlockAt": {
+        "balance": 4000
+      },
+      "costGrowth": 1.2
+    },
+    {
+      "id": "t_pipeline",
+      "tab": "technical",
+      "group": "infrastructure",
+      "name": "Проложить трубопровод «Чёрная змея»",
+      "description": "Пассивный доход и минус логистика. Змея ползёт сама.",
+      "icon": "pipeline",
+      "type": "sell",
+      "baseCost": 7066,
+      "maxLevel": 45,
+      "effect": {
+        "channel": "export",
+        "value": 16200
+      },
+      "unlockAt": {
+        "balance": 15000
+      },
+      "costGrowth": 1.2
+    },
+    {
+      "id": "t_terminal",
+      "tab": "technical",
+      "group": "infrastructure",
+      "name": "Построить морской терминал с собственным танкером",
+      "description": "Усиливает «пихнуть нефть заграницу». Танкер гудит на удачу.",
+      "icon": "terminal",
+      "type": "sell",
+      "baseCost": 1005077,
+      "maxLevel": 45,
+      "effect": {
+        "channel": "export",
+        "value": 43200,
+        "exportBonus": 0.15
+      },
+      "unlockAt": {
+        "balance": 80000
+      },
+      "costGrowth": 1.18
+    },
+    {
+      "id": "t_rail",
+      "tab": "technical",
+      "group": "infrastructure",
+      "name": "Построить железнодорожную эстакаду",
+      "description": "Налив цистерн: быстро, громко, с матом.",
+      "icon": "rail",
+      "type": "sell",
+      "baseCost": 13532435,
+      "maxLevel": 45,
+      "effect": {
+        "channel": "export",
+        "value": 126000
+      },
+      "unlockAt": {
+        "balance": 400000
+      },
+      "costGrowth": 1.18
+    },
+    {
+      "id": "t_gasplant",
+      "tab": "technical",
+      "group": "infrastructure",
+      "name": "Построить газоперерабатывающий завод",
+      "description": "Попутный газ больше не сгорает в факеле. Теперь он сгорает в кассе.",
+      "icon": "gasplant",
+      "type": "sell",
+      "baseCost": 609957739,
+      "maxLevel": 45,
+      "effect": {
+        "channel": "refine",
+        "value": 144000
+      },
+      "unlockAt": {
+        "balance": 2000000
+      },
+      "costGrowth": 1.18
+    },
+    {
+      "id": "t_power",
+      "tab": "technical",
+      "group": "infrastructure",
+      "name": "Построить электростанцию на попутном газе",
+      "description": "Электричество своё, счётчики чужие. Счётчики не согласны.",
+      "icon": "power",
+      "type": "sell",
+      "baseCost": 30306737268,
+      "maxLevel": 45,
+      "effect": {
+        "channel": "refine",
+        "value": 396000,
+        "costCut": 0.03
+      },
+      "unlockAt": {
+        "balance": 8000000
+      },
+      "costGrowth": 1.18
+    },
+    {
+      "id": "d1_blade",
+      "tab": "technical",
+      "group": "drills",
+      "name": "Лопастное долото",
+      "description": "Устаревшее, базовое, но своё. Как первая машина.",
+      "icon": "drill-blade",
+      "type": "perTap",
+      "baseCost": 70,
+      "maxLevel": 50,
+      "effect": {
+        "value": 1
+      },
+      "costGrowth": 1.3
+    },
+    {
+      "id": "d2_milled",
+      "tab": "technical",
+      "group": "drills",
+      "name": "Шарошечное долото с фрезерованными стальными зубьями",
+      "description": "Для мягких пород и мягких подрядчиков.",
+      "icon": "drill-milled",
+      "type": "perTap",
+      "baseCost": 85,
+      "maxLevel": 50,
+      "effect": {
+        "value": 2.5
+      },
+      "unlockAt": {
+        "upgrade": "d1_blade",
+        "level": 3
+      },
+      "costGrowth": 1.3
+    },
+    {
+      "id": "d3_tci",
+      "tab": "technical",
+      "group": "drills",
+      "name": "Шарошечное долото с твердосплавными вставками (TCI)",
+      "description": "Для средних и твёрдых пород. Твёрдый характер прилагается.",
+      "icon": "drill-tci",
+      "type": "perTap",
+      "baseCost": 138,
+      "maxLevel": 50,
+      "effect": {
+        "value": 6.5
+      },
+      "unlockAt": {
+        "upgrade": "d2_milled",
+        "level": 3
+      },
+      "costGrowth": 1.3
+    },
+    {
+      "id": "d4_hybrid",
+      "tab": "technical",
+      "group": "drills",
+      "name": "Гибридное долото (шарошки + резцы PDC)",
+      "description": "Два в одном: и жуёт, и режет. Инженеры гордятся, бухгалтер плачет.",
+      "icon": "drill-hybrid",
+      "type": "perTap",
+      "baseCost": 607,
+      "maxLevel": 50,
+      "effect": {
+        "value": 17
+      },
+      "unlockAt": {
+        "upgrade": "d3_tci",
+        "level": 3
+      },
+      "costGrowth": 1.3
+    },
+    {
+      "id": "d5_pdc",
+      "tab": "technical",
+      "group": "drills",
+      "name": "Долото PDC с резцами из поликристаллического алмаза",
+      "description": "Быстрое, износостойкое, дорогое как мечта.",
+      "icon": "drill-pdc",
+      "type": "perTap",
+      "baseCost": 111706,
+      "maxLevel": 50,
+      "effect": {
+        "value": 55
+      },
+      "unlockAt": {
+        "upgrade": "d4_hybrid",
+        "level": 3
+      },
+      "costGrowth": 1.3
+    },
+    {
+      "id": "d6_impreg",
+      "tab": "technical",
+      "group": "drills",
+      "name": "Импрегнированное алмазное долото",
+      "description": "Для самых твёрдых пород и самых мягких переговоров.",
+      "icon": "drill-impreg",
+      "type": "perTap",
+      "baseCost": 5900053,
+      "maxLevel": 50,
+      "effect": {
+        "value": 165
+      },
+      "unlockAt": {
+        "upgrade": "d5_pdc",
+        "level": 3
+      },
+      "costGrowth": 1.3
+    },
+    {
+      "id": "d7_terminator",
+      "tab": "technical",
+      "group": "drills",
+      "name": "Долото-Терминатор",
+      "description": "Проходит породу, бюджет и здравый смысл. Выдумка игры, но мы уже заказали.",
+      "icon": "drill-terminator",
+      "type": "perTap",
+      "baseCost": 233532022,
+      "maxLevel": 50,
+      "effect": {
+        "value": 520
+      },
+      "achievement": "a_drill7",
+      "unlockAt": {
+        "upgrade": "d6_impreg",
+        "level": 3
+      },
+      "costGrowth": 1.3
+    },
+    {
+      "id": "t_pump1",
+      "tab": "technical",
+      "group": "pumps",
+      "name": "Поршневой буровой насос",
+      "description": "Качает раствор и настроение.",
+      "icon": "pump-piston",
+      "type": "perTap",
+      "baseCost": 79,
+      "maxLevel": 50,
+      "effect": {
+        "value": 1.6
+      },
+      "unlockAt": {
+        "balance": 40
+      },
+      "costGrowth": 1.3
+    },
+    {
+      "id": "t_pump2",
+      "tab": "technical",
+      "group": "pumps",
+      "name": "Усиленный насос высокого давления",
+      "description": "Давление выше, вопросы к подрядчику тоже.",
+      "icon": "pump-hp",
+      "type": "perTap",
+      "baseCost": 116,
+      "maxLevel": 50,
+      "effect": {
+        "value": 4.2
+      },
+      "unlockAt": {
+        "upgrade": "t_pump1",
+        "level": 3
+      },
+      "costGrowth": 1.3
+    },
+    {
+      "id": "t_pump3",
+      "tab": "technical",
+      "group": "pumps",
+      "name": "Насос с цифровым управлением",
+      "description": "Теперь насос сам решает, когда качать. Мы только подписываем.",
+      "icon": "pump-digital",
+      "type": "perTap",
+      "baseCost": 1501,
+      "maxLevel": 50,
+      "effect": {
+        "value": 12
+      },
+      "unlockAt": {
+        "upgrade": "t_pump2",
+        "level": 3
+      },
+      "costGrowth": 1.3
+    },
+    {
+      "id": "t_pump4",
+      "tab": "technical",
+      "group": "pumps",
+      "name": "Насос-Гигант",
+      "description": "Нужен для финальной цели. Соседи слышат его через горизонт.",
+      "icon": "pump-giant",
+      "type": "passive",
+      "baseCost": 1701945636,
+      "maxLevel": 45,
+      "effect": {
+        "value": 8
+      },
+      "unlockAt": {
+        "balance": 2000000
+      },
+      "costGrowth": 1.12
+    },
+    {
+      "id": "t_carat",
+      "tab": "technical",
+      "group": "geology",
+      "name": "Улучшенные каротажные приборы",
+      "description": "Несколько уровней честности измерений. Почти честных.",
+      "icon": "carat",
+      "type": "multiplier",
+      "baseCost": 107,
+      "maxLevel": 10,
+      "effect": {
+        "factor": 1.06
+      },
+      "unlockAt": {
+        "balance": 250
+      }
+    },
+    {
+      "id": "t_imager",
+      "tab": "technical",
+      "group": "geology",
+      "name": "Имиджер",
+      "description": "Чтобы красиво видеть пласт и свою зарплату.",
+      "icon": "imager",
+      "type": "multiplier",
+      "baseCost": 251,
+      "maxLevel": 10,
+      "effect": {
+        "factor": 1.05
+      },
+      "unlockAt": {
+        "upgrade": "t_carat",
+        "level": 2
+      }
+    },
+    {
+      "id": "t_cartographer",
+      "tab": "technical",
+      "group": "geology",
+      "name": "Картограф",
+      "description": "По резистивиметрии и каротажам узнаёт пласт лучше, чем вы свою жизнь.",
+      "icon": "cartographer",
+      "type": "multiplier",
+      "baseCost": 15448,
+      "maxLevel": 10,
+      "effect": {
+        "factor": 1.08
+      },
+      "unlockAt": {
+        "upgrade": "t_imager",
+        "level": 2
+      }
+    },
+    {
+      "id": "t_mwd",
+      "tab": "technical",
+      "group": "geology",
+      "name": "Телеметрия MWD/LWD",
+      "description": "Данные с забоя в реальном времени. Забой в шоке от такой огласки.",
+      "icon": "mwd",
+      "type": "perTap",
+      "baseCost": 857,
+      "maxLevel": 50,
+      "effect": {
+        "value": 26
+      },
+      "unlockAt": {
+        "balance": 5000
+      },
+      "costGrowth": 1.3
+    },
+    {
+      "id": "t_resist",
+      "tab": "technical",
+      "group": "geology",
+      "name": "Азимутальный резистивиметр",
+      "description": "Видит границы пласта вокруг долота. Усиливает эффект геонавигатора.",
+      "icon": "resist",
+      "type": "multiplier",
+      "baseCost": 570553,
+      "maxLevel": 10,
+      "effect": {
+        "factor": 1.07
+      },
+      "unlockAt": {
+        "upgrade": "t_cartographer",
+        "level": 2
+      }
+    },
+    {
+      "id": "t_core",
+      "tab": "technical",
+      "group": "geology",
+      "name": "Лаборатория керна",
+      "description": "Хорошая нефтеотдача для новых месторождений. Керн одобряет.",
+      "icon": "core",
+      "type": "periodic",
+      "baseCost": 1229631,
+      "maxLevel": 10,
+      "effect": {
+        "seconds": 45,
+        "value": 12
+      },
+      "unlockAt": {
+        "upgrade": "t_mwd",
+        "level": 2
+      }
+    },
+    {
+      "id": "t_motor",
+      "tab": "technical",
+      "group": "equipment",
+      "name": "Винтовой забойный двигатель",
+      "description": "Прибавка к доходу за тап и к самоуважению.",
+      "icon": "motor",
+      "type": "perTap",
+      "baseCost": 315,
+      "maxLevel": 50,
+      "effect": {
+        "value": 9
+      },
+      "unlockAt": {
+        "balance": 2500
+      },
+      "costGrowth": 1.3
+    },
+    {
+      "id": "t_rss",
+      "tab": "technical",
+      "group": "equipment",
+      "name": "Роторная управляемая система (РУС)",
+      "description": "Большая прибавка к тапу и к скорости горизонтального участка.",
+      "icon": "rss",
+      "type": "perTap",
+      "baseCost": 9091,
+      "maxLevel": 50,
+      "effect": {
+        "value": 32
+      },
+      "unlockAt": {
+        "upgrade": "t_motor",
+        "level": 3
+      },
+      "costGrowth": 1.3
+    },
+    {
+      "id": "t_topdrive",
+      "tab": "technical",
+      "group": "equipment",
+      "name": "Верхний привод",
+      "description": "Автоматический тап с низкой частотой. Пока вы обедаете, империя растёт.",
+      "icon": "topdrive",
+      "type": "autoTap",
+      "baseCost": 2255,
+      "maxLevel": 12,
+      "effect": {
+        "value": 0.5
+      },
+      "unlockAt": {
+        "balance": 12000
+      }
+    },
+    {
+      "id": "t_mud",
+      "tab": "technical",
+      "group": "equipment",
+      "name": "Буровой раствор «Премиум»",
+      "description": "Инвертно-эмульсионный. Аварии меньше, счёт больше.",
+      "icon": "mud",
+      "type": "costCut",
+      "baseCost": 1238,
+      "maxLevel": 8,
+      "effect": {
+        "percent": 3
+      },
+      "unlockAt": {
+        "balance": 6000
+      }
+    },
+    {
+      "id": "t_frac",
+      "tab": "technical",
+      "group": "equipment",
+      "name": "Многостадийный ГРП",
+      "description": "Гидроразрыв пласта. Пласт не подписывал согласие.",
+      "icon": "frac",
+      "type": "multiplier",
+      "baseCost": 2701764,
+      "maxLevel": 10,
+      "effect": {
+        "factor": 1.1
+      },
+      "unlockAt": {
+        "balance": 120000
+      }
+    },
+    {
+      "id": "t_smart",
+      "tab": "technical",
+      "group": "equipment",
+      "name": "Умная скважина",
+      "description": "Автоматизация: пассивный доход растёт сам, отчётность — тоже сама.",
+      "icon": "smart",
+      "type": "multiplier",
+      "baseCost": 32836322,
+      "maxLevel": 10,
+      "effect": {
+        "factor": 1.12
+      },
+      "unlockAt": {
+        "balance": 600000
+      },
+      "costGrowth": 1.12
+    },
+    {
+      "id": "t_esp",
+      "tab": "technical",
+      "group": "equipment",
+      "name": "Электроцентробежный насос (ЭЦН)",
+      "description": "Увеличивает добычу действующих скважин. Соседние скважины завидуют.",
+      "icon": "esp",
+      "type": "multiplier",
+      "baseCost": 188357,
+      "maxLevel": 10,
+      "effect": {
+        "factor": 1.06
+      },
+      "unlockAt": {
+        "balance": 40000
+      }
+    },
+    {
+      "id": "s_geonav",
+      "tab": "technical",
+      "group": "crew",
+      "name": "Нанять геонавигатора",
+      "description": "Ведёт долото по пласту. С ним добыча идёт ровнее.",
+      "icon": "geomav",
+      "type": "passive",
+      "baseCost": 99,
+      "maxLevel": 45,
+      "effect": {
+        "value": 0.1
+      },
+      "unlockAt": {
+        "balance": 200
+      },
+      "costGrowth": 1.34
+    },
+    {
+      "id": "t_gti",
+      "tab": "technical",
+      "group": "staff",
+      "name": "Нанять ГТИ-шника",
+      "description": "Специалист по ГТИ. Монет больше, чем у геонавигатора, а кофе тот же.",
+      "icon": "gti",
+      "type": "passive",
+      "baseCost": 226,
+      "maxLevel": 45,
+      "effect": {
+        "value": 6
+      },
+      "unlockAt": {
+        "upgrade": "s_geonav",
+        "level": 2
+      }
+    },
+    {
+      "id": "s_brigade",
+      "tab": "technical",
+      "group": "crew",
+      "name": "Нанять буровую бригаду-стахановцев",
+      "description": "Пять человек и один кувалдометр. Работают за троих и просят прибавку.",
+      "icon": "brigade",
+      "type": "passive",
+      "baseCost": 401,
+      "maxLevel": 45,
+      "effect": {
+        "value": 0.1,
+        "salaryAdd": 0.4
+      },
+      "unlockAt": {
+        "balance": 3000
+      },
+      "costGrowth": 1.34
+    },
+    {
+      "id": "t_technolog",
+      "tab": "technical",
+      "group": "staff",
+      "name": "Нанять главного технолога",
+      "description": "Снижает аварийные расходы. Его не любит никто, но он прав.",
+      "icon": "technolog",
+      "type": "costCut",
+      "baseCost": 88198,
+      "maxLevel": 8,
+      "effect": {
+        "percent": 4
+      },
+      "unlockAt": {
+        "balance": 25000
+      }
+    },
+    {
+      "id": "t_twin",
+      "tab": "technical",
+      "group": "digital",
+      "name": "Цифровой двойник месторождения",
+      "description": "Множитель ко всему пассивному доходу. Двойник тоже хочет премию.",
+      "icon": "twin",
+      "type": "multiplier",
+      "baseCost": 2108063,
+      "maxLevel": 10,
+      "effect": {
+        "factor": 1.15
+      },
+      "unlockAt": {
+        "balance": 100000
+      }
+    },
+    {
+      "id": "t_neuro",
+      "tab": "technical",
+      "group": "digital",
+      "name": "Нейросеть «Пластогадалка»",
+      "description": "Раз в минуту предсказывает удачное место и даёт бонус. Ошибается редко, но дорого.",
+      "icon": "neuro",
+      "type": "periodic",
+      "baseCost": 164207,
+      "maxLevel": 10,
+      "effect": {
+        "seconds": 60,
+        "value": 15
+      },
+      "unlockAt": {
+        "balance": 30000
+      }
+    },
+    {
+      "id": "t_drones",
+      "tab": "technical",
+      "group": "digital",
+      "name": "Дроны-обходчики",
+      "description": "Снижают расходы на персонал. Персонал снижает расходы на обед.",
+      "icon": "drones",
+      "type": "costCut",
+      "baseCost": 403163,
+      "maxLevel": 8,
+      "effect": {
+        "percent": 5
+      },
+      "unlockAt": {
+        "balance": 50000
+      }
+    },
+    {
+      "id": "t_roga",
+      "tab": "technical",
+      "group": "digital",
+      "name": "Сервисная компания «Рога и Копыта-Сервис»",
+      "description": "Подрядчик-прокладка: приносит доход, но съедает часть в налоги и откаты.",
+      "icon": "roga",
+      "type": "passive",
+      "baseCost": 10072152,
+      "maxLevel": 45,
+      "effect": {
+        "value": 5000,
+        "taxAdd": 0.008
+      },
+      "unlockAt": {
+        "balance": 300000
+      }
+    },
+    {
+      "id": "t_krs",
+      "tab": "technical",
+      "group": "digital",
+      "name": "Цех капитального ремонта скважин (КРС)",
+      "description": "Возвращает к жизни старые скважины. Старые скважины не в восторге, но возвращаются.",
+      "icon": "krs",
+      "type": "periodic",
+      "baseCost": 3078074,
+      "maxLevel": 10,
+      "effect": {
+        "seconds": 90,
+        "value": 18
+      },
+      "unlockAt": {
+        "balance": 150000
+      }
+    },
+    {
+      "id": "t_dashboard",
+      "tab": "technical",
+      "group": "digital",
+      "name": "Корпоративный «Единый дашборд»",
+      "description": "Красивые графики вместо реальной работы. Небольшой множитель к доходу.",
+      "icon": "dashboard",
+      "type": "multiplier",
+      "baseCost": 20411,
+      "maxLevel": 10,
+      "effect": {
+        "factor": 1.04
+      },
+      "unlockAt": {
+        "balance": 20000
+      }
+    },
+    {
+      "id": "p_monarch",
+      "tab": "political",
+      "group": "grants",
+      "name": "Попросить монет у императора «на поддержание штанов»",
+      "description": "Разовая выплата из личного фонда. Перезарядка — пока император не остынет.",
+      "icon": "monarch",
+      "type": "oneShot",
+      "baseCost": 0,
+      "maxLevel": 1,
+      "cooldownSeconds": 60,
+      "effect": {
+        "value": 25
+      },
+      "tag": "strict",
+      "repeatable": true
+    },
+    {
+      "id": "p_forum",
+      "tab": "political",
+      "group": "grants",
+      "name": "Пойти на фуршет на экономическом форуме",
+      "description": "Большой контракт: на время автоматически идёт много монет.",
+      "icon": "forum",
+      "type": "oneShot",
+      "baseCost": 0,
+      "maxLevel": 1,
+      "cooldownSeconds": 150,
+      "effect": {
+        "value": 110
+      },
+      "unlockAt": {
+        "balance": 2000
+      },
+      "repeatable": true
+    },
+    {
+      "id": "p_forum2",
+      "tab": "political",
+      "group": "grants",
+      "name": "Устроить экономический форум с икорной вечеринкой",
+      "description": "Большой контракт, много икры, мало вопросов. Икра за счёт империи.",
+      "icon": "forum2",
+      "type": "oneShot",
+      "baseCost": 99063,
+      "maxLevel": 1,
+      "cooldownSeconds": 240,
+      "effect": {
+        "value": 300
+      },
+      "unlockAt": {
+        "balance": 30000
+      },
+      "repeatable": true
+    },
+    {
+      "id": "p_ministry",
+      "tab": "political",
+      "group": "grants",
+      "name": "Занести в «министерство нефтяных ресурсов»",
+      "description": "Периодически бесплатно появляются новые месторождения с хорошей нефтеотдачей.",
+      "icon": "ministry",
+      "type": "periodic",
+      "baseCost": 457,
+      "maxLevel": 10,
+      "cooldownSeconds": 0,
+      "effect": {
+        "seconds": 75,
+        "value": 14
+      },
+      "tag": "strict",
+      "unlockAt": {
+        "balance": 3000
+      }
+    },
+    {
+      "id": "p_sauna",
+      "tab": "political",
+      "group": "taxes",
+      "name": "Сходить в сауну с главой «комитета по промышленности»",
+      "description": "Налоги снижаются. Вопросы к веникам остаются.",
+      "icon": "sauna",
+      "type": "taxCut",
+      "baseCost": 127,
+      "maxLevel": 10,
+      "effect": {
+        "percent": 2
+      },
+      "tag": "strict",
+      "unlockAt": {
+        "balance": 500
+      }
+    },
+    {
+      "id": "p_senate",
+      "tab": "political",
+      "group": "taxes",
+      "name": "Пропихнуть своего человека в сенат",
+      "description": "Периодически снижаются налоги. Сенат периодически не в курсе.",
+      "icon": "senate",
+      "type": "periodic",
+      "baseCost": 78823,
+      "maxLevel": 10,
+      "effect": {
+        "seconds": 60,
+        "value": 8,
+        "taxCut": 0.5
+      },
+      "unlockAt": {
+        "balance": 20000
+      }
+    },
+    {
+      "id": "p_fund",
+      "tab": "political",
+      "group": "taxes",
+      "name": "Открыть благотворительный фонд (для себя)",
+      "description": "Благотворительность начинается с себя. Ставка налога это ценит.",
+      "icon": "fund",
+      "type": "taxCut",
+      "baseCost": 2791,
+      "maxLevel": 10,
+      "effect": {
+        "percent": 1.5
+      },
+      "unlockAt": {
+        "balance": 10000
+      }
+    },
+    {
+      "id": "p_offshore",
+      "tab": "political",
+      "group": "taxes",
+      "name": "Найти оффшор на Мальдивах",
+      "description": "Расходы падают, загар растёт. Бухгалтерия на острове.",
+      "icon": "offshore",
+      "type": "costCut",
+      "baseCost": 217063,
+      "maxLevel": 8,
+      "effect": {
+        "percent": 6
+      },
+      "unlockAt": {
+        "balance": 40000
+      }
+    },
+    {
+      "id": "p_optimize",
+      "tab": "political",
+      "group": "taxes",
+      "name": "Оптимизировать зарплату",
+      "description": "Снижение издержек. Сотрудники называют это «оптимизацией себя».",
+      "icon": "optimize",
+      "type": "costCut",
+      "baseCost": 184,
+      "maxLevel": 8,
+      "effect": {
+        "percent": 4
+      },
+      "unlockAt": {
+        "balance": 900
+      }
+    },
+    {
+      "id": "p_export",
+      "tab": "political",
+      "group": "deals",
+      "name": "Пихнуть нефть заграницу",
+      "description": "Слить накопленную нефть за границу по мировому курсу. Чем полнее резервуары — тем выгоднее.",
+      "icon": "export",
+      "type": "oneShot",
+      "baseCost": 0,
+      "maxLevel": 1,
+      "cooldownSeconds": 40,
+      "effect": {
+        "value": 40,
+        "usesWorldPrice": true,
+        "sellsOil": true,
+        "burstChannel": "export"
+      },
+      "tag": "strict",
+      "unlockAt": {
+        "balance": 400
+      },
+      "repeatable": true
+    },
+    {
+      "id": "p_crisis",
+      "tab": "political",
+      "group": "deals",
+      "name": "Устроить мировой нефтяной кризис",
+      "description": "Дорого, результат ×10. Или тишина и счёт за юристов.",
+      "icon": "crisis",
+      "type": "gamble",
+      "baseCost": 4632485,
+      "maxLevel": 1,
+      "cooldownSeconds": 30,
+      "effect": {
+        "factor": 10,
+        "seconds": 30,
+        "chance": 0.55
+      },
+      "unlockAt": {
+        "balance": 150000
+      },
+      "repeatable": true
+    },
+    {
+      "id": "p_fuelcrisis",
+      "tab": "political",
+      "group": "deals",
+      "name": "Устроить топливный кризис",
+      "description": "Недорого, но отдача очень большая. Люди заправляются и грустят.",
+      "icon": "fuelcrisis",
+      "type": "gamble",
+      "baseCost": 27225,
+      "maxLevel": 1,
+      "cooldownSeconds": 25,
+      "effect": {
+        "factor": 12,
+        "seconds": 18,
+        "chance": 0.5
+      },
+      "unlockAt": {
+        "balance": 15000
+      },
+      "repeatable": true
+    },
+    {
+      "id": "p_lawyer",
+      "tab": "political",
+      "group": "deals",
+      "name": "Нанять юриста с говорящей фамилией",
+      "description": "Фамилия многое решает. Риск ниже, отдача скромнее.",
+      "icon": "lawyer",
+      "type": "gamble",
+      "baseCost": 4373,
+      "maxLevel": 1,
+      "cooldownSeconds": 60,
+      "effect": {
+        "factor": 3,
+        "seconds": 40,
+        "chance": 0.9
+      },
+      "unlockAt": {
+        "balance": 12000
+      },
+      "repeatable": true
+    },
+    {
+      "id": "p_field",
+      "tab": "political",
+      "group": "conquest",
+      "name": "Отжать месторождение у конкурентов",
+      "description": "Скважины соседа переходят под ваше оперативное управление.",
+      "icon": "field",
+      "type": "passive",
+      "baseCost": 36667,
+      "maxLevel": 45,
+      "effect": {
+        "value": 0.64
+      },
+      "unlockAt": {
+        "balance": 18000
+      },
+      "conquest": true,
+      "costGrowth": 1.34
+    },
+    {
+      "id": "p_refinery",
+      "tab": "political",
+      "group": "conquest",
+      "name": "Отжать нефтеперерабатывающий завод у конкурентов",
+      "description": "Тот же завод, только прежний владелец пишет жалобы. Дешевле, но нужно влияние и своя ЧВК.",
+      "icon": "refinery-grab",
+      "type": "sell",
+      "baseCost": 900000000,
+      "maxLevel": 14,
+      "effect": {
+        "channel": "refine",
+        "value": 900
+      },
+      "unlockAt": {
+        "balance": 90000000000,
+        "influence": 35,
+        "upgrade": "pmc_chvk",
+        "level": 1
+      },
+      "conquest": true
+    },
+    {
+      "id": "p_press",
+      "tab": "political",
+      "group": "conquest",
+      "name": "Нагнуть конкурента",
+      "description": "Прибыль растёт. Конкурент учится уважать горизонт.",
+      "icon": "press",
+      "type": "multiplier",
+      "baseCost": 1514656,
+      "maxLevel": 10,
+      "effect": {
+        "factor": 1.1
+      },
+      "unlockAt": {
+        "balance": 80000
+      }
+    },
+    {
+      "id": "p_gov",
+      "tab": "political",
+      "group": "conquest",
+      "name": "Пропихнуть своего человека в правительство",
+      "description": "Цены на «мою» нефть и нефтепродукты всегда высокие.",
+      "icon": "gov",
+      "type": "priceBoost",
+      "baseCost": 251347,
+      "maxLevel": 6,
+      "effect": {
+        "factor": 1.15,
+        "influence": 10
+      },
+      "unlockAt": {
+        "balance": 35000
+      }
+    },
+    {
+      "id": "p_contractor",
+      "tab": "political",
+      "group": "conquest",
+      "name": "Швырнуть подрядчика",
+      "description": "Бесплатно, небольшая разовая добавка монет. Подрядчик улетел красиво.",
+      "icon": "contractor",
+      "type": "oneShot",
+      "baseCost": 0,
+      "maxLevel": 1,
+      "cooldownSeconds": 20,
+      "effect": {
+        "value": 8
+      },
+      "unlockAt": {
+        "balance": 500
+      },
+      "repeatable": true
+    },
+    {
+      "id": "p_newspaper",
+      "tab": "political",
+      "group": "conquest",
+      "name": "Купить местную газету",
+      "description": "Теперь хорошие новости пишутся по вашему заказу. И по вашему прайсу.",
+      "icon": "newspaper",
+      "type": "priceBoost",
+      "baseCost": 11799,
+      "maxLevel": 5,
+      "effect": {
+        "factor": 1.08,
+        "influence": 3
+      },
+      "unlockAt": {
+        "balance": 15000
+      }
+    },
+    {
+      "id": "p_puppy",
+      "tab": "political",
+      "group": "favors",
+      "name": "Подарить борзого щенка депутату",
+      "description": "Щенок борзый, депутат довольный, бюджет империи слегка покусанный.",
+      "icon": "puppy",
+      "type": "oneShot",
+      "baseCost": 355,
+      "maxLevel": 1,
+      "cooldownSeconds": 90,
+      "effect": {
+        "value": 60
+      },
+      "unlockAt": {
+        "balance": 3000
+      },
+      "repeatable": true
+    },
+    {
+      "id": "p_temple",
+      "tab": "political",
+      "group": "favors",
+      "name": "Пожертвовать на храм (и на уход за храмом)",
+      "description": "Скромно, но с расчётом: небесная бухгалтерия тоже бухгалтерия.",
+      "icon": "temple",
+      "type": "oneShot",
+      "baseCost": 0,
+      "maxLevel": 1,
+      "cooldownSeconds": 45,
+      "effect": {
+        "value": 12
+      },
+      "unlockAt": {
+        "balance": 2000
+      },
+      "repeatable": true
+    },
+    {
+      "id": "p_expertise",
+      "tab": "political",
+      "group": "favors",
+      "name": "Заказать экспертизу, которая доказывает всё",
+      "description": "Экспертиза подтверждает: империя эффективна, вы правы, налоги — недоразумение.",
+      "icon": "expertise",
+      "type": "multiplier",
+      "baseCost": 126474,
+      "maxLevel": 10,
+      "effect": {
+        "factor": 1.05
+      },
+      "unlockAt": {
+        "balance": 25000
+      }
+    },
+    {
+      "id": "l_boat",
+      "tab": "luxury",
+      "group": "yachts",
+      "name": "Лодка с мотором",
+      "description": "Скромно, но уже на воде. Мотор заводится с третьего раза.",
+      "icon": "lux-boat",
+      "type": "luxury",
+      "baseCost": 203,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 1500
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_speedboat",
+      "tab": "luxury",
+      "group": "yachts",
+      "name": "Катер «Нефтяной ручеёк»",
+      "description": "Нос задран, музыка громкая, все смотрят.",
+      "icon": "lux-speedboat",
+      "type": "luxury",
+      "baseCost": 3481,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 10000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_yacht",
+      "tab": "luxury",
+      "group": "yachts",
+      "name": "Яхта «Скважина-1»",
+      "description": "Название гордое, палуба деревянная, гости голодные.",
+      "icon": "lux-yacht",
+      "type": "luxury",
+      "baseCost": 684782,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 60000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_superyacht",
+      "tab": "luxury",
+      "group": "yachts",
+      "name": "Суперяхта с вертолётной площадкой",
+      "description": "Вертолёт уже есть, площадка на всякий случай.",
+      "icon": "lux-superyacht",
+      "type": "luxury",
+      "baseCost": 43824203,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 600000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_islandyacht",
+      "tab": "luxury",
+      "group": "yachts",
+      "name": "Яхта размером с остров",
+      "description": "Формально не остров. Фактически — уже да.",
+      "icon": "lux-islandyacht",
+      "type": "luxury",
+      "baseCost": 80000000000,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 25000000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_usedcar",
+      "tab": "luxury",
+      "group": "cars",
+      "name": "Подержанная иномарка «для скромных начал»",
+      "description": "Один владелец, который был очень аккуратен. Верим.",
+      "icon": "lux-car-old",
+      "type": "luxury",
+      "baseCost": 152,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 800
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_suv",
+      "tab": "luxury",
+      "group": "cars",
+      "name": "Внедорожник",
+      "description": "Парковка — это состояние души.",
+      "icon": "lux-car-suv",
+      "type": "luxury",
+      "baseCost": 1834,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 8000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_limo",
+      "tab": "luxury",
+      "group": "cars",
+      "name": "Лимузин",
+      "description": "Диван с колёсами и перегородкой от народа.",
+      "icon": "lux-car-limo",
+      "type": "luxury",
+      "baseCost": 342130,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 40000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_retro",
+      "tab": "luxury",
+      "group": "cars",
+      "name": "Раритетный ретро-автомобиль",
+      "description": "Едет 40 км/ч, стоит как эскадрилья.",
+      "icon": "lux-car-retro",
+      "type": "luxury",
+      "baseCost": 11646149,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 300000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_cortege",
+      "tab": "luxury",
+      "group": "cars",
+      "name": "Бронированный кортеж",
+      "description": "Пробки расступаются сами. Из уважения или из страха — неважно.",
+      "icon": "lux-cortege",
+      "type": "luxury",
+      "baseCost": 105907329371,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 15000000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_ring",
+      "tab": "luxury",
+      "group": "bling",
+      "name": "Брюлики: колечко",
+      "description": "Маленькое, но с очень большим количеством карат.",
+      "icon": "lux-ring",
+      "type": "luxury",
+      "baseCost": 281,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 2000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_signet",
+      "tab": "luxury",
+      "group": "bling",
+      "name": "Брюлики: печатка",
+      "description": "Держите руку так, чтобы её было видно из космоса.",
+      "icon": "lux-signet",
+      "type": "luxury",
+      "baseCost": 5536,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 12000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_necklace",
+      "tab": "luxury",
+      "group": "bling",
+      "name": "Брюлики: ожерелье",
+      "description": "Тяжёлое. Как ответственность, только красивее.",
+      "icon": "lux-necklace",
+      "type": "luxury",
+      "baseCost": 5217486,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 150000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_crown",
+      "tab": "luxury",
+      "group": "bling",
+      "name": "Брюлики: корона",
+      "description": "Носить только по праздникам и по понедельникам.",
+      "icon": "lux-crown",
+      "type": "luxury",
+      "baseCost": 1010219645,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 2000000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_watch1",
+      "tab": "luxury",
+      "group": "bling",
+      "name": "Часы «солидные»",
+      "description": "Ходят точно, показывают примерно.",
+      "icon": "lux-watch-1",
+      "type": "luxury",
+      "baseCost": 1027,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 5000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_watch2",
+      "tab": "luxury",
+      "group": "bling",
+      "name": "Часы «очень солидные»",
+      "description": "Страна производства — легенда, цена — тоже.",
+      "icon": "lux-watch-2",
+      "type": "luxury",
+      "baseCost": 1873407,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 80000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_watch3",
+      "tab": "luxury",
+      "group": "bling",
+      "name": "Часы «стоят дороже квартиры»",
+      "description": "Время у них есть. У вас оно теперь тоже.",
+      "icon": "lux-watch-3",
+      "type": "luxury",
+      "baseCost": 153825090,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 1200000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_jacket1",
+      "tab": "luxury",
+      "group": "bling",
+      "name": "Пиджак малиновый, как положено",
+      "description": "Классика жанра. Император одобрил ваши штаны.",
+      "icon": "lux-jacket-1",
+      "type": "luxury",
+      "baseCost": 520,
+      "maxLevel": 1,
+      "achievement": "a_hat",
+      "unlockAt": {
+        "balance": 4000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_jacket2",
+      "tab": "luxury",
+      "group": "bling",
+      "name": "Пиджак золотой",
+      "description": "Золотой, но по-прежнему малиновый внутри.",
+      "icon": "lux-jacket-2",
+      "type": "luxury",
+      "baseCost": 2381602,
+      "maxLevel": 1,
+      "achievement": "a_hat",
+      "unlockAt": {
+        "balance": 100000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_jacket3",
+      "tab": "luxury",
+      "group": "bling",
+      "name": "Пиджак с вышитым гербом империи",
+      "description": "Герб вышит вручную, ночная смена не спала.",
+      "icon": "lux-jacket-3",
+      "type": "luxury",
+      "baseCost": 2918369070,
+      "maxLevel": 1,
+      "achievement": "a_hat",
+      "unlockAt": {
+        "balance": 2500000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_cane",
+      "tab": "luxury",
+      "group": "bling",
+      "name": "Трость с золотым набалдашником",
+      "description": "Ходить не нужно, носить обязательно.",
+      "icon": "lux-cane",
+      "type": "luxury",
+      "baseCost": 49885,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 20000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_fur",
+      "tab": "luxury",
+      "group": "bling",
+      "name": "Шуба из «искусственного» меха",
+      "description": "Исключительно искусственная. Почти наверняка.",
+      "icon": "lux-fur",
+      "type": "luxury",
+      "baseCost": 292496,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 35000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_cigars",
+      "tab": "luxury",
+      "group": "bling",
+      "name": "Сигары в позолоченной коробке",
+      "description": "Дым дорогой, кашель тоже как у богатых.",
+      "icon": "lux-cigars",
+      "type": "luxury",
+      "baseCost": 143798,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 25000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_courchevel",
+      "tab": "luxury",
+      "group": "realty",
+      "name": "Вилла в Куршевеле",
+      "description": "Обязательно. Без вариантов. У камина стоит лыжа.",
+      "icon": "lux-courchevel",
+      "type": "luxury",
+      "baseCost": 7640577,
+      "maxLevel": 1,
+      "achievement": "a_courchevel",
+      "unlockAt": {
+        "balance": 250000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_penthouse",
+      "tab": "luxury",
+      "group": "realty",
+      "name": "Пентхаус в столице с видом на собственную нефтебазу",
+      "description": "Вид на нефтебазу — тот самый, который не купить за деньги. Хотя...",
+      "icon": "lux-penthouse",
+      "type": "luxury",
+      "baseCost": 80408365,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 1000000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_castle",
+      "tab": "luxury",
+      "group": "realty",
+      "name": "Замок с привидениями (оплачивается отдельно)",
+      "description": "Привидения милые, но счёт за отопление средневековый.",
+      "icon": "lux-castle",
+      "type": "luxury",
+      "baseCost": 9047982609,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 5000000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_island",
+      "tab": "luxury",
+      "group": "realty",
+      "name": "Собственный остров",
+      "description": "Границы острова спорные, аппетит — нет.",
+      "icon": "lux-island",
+      "type": "luxury",
+      "baseCost": 60000000000,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 40000000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_heli",
+      "tab": "luxury",
+      "group": "transport",
+      "name": "Вертолёт",
+      "description": "Летает низко, статус высоко.",
+      "icon": "lux-heli",
+      "type": "luxury",
+      "baseCost": 59062945,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 800000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_plane",
+      "tab": "luxury",
+      "group": "transport",
+      "name": "Частный самолёт",
+      "description": "Салон кожаный, экипаж вежливый, маршрут по настроению.",
+      "icon": "lux-plane",
+      "type": "luxury",
+      "baseCost": 57204345103,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 8000000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_icebreaker",
+      "tab": "luxury",
+      "group": "transport",
+      "name": "Ледокол «для рыбалки»",
+      "description": "Рыбалка серьёзная, улов символический.",
+      "icon": "lux-icebreaker",
+      "type": "luxury",
+      "baseCost": 194903949755,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 20000000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_airship",
+      "tab": "luxury",
+      "group": "transport",
+      "name": "Личный дирижабль",
+      "description": "Медленно, громоздко, абсолютно великолепно.",
+      "icon": "lux-airship",
+      "type": "luxury",
+      "baseCost": 40000000000,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 30000000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_toilet",
+      "tab": "luxury",
+      "group": "fun",
+      "name": "Золотой унитаз",
+      "description": "Сантехника мечты. Многофункциональная.",
+      "icon": "lux-toilet",
+      "type": "luxury",
+      "baseCost": 68578,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 18000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_champagne",
+      "tab": "luxury",
+      "group": "fun",
+      "name": "Бассейн с шампанским",
+      "description": "Вода тёплая, пузырьки бесконечные, простыня мокрая.",
+      "icon": "lux-champagne",
+      "type": "luxury",
+      "baseCost": 6699728,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 220000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_chef",
+      "tab": "luxury",
+      "group": "fun",
+      "name": "Личный повар со «звёздами»",
+      "description": "Три звезды, один характер, ваша кухня.",
+      "icon": "lux-chef",
+      "type": "luxury",
+      "baseCost": 826969,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 60000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_wine",
+      "tab": "luxury",
+      "group": "fun",
+      "name": "Коллекция вин, которую никто не откроет",
+      "description": "Пыль — часть рецепта. Она охраняет инвестицию.",
+      "icon": "lux-wine",
+      "type": "luxury",
+      "baseCost": 4049075,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 120000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_caviar",
+      "tab": "luxury",
+      "group": "fun",
+      "name": "Икра ложками, на завтрак, обед и ужин",
+      "description": "Ложка — не сервировка, ложка — способ убеждения.",
+      "icon": "lux-caviar",
+      "type": "luxury",
+      "baseCost": 478228,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 50000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_square",
+      "tab": "luxury",
+      "group": "fun",
+      "name": "Картина «Чёрный квадрат» (копия, но дорогая)",
+      "description": "Копия настолько дорогая, что разницы не видно.",
+      "icon": "lux-square",
+      "type": "luxury",
+      "baseCost": 15804307,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 400000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_orchestra",
+      "tab": "luxury",
+      "group": "fun",
+      "name": "Личный оркестр, играющий «пока ты ешь»",
+      "description": "Аппетит под струнные. Суп остывает, но красиво.",
+      "icon": "lux-orchestra",
+      "type": "luxury",
+      "baseCost": 374416392,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 1500000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_footballclub",
+      "tab": "luxury",
+      "group": "fun",
+      "name": "Футбольный клуб",
+      "description": "Покупки игроков — отдельная строка бюджета и отдельная трагедия.",
+      "icon": "lux-footballclub",
+      "type": "luxury",
+      "baseCost": 16393761002,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 6000000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_stadium",
+      "tab": "luxury",
+      "group": "fun",
+      "name": "Собственный стадион",
+      "description": "Клуб играет, стадион стоит. Оба довольны.",
+      "icon": "lux-stadium",
+      "type": "luxury",
+      "baseCost": 30000000000,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 30000000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_monument",
+      "tab": "luxury",
+      "group": "fun",
+      "name": "Памятник самому себе в натуральную величину",
+      "description": "Охрана просит надбавку за смелость.",
+      "icon": "lux-monument",
+      "type": "luxury",
+      "baseCost": 110616725,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 1200000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_portrait",
+      "tab": "luxury",
+      "group": "fun",
+      "name": "Парадный портрет в образе императора",
+      "description": "Художник старался. Корона немного велика.",
+      "icon": "lux-portrait",
+      "type": "luxury",
+      "baseCost": 18958737,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 450000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_fountain",
+      "tab": "luxury",
+      "group": "fun",
+      "name": "Фонтан, из которого бьёт «нефть»",
+      "description": "Пока только на вид. Но выглядит как будущее.",
+      "icon": "lux-fountain",
+      "type": "luxury",
+      "baseCost": 5091817411,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 3000000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_throne",
+      "tab": "luxury",
+      "group": "fun",
+      "name": "Трон с подогревом",
+      "description": "Править холодно, сидеть тепло.",
+      "icon": "lux-throne",
+      "type": "luxury",
+      "baseCost": 8752379,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 250000
+      },
+      "effect": {}
+    },
+    {
+      "id": "l_santa",
+      "tab": "luxury",
+      "group": "fun",
+      "name": "Личный Дед Мороз на постоянном окладе",
+      "description": "Новый год круглый год. Борода приклеена, оклад серьёзный.",
+      "icon": "lux-santa",
+      "type": "luxury",
+      "baseCost": 24836919,
+      "maxLevel": 1,
+      "unlockAt": {
+        "balance": 500000
+      },
+      "effect": {}
+    },
+    {
+      "id": "win_pump",
+      "tab": "goals",
+      "group": "win",
+      "name": "Магистральный Насос «Упырь-Абсолют»",
+      "description": "Полный контроль над всей империей. Качает всё: нефть, бюджет, горизонт и соседей.",
+      "icon": "win-pump",
+      "type": "win",
+      "baseCost": 80000000000.0,
+      "maxLevel": 1,
+      "win": true,
+      "tag": "strict",
+      "effect": {}
+    },
+    {
+      "id": "t_canister",
+      "tab": "technical",
+      "group": "infrastructure",
+      "name": "Прицепить цистерну",
+      "description": "Старая цистерна на телеге: немного, зато сразу.",
+      "icon": "depot",
+      "type": "storage",
+      "baseCost": 320,
+      "maxLevel": 20,
+      "effect": {
+        "value": 150
+      },
+      "unlockAt": {
+        "balance": 900
+      },
+      "costGrowth": 1.3
+    },
+    {
+      "id": "t_tank",
+      "tab": "technical",
+      "group": "infrastructure",
+      "name": "Поставить резервуар на 5 тысяч тонн",
+      "description": "Клёпаный резервуар. Нефть больше не льётся через край.",
+      "icon": "depot",
+      "type": "storage",
+      "baseCost": 24000,
+      "maxLevel": 24,
+      "effect": {
+        "value": 2500
+      },
+      "unlockAt": {
+        "balance": 60000
+      },
+      "costGrowth": 1.3
+    },
+    {
+      "id": "s_geolog",
+      "tab": "technical",
+      "group": "crew",
+      "name": "Нанять геолога",
+      "description": "Геолог знает, где нефть. Без него бурят в основном в пустоту.",
+      "icon": "core",
+      "type": "passive",
+      "baseCost": 420,
+      "maxLevel": 45,
+      "effect": {
+        "value": 0.1
+      },
+      "costGrowth": 1.34
+    },
+    {
+      "id": "s_operator",
+      "tab": "technical",
+      "group": "crew",
+      "name": "Нанять операторов буровой установки",
+      "description": "Крутят ключи и следят за давлением. Добыча не встаёт даже ночью.",
+      "icon": "topdrive",
+      "type": "passive",
+      "baseCost": 1900,
+      "maxLevel": 45,
+      "effect": {
+        "value": 0.1
+      },
+      "costGrowth": 1.34
+    },
+    {
+      "id": "s_engineer",
+      "tab": "technical",
+      "group": "crew",
+      "name": "Нанять инженера",
+      "description": "Считает режимы бурения и чинит то, что уже сломалось.",
+      "icon": "technolog",
+      "type": "passive",
+      "baseCost": 22000,
+      "maxLevel": 45,
+      "effect": {
+        "value": 0.12,
+        "costCut": 0.01
+      },
+      "costGrowth": 1.34
+    },
+    {
+      "id": "c_local",
+      "tab": "sales",
+      "group": "contracts",
+      "name": "Договориться с местным трестом",
+      "description": "Скупают всё, что льётся, по грабительской цене. Зато стабильно.",
+      "icon": "contractor",
+      "type": "sell",
+      "baseCost": 540,
+      "maxLevel": 30,
+      "effect": {
+        "channel": "contract",
+        "value": 2160,
+        "percent": 6
+      },
+      "unlockAt": {
+        "balance": 3000
+      },
+      "costGrowth": 1.15
+    },
+    {
+      "id": "c_broker",
+      "tab": "sales",
+      "group": "contracts",
+      "name": "Нанять трейдера-брокера",
+      "description": "Знает всех, кому нужна нефть. Контракты растут и дорожают.",
+      "icon": "lawyer",
+      "type": "sell",
+      "baseCost": 9000,
+      "maxLevel": 25,
+      "effect": {
+        "channel": "contract",
+        "value": 7200,
+        "percent": 9
+      },
+      "unlockAt": {
+        "balance": 100000
+      },
+      "costGrowth": 1.15
+    },
+    {
+      "id": "c_bourse",
+      "tab": "sales",
+      "group": "contracts",
+      "name": "Пробить место на нефтяной бирже",
+      "description": "Без места на бирже на вас смотрят как на ларёк.",
+      "icon": "expertise",
+      "type": "sell",
+      "baseCost": 260000,
+      "maxLevel": 20,
+      "effect": {
+        "channel": "contract",
+        "value": 25200,
+        "percent": 12
+      },
+      "unlockAt": {
+        "balance": 3000000
+      },
+      "costGrowth": 1.15
+    },
+    {
+      "id": "c_longterm",
+      "tab": "sales",
+      "group": "contracts",
+      "name": "Подписать долгосрочные контракты с «друзьями»",
+      "description": "Цена фиксируется на десять лет. Как всегда, не в вашу пользу.",
+      "icon": "ministry",
+      "type": "sell",
+      "baseCost": 6800000,
+      "maxLevel": 18,
+      "effect": {
+        "channel": "contract",
+        "value": 82800,
+        "percent": 15
+      },
+      "unlockAt": {
+        "balance": 80000000
+      },
+      "costGrowth": 1.15
+    },
+    {
+      "id": "c_tenders",
+      "tab": "sales",
+      "group": "contracts",
+      "name": "Выиграть все госконтракты сразу",
+      "description": "Конкурс из одного участника. Победа единогласная.",
+      "icon": "gov",
+      "type": "sell",
+      "baseCost": 190000000,
+      "maxLevel": 16,
+      "effect": {
+        "channel": "contract",
+        "value": 252000,
+        "percent": 20
+      },
+      "unlockAt": {
+        "balance": 2000000000
+      },
+      "costGrowth": 1.15
+    },
+    {
+      "id": "x_cistern",
+      "tab": "sales",
+      "group": "export",
+      "name": "Гонять нефть за границу цистернами",
+      "description": "Железная дорога, таможня, «ускорение оформления».",
+      "icon": "export",
+      "type": "sell",
+      "baseCost": 8200,
+      "maxLevel": 25,
+      "effect": {
+        "channel": "export",
+        "value": 1440,
+        "percent": 8
+      },
+      "unlockAt": {
+        "balance": 90000
+      },
+      "costGrowth": 1.15
+    },
+    {
+      "id": "x_tanker",
+      "tab": "sales",
+      "group": "export",
+      "name": "Фрахтовать танкер «на один рейс» (навсегда)",
+      "description": "Судно старое, трюмы большие. Капитан подписывает всё.",
+      "icon": "terminal",
+      "type": "sell",
+      "baseCost": 410000,
+      "maxLevel": 20,
+      "effect": {
+        "channel": "export",
+        "value": 4800,
+        "percent": 10
+      },
+      "unlockAt": {
+        "balance": 5000000
+      },
+      "costGrowth": 1.15
+    },
+    {
+      "id": "x_nordstream",
+      "tab": "sales",
+      "group": "export",
+      "name": "Провести трубу по дну холодного моря",
+      "description": "Экологическое заключение уже готово. Осталось найти море.",
+      "icon": "pipeline",
+      "type": "sell",
+      "baseCost": 1400000,
+      "maxLevel": 18,
+      "effect": {
+        "channel": "export",
+        "value": 14400,
+        "percent": 14
+      },
+      "unlockAt": {
+        "balance": 20000000
+      },
+      "costGrowth": 1.15
+    },
+    {
+      "id": "x_offtake",
+      "tab": "sales",
+      "group": "export",
+      "name": "Взять offtake-контракт на всю добычу",
+      "description": "Покупатель обязуется брать всё. Продавать больше некому.",
+      "icon": "contractor",
+      "type": "sell",
+      "baseCost": 46000000,
+      "maxLevel": 16,
+      "effect": {
+        "channel": "export",
+        "value": 43200,
+        "percent": 18
+      },
+      "unlockAt": {
+        "balance": 600000000
+      },
+      "costGrowth": 1.15
+    },
+    {
+      "id": "x_fleet",
+      "tab": "sales",
+      "group": "export",
+      "name": "Купить собственный танкерный флот",
+      "description": "Пять танкеров, два из них ещё даже на плаву.",
+      "icon": "lux-yacht",
+      "type": "sell",
+      "baseCost": 900000000,
+      "maxLevel": 14,
+      "effect": {
+        "channel": "export",
+        "value": 124800,
+        "percent": 22
+      },
+      "unlockAt": {
+        "balance": 12000000000
+      },
+      "costGrowth": 1.15
+    },
+    {
+      "id": "r_uzine",
+      "tab": "sales",
+      "group": "refine",
+      "name": "Добавить на НПЗ установку каталитического крекинга",
+      "description": "Из мазута получается бензин, из бензина — деньги.",
+      "icon": "refinery",
+      "type": "sell",
+      "baseCost": 210000000,
+      "maxLevel": 16,
+      "effect": {
+        "channel": "refine",
+        "value": 3360,
+        "percent": 10
+      },
+      "unlockAt": {
+        "balance": 3000000000
+      },
+      "costGrowth": 1.15
+    },
+    {
+      "id": "r_alkyl",
+      "tab": "sales",
+      "group": "refine",
+      "name": "Наладить алкилирование и висбрекинг",
+      "description": "Названия страшные, маржа прекрасная.",
+      "icon": "refinery",
+      "type": "sell",
+      "baseCost": 1900000000,
+      "maxLevel": 14,
+      "effect": {
+        "channel": "refine",
+        "value": 11040,
+        "percent": 14
+      },
+      "unlockAt": {
+        "balance": 25000000000
+      },
+      "costGrowth": 1.15
+    },
+    {
+      "id": "r_aromatics",
+      "tab": "sales",
+      "group": "refine",
+      "name": "Гнать ароматику прямо в пластмассу",
+      "description": "Нефть превращается в тазики. Тазики дороже нефти.",
+      "icon": "refinery",
+      "type": "sell",
+      "baseCost": 25000000000,
+      "maxLevel": 12,
+      "effect": {
+        "channel": "refine",
+        "value": 36000,
+        "percent": 18
+      },
+      "unlockAt": {
+        "balance": 300000000000
+      },
+      "costGrowth": 1.15
+    },
+    {
+      "id": "r_chemical",
+      "tab": "sales",
+      "group": "refine",
+      "name": "Стать нефтехимическим комбинатом",
+      "description": "Мазут → полимеры → всё, что можно продать в розницу.",
+      "icon": "refinery",
+      "type": "sell",
+      "baseCost": 450000000000,
+      "maxLevel": 10,
+      "effect": {
+        "channel": "refine",
+        "value": 100800,
+        "percent": 25
+      },
+      "unlockAt": {
+        "balance": 6000000000000
+      },
+      "costGrowth": 1.15
+    },
+    {
+      "id": "s_railtank",
+      "tab": "sales",
+      "group": "infrastructure",
+      "name": "Купить сливную эстакаду на узловой станции",
+      "description": "Своя эстакада: не стоим в очереди за чужим подъездным путём.",
+      "icon": "rail",
+      "type": "sell",
+      "baseCost": 620000,
+      "maxLevel": 20,
+      "effect": {
+        "channel": "export",
+        "value": 6240
+      },
+      "unlockAt": {
+        "balance": 6000000
+      },
+      "costGrowth": 1.15
+    },
+    {
+      "id": "s_metering",
+      "tab": "sales",
+      "group": "infrastructure",
+      "name": "Поставить узлы учёта расхода нефти",
+      "description": "Считать то, что продаёшь. Революционная идея.",
+      "icon": "dashboard",
+      "type": "sell",
+      "baseCost": 4300000,
+      "maxLevel": 18,
+      "effect": {
+        "channel": "contract",
+        "value": 16200,
+        "percent": 6
+      },
+      "unlockAt": {
+        "balance": 40000000
+      },
+      "costGrowth": 1.15
+    },
+    {
+      "id": "pmc_vet",
+      "tab": "political",
+      "group": "pmc",
+      "name": "Нанять ветеранов в охрану",
+      "description": "Двадцать человек с опытом и без лишних вопросов.",
+      "icon": "pmc-vet",
+      "type": "multiplier",
+      "baseCost": 2400000,
+      "maxLevel": 1,
+      "effect": {
+        "factor": 1,
+        "influence": 4
+      },
+      "unlockAt": {
+        "balance": 40000000
+      }
+    },
+    {
+      "id": "pmc_chvk",
+      "tab": "political",
+      "group": "pmc",
+      "name": "Создать свою ЧВК «Горизонт-Охрана»",
+      "description": "Юридически — охранное предприятие. Фактически — маленькая армия с бухгалтерией.",
+      "icon": "pmc-chvk",
+      "type": "multiplier",
+      "baseCost": 68000000,
+      "maxLevel": 1,
+      "effect": {
+        "factor": 1,
+        "influence": 12
+      },
+      "unlockAt": {
+        "balance": 900000000
+      }
+    },
+    {
+      "id": "pmc_airbase",
+      "tab": "political",
+      "group": "pmc",
+      "name": "Купить вертолётную площадку у месторождения",
+      "description": "Логистика для людей, которые решают вопросы быстро.",
+      "icon": "pmc-chvk",
+      "type": "multiplier",
+      "baseCost": 540000000,
+      "maxLevel": 1,
+      "effect": {
+        "factor": 1,
+        "influence": 18
+      },
+      "unlockAt": {
+        "balance": 7000000000
+      }
+    },
+    {
+      "id": "pmc_legal",
+      "tab": "political",
+      "group": "pmc",
+      "name": "Оформить ЧВК в тёплой юрисдикции",
+      "description": "В отчётности — консалтинг. В реальности — то же самое, но дешевле.",
+      "icon": "pmc-chvk",
+      "type": "multiplier",
+      "baseCost": 3100000000,
+      "maxLevel": 1,
+      "effect": {
+        "factor": 1,
+        "influence": 26,
+        "conquestCut": 0.03
+      },
+      "unlockAt": {
+        "balance": 40000000000
+      }
+    },
+    {
+      "id": "pmc_drone",
+      "tab": "political",
+      "group": "pmc",
+      "name": "Завести дронов-разведчиков",
+      "description": "С высоты видно, какие заводы у конкурента плохо охраняются.",
+      "icon": "pmc-chvk",
+      "type": "multiplier",
+      "baseCost": 18000000000,
+      "maxLevel": 1,
+      "effect": {
+        "factor": 1,
+        "influence": 35,
+        "conquestCut": 0.04
+      },
+      "unlockAt": {
+        "balance": 300000000000
+      }
+    },
+    {
+      "id": "pmc_army",
+      "tab": "political",
+      "group": "pmc",
+      "name": "Содержать частную армию на постоянной основе",
+      "description": "Штат, казармы, полигон. Партнёры начинают кивать уважительно.",
+      "icon": "pmc-chvk",
+      "type": "multiplier",
+      "baseCost": 210000000000,
+      "maxLevel": 1,
+      "effect": {
+        "factor": 1,
+        "influence": 45,
+        "conquestCut": 0.05
+      },
+      "unlockAt": {
+        "balance": 3000000000000
+      }
+    },
+    {
+      "id": "p_reprivatize",
+      "tab": "political",
+      "group": "conquest",
+      "name": "Устроить реприватизацию месторождения со скважинами конкурента",
+      "description": "Скважины конкурента внезапно оказываются стратегически важными для страны.",
+      "icon": "reprivat",
+      "type": "passive",
+      "baseCost": 260000000,
+      "maxLevel": 10,
+      "effect": {
+        "value": 6
+      },
+      "conquest": true,
+      "unlockAt": {
+        "balance": 30000000000,
+        "influence": 40
+      },
+      "costGrowth": 1.34
+    },
+    {
+      "id": "p_badbank",
+      "tab": "political",
+      "group": "taxes",
+      "name": "Купить убыточный банк «Последний кредит»",
+      "description": "Отделение с разбитым стеклом, зато своя лицензия и «дружественный» аудит.",
+      "icon": "badbank",
+      "type": "taxCut",
+      "baseCost": 90000000,
+      "maxLevel": 12,
+      "effect": {
+        "percent": 2.5
+      },
+      "unlockAt": {
+        "balance": 1200000000
+      }
+    },
+    {
+      "id": "p_launder",
+      "tab": "political",
+      "group": "taxes",
+      "name": "Провести отмывание через убыточный банк",
+      "description": "Деньги уходят в банк, банк отдаёт их обратно. Налоговая видит только убыток.",
+      "icon": "launder",
+      "type": "oneShot",
+      "baseCost": 0,
+      "maxLevel": 1,
+      "effect": {
+        "value": 90,
+        "launder": true
+      },
+      "cooldownSeconds": 90,
+      "repeatable": true,
+      "unlockAt": {
+        "balance": 500000000,
+        "upgrade": "p_badbank",
+        "level": 1
+      }
+    },
+    {
+      "id": "p_hideprofit",
+      "tab": "political",
+      "group": "taxes",
+      "name": "Провести уход от налогов через банк",
+      "description": "Прибыль становится «технической переоценкой активов» и налогом не облагается.",
+      "icon": "launder",
+      "type": "oneShot",
+      "baseCost": 0,
+      "maxLevel": 1,
+      "effect": {
+        "value": 160,
+        "launder": true
+      },
+      "cooldownSeconds": 90,
+      "repeatable": true,
+      "unlockAt": {
+        "balance": 5000000000,
+        "upgrade": "p_badbank",
+        "level": 1
+      }
+    },
+    {
+      "id": "p_tranche",
+      "tab": "political",
+      "group": "taxes",
+      "name": "Спрятать очередной транш в убыточном банке",
+      "description": "Транш за траншем. Банк всё ещё убыточный, а вы всё ещё богатый.",
+      "icon": "launder",
+      "type": "oneShot",
+      "baseCost": 0,
+      "maxLevel": 1,
+      "effect": {
+        "value": 420,
+        "launder": true
+      },
+      "cooldownSeconds": 90,
+      "repeatable": true,
+      "unlockAt": {
+        "balance": 40000000000,
+        "upgrade": "p_badbank",
+        "level": 1
+      }
+    },
+    {
+      "id": "p_parliament",
+      "tab": "political",
+      "group": "taxes",
+      "name": "Купить голоса в парламенте",
+      "description": "Депутаты теперь голосуют по звонку. Иногда даже по вашему.",
+      "icon": "senate",
+      "type": "multiplier",
+      "baseCost": 21000000,
+      "maxLevel": 10,
+      "effect": {
+        "factor": 1,
+        "influence": 6
+      },
+      "unlockAt": {
+        "balance": 200000000
+      }
+    }
   ]
 }

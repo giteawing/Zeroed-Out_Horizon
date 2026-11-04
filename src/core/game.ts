@@ -3,24 +3,34 @@
  * Не знает про DOM: UI подписывается на события и читает состояние.
  */
 import {
+  CHANNELS,
   affordableLevels,
   computeDerived,
   costFor,
   eventPayout,
-  exportPayout,
   isUnlocked,
   isWinReady,
   levelOf,
-  netForInterval,
+  sellOil,
   tapReward,
   unlockBlocker,
   winCostOf,
   type TaxBuff,
 } from './economy';
-import type { Content, DerivedStats, GameEvent, GameState, UpgradeDef } from './types';
+import type {
+  Channel,
+  Content,
+  DerivedStats,
+  GameEvent,
+  GameState,
+  LogEntry,
+  UpgradeDef,
+} from './types';
 import { Rng } from './rng';
 
-export type BuyFailure = 'noMoney' | 'cooldown' | 'locked' | 'maxLevel' | 'won';
+export type BuyFailure = 'noMoney' | 'cooldown' | 'locked' | 'maxLevel' | 'won' | 'noOil';
+
+const MAX_LOG = 24;
 
 export interface BuyResult {
   ok: boolean;
@@ -61,6 +71,10 @@ export class Game {
   private achievementTimerMs = 0;
   private worldTarget = 1;
   private worldTimerMs = 0;
+  private salesAccum = 0;
+  /** Сглаженный фактический доход (то, что реально капает на счёт), ₦/с. */
+  private revenueEma = 0;
+  private lastSaleLogMs = 0;
 
   constructor(content: Content, state: GameState) {
     this.content = content;
@@ -86,7 +100,9 @@ export class Game {
   derived(): DerivedStats {
     this.pruneBuffs();
     if (!this.derivedCache) {
-      this.derivedCache = computeDerived(this.config, this.content.upgrades, this.state, this.buffs);
+      this.derivedCache = computeDerived(
+        this.config, this.content.upgrades, this.state, this.buffs, this.content,
+      );
     }
     return this.derivedCache;
   }
@@ -110,15 +126,30 @@ export class Game {
 
   // ------------------------------------------------------------------ тап
 
-  /** Тап по долоту. Возвращает начисленную сумму (0, если игра уже выиграна). */
+  /**
+   * Тап по долоту: добывает НЕФТЬ (тонны), а не деньги.
+   * Возвращает, сколько тонн добавилось (0, если резервуары полны).
+   */
   tap(): number {
     if (this.state.won) return 0;
-    const amount = tapReward(this.derived(), this.rng.next());
-    this.addCoins(amount);
+    const derived = this.derived();
+    const tonnes = tapReward(derived, this.rng.next());
+    const added = this.addOil(tonnes);
     this.state.totalTaps += 1;
-    this.emit({ type: 'tap', amount });
+    this.emit({ type: 'tap', amount: added });
     if (this.state.totalTaps === 1) this.checkAchievements();
-    return amount;
+    return added;
+  }
+
+  /** Долить нефть в резервуары. Лишнее «переливается» и теряется. */
+  private addOil(tonnes: number): number {
+    if (tonnes <= 0) return 0;
+    const capacity = this.derived().oilCapacity;
+    const free = Math.max(0, capacity - this.state.oil);
+    const added = Math.min(free, tonnes);
+    this.state.oil += added;
+    if (added < tonnes - 1e-9) this.emit({ type: 'oilFull' });
+    return added;
   }
 
   private addCoins(amount: number): void {
@@ -135,7 +166,7 @@ export class Game {
     if (this.autoTapAccum < 1) return;
     const count = Math.floor(this.autoTapAccum);
     this.autoTapAccum -= count;
-    this.addCoins(this.derived().tapValue * count);
+    this.addOil(this.derived().tapValue * count);
     this.emit({ type: 'income' });
   }
 
@@ -158,16 +189,21 @@ export class Game {
       };
     }
     const level = this.level(id);
-    const unlocked = isUnlocked(def, this.state);
+    const derived = this.derived();
+    const unlocked = isUnlocked(def, this.state, derived.influence);
     const cooldownMs = this.state.cooldowns[id] ?? 0;
     const repeatable = isRepeatable(def);
     const wanted = def.cooldownSeconds
       ? 1
       : Math.max(1, Math.min(count, this.config.maxBuyLevels));
     const buyCount = repeatable ? wanted : Math.min(wanted, Math.max(0, def.maxLevel - level));
-    const cost = def.win
+    const rawCost = def.win
       ? winCostOf(this.config, this.content.upgrades)
       : this.priceOfLevels(def, level, buyCount);
+    // «Отжать» дешевле, чем построить: скидка растёт от влияния и ЧВК.
+    const cost = def.conquest
+      ? Math.round(rawCost * (1 - derived.conquestCut))
+      : rawCost;
 
     let reason: BuyFailure | undefined;
     if (this.state.won) reason = 'won';
@@ -180,6 +216,9 @@ export class Game {
       }
     } else if (this.state.coins < cost) {
       reason = 'noMoney';
+    } else if (def.effect.sellsOil && this.state.oil < 0.001) {
+      // Экспортная акция продаёт нефть со склада — без нефти продавать нечего.
+      reason = 'noOil';
     }
 
     return {
@@ -193,7 +232,7 @@ export class Game {
         : affordableLevels(this.config, def, level, this.state.coins),
       unlocked,
       cooldownMs,
-      blocker: unlockBlocker(def, this.state),
+      blocker: unlockBlocker(def, this.state, derived.influence),
     };
   }
 
@@ -214,7 +253,8 @@ export class Game {
     const buyCount = def.cooldownSeconds
       ? 1
       : Math.max(1, Math.min(count, this.config.maxBuyLevels));
-    const cost = this.priceOfLevels(def, check.level, buyCount);
+    const rawCost = this.priceOfLevels(def, check.level, buyCount);
+    const cost = def.conquest ? Math.round(rawCost * (1 - this.derived().conquestCut)) : rawCost;
     this.state.coins -= cost;
     // Действия с перезарядкой не «прокачиваются»: уровень остаётся 1,
     // иначе после первой покупки кнопка навсегда стала бы «Максимум».
@@ -226,6 +266,11 @@ export class Game {
     this.invalidate();
 
     const payouts = this.applyImmediateEffect(def, newLevel, cost);
+    this.pushLog({
+      kind: def.conquest ? 'conquest' : def.tab === 'luxury' ? 'bought' : 'bought',
+      upgradeId: def.id,
+      money: cost,
+    });
     this.emit({ type: 'purchase', id, level: newLevel, cost });
     if (def.achievement) this.grantAchievement(def.achievement);
     this.checkAchievements();
@@ -242,12 +287,48 @@ export class Game {
 
     if (def.type === 'oneShot') {
       const derived = this.derived();
-      const amount = def.effect.usesWorldPrice
-        ? exportPayout(def, derived, this.state.worldPrice)
-        : eventPayout(def, derived, level, cost);
-      this.addCoins(amount);
-      payouts.push({ id: def.id, amount });
-      this.emit({ type: 'oneShot', id: def.id, amount });
+      if (def.effect.sellsOil && def.effect.usesWorldPrice) {
+        // Экспортные акции продают реальную нефть со склада: тонны уходят,
+        // деньги приходят по цене канала (и по мировой цене).
+        // Если экспортный канал ещё не построен, акция всё равно работает:
+        // нефть уходит по цене контрактов — «сбагрили через границу».
+        const channel = def.effect.burstChannel ?? 'export';
+        const price =
+          derived.channels[channel].price || derived.channels.contract.price;
+        const desired = Math.min(this.state.oil, Math.max(1, this.state.oil * 0.5));
+        const tonnes = this.config.oil.channels[channel].unlimited
+          ? desired
+          : Math.min(desired, derived.channels[channel].rate * this.config.oil.exportBurstSeconds || desired);
+        if (tonnes <= 0) return payouts;
+        const amount = Math.round(tonnes * price * (1 + (def.effect.exportBonus ?? 0)));
+        this.state.oil -= tonnes;
+        this.state.totalSold += tonnes;
+        this.addCoins(amount);
+        this.pushLog({
+          kind: 'sold',
+          upgradeId: def.id,
+          channel,
+          tonnes,
+          price,
+          money: amount,
+        });
+        payouts.push({ id: def.id, amount });
+        this.emit({ type: 'oneShot', id: def.id, amount });
+        this.emit({ type: 'sold', channel, tonnes, money: amount });
+        return payouts;
+      }
+      const amount = eventPayout(def, derived, level, cost);
+      // Отмывание через убыточный банк проходит мимо налогового ведомства:
+      // деньги те же, но налог с них не берут (это и есть «уход от налогов»).
+      const gross = def.effect.launder ? amount : amount;
+      this.addCoins(gross);
+      this.pushLog({
+        kind: def.effect.launder ? 'launder' : 'event',
+        upgradeId: def.id,
+        money: gross,
+      });
+      payouts.push({ id: def.id, amount: gross });
+      this.emit({ type: 'oneShot', id: def.id, amount: gross });
     }
 
     if (def.type === 'gamble') {
@@ -292,9 +373,22 @@ export class Game {
     this.state.clockMs += dtMs;
     this.pruneBuffs();
 
+    const dtSeconds = dtMs / 1000;
     const derived = this.derived();
-    const net = netForInterval(derived, dtMs / 1000);
+
+    // 1. Добыча: персонал качает нефть в резервуары.
+    if (derived.oilPerSecond > 0) this.addOil(derived.oilPerSecond * dtSeconds);
+
+    // 2. Сбыт: нефть из резервуаров превращается в деньги.
+    const gross = this.tickSales(this.derived(), dtSeconds);
+
+    // 3. Налог и расходы считаются от ФАКТИЧЕСКИ проданного. Иначе пустые
+    //    резервуары всё равно приносили бы деньги, а безлимитные контракты
+    //    обнуляли бы «теоретический» доход.
+    const expenses = this.derived().expensesPerSecond * dtSeconds;
+    const net = Math.max(0, gross * (1 - this.derived().taxRate) - expenses);
     if (net > 0) this.addCoins(net);
+    this.trackRevenue(net, dtSeconds);
 
     this.tickCooldowns(dtMs);
     this.tickPeriodic(dtMs, derived);
@@ -309,6 +403,72 @@ export class Game {
     }
 
     this.emit({ type: 'income' });
+  }
+
+  /**
+   * Продажа нефти за интервал: сначала НПЗ, потом экспорт, потом контракты.
+   * Возвращает, сколько денег принёс интервал (для журнала и событий).
+   */
+  private tickSales(derived: DerivedStats, dtSeconds: number): number {
+    if (this.state.oil <= 0) {
+      this.salesAccum = 0;
+      return 0;
+    }
+    const unlimited = CHANNELS.filter((c) => this.config.oil.channels[c].unlimited);
+    const result = sellOil(derived, this.state.oil, dtSeconds, unlimited);
+    if (result.sold <= 0) return 0;
+    this.state.oil = result.oil;
+    this.state.totalSold += result.sold;
+    this.salesAccum += result.sold;
+    // Журнал не спамим: пишем одну сводную строку примерно раз в 3 секунды.
+    if (this.state.clockMs - this.lastSaleLogMs >= 3000) {
+      this.lastSaleLogMs = this.state.clockMs;
+      this.pushLog({
+        kind: 'sold',
+        tonnes: result.sold,
+        price: result.sold > 0 ? result.gross / result.sold : derived.oilPricePerTon,
+        money: result.gross,
+        channel: this.dominantChannel(result.byChannel),
+      });
+      this.emit({
+        type: 'sold',
+        channel: this.dominantChannel(result.byChannel),
+        tonnes: result.sold,
+        money: result.gross,
+      });
+    }
+    return result.gross;
+  }
+
+  /** Какой канал продал больше всего нефти за интервал. */
+  private dominantChannel(byChannel: Record<Channel, number>): Channel {
+    let best: Channel = 'contract';
+    let bestTonnes = -1;
+    for (const channel of CHANNELS) {
+      if (byChannel[channel] > bestTonnes) {
+        bestTonnes = byChannel[channel];
+        best = channel;
+      }
+    }
+    return best;
+  }
+
+  /** Фактический доход в секунду: сглаженное среднее по начислениям. */
+  revenuePerSecond(): number {
+    return this.revenueEma;
+  }
+
+  private trackRevenue(net: number, dtSeconds: number): void {
+    if (dtSeconds <= 0) return;
+    const instant = net / dtSeconds;
+    // Экспоненциальное сглаживание: 0.15 — компромисс между «дёргается» и «тормозит».
+    this.revenueEma += (instant - this.revenueEma) * Math.min(1, 0.15 + dtSeconds);
+  }
+
+  /** Добавить запись в журнал операций (храним последние MAX_LOG). */
+  pushLog(entry: Omit<LogEntry, 'at'>): void {
+    this.state.log.unshift({ at: this.state.clockMs, ...entry });
+    if (this.state.log.length > MAX_LOG) this.state.log.length = MAX_LOG;
   }
 
   private tickCooldowns(dtMs: number): void {
@@ -404,6 +564,10 @@ export class Game {
         return this.derived().costCutPercent >= rule.value;
       case 'own':
         return this.level(rule.upgrade) >= (rule.value ?? 1);
+      case 'influence':
+        return this.derived().influence >= rule.value;
+      case 'sold':
+        return this.state.totalSold >= rule.value;
       case 'ownGroup':
         return this.content.upgrades.some(
           (u) => u.group === rule.group && this.level(u.id) > 0,

@@ -1,8 +1,13 @@
 /**
  * Типы ядра игры. Всё, что описывает данные — здесь; сами данные лежат в src/content/*.json.
+ *
+ * Главная идея экономики: тап добывает НЕФТЬ (тонны), а нефтефаники (₦) —
+ * это деньги, которые получаются только когда нефть продана. Продать можно
+ * тремя каналами: контракты (дёшево, но всегда), экспорт (дороже) и
+ * переработка на НПЗ (дороже всего).
  */
 
-export type Tab = 'political' | 'technical' | 'luxury' | 'goals';
+export type Tab = 'political' | 'technical' | 'sales' | 'luxury' | 'goals';
 
 export type UpgradeType =
   | 'perTap'
@@ -16,7 +21,42 @@ export type UpgradeType =
   | 'priceBoost'
   | 'luxury'
   | 'autoTap'
+  | 'sell'
+  | 'storage'
   | 'win';
+
+/** Каналы сбыта нефти. */
+export type Channel = 'contract' | 'export' | 'refine';
+
+export interface ChannelConfig {
+  /** Множитель к базовой цене тонны. */
+  priceFactor: number;
+  /** Базовая пропускная способность, тонн в секунду. */
+  baseRate: number;
+  /** Канал берёт любой объём (контракты «на разлив»): ёмкость не ограничена. */
+  unlimited?: boolean;
+  /** Сколько тонн списывать за секунду с базового сбыта при покупках-событиях. */
+  name?: string;
+}
+
+export interface OilConfig {
+  /** Цена тонны при мировой цене 1.0, в нефтефантиках. */
+  basePricePerTon: number;
+  /** Стартовый запас нефти. */
+  startOil: number;
+  /** Стартовая ёмкость резервуаров, тонн. */
+  baseCapacity: number;
+  /** Тонн за один тап без улучшений. */
+  tapTonnes: number;
+  /** Каналы сбыта. */
+  channels: Record<Channel, ChannelConfig>;
+  /** Сколько тонн продаёт разовая акция «Пихнуть нефть заграницу» за секунду запаса. */
+  exportBurstSeconds: number;
+  /** Автодобыча: какие сотрудники нужны и какой бонус дают все вместе. */
+  autoDrill: { requires: string[]; bonus: number };
+  /** Сколько тонн «сгорает» при переполнении резервуаров (доля потерь в секунду). */
+  spillLoss: number;
+}
 
 export interface UpgradeEffect {
   /** Прибавка (к тапу, к пассиву, к разовой выплате — зависит от type). */
@@ -43,6 +83,20 @@ export interface UpgradeEffect {
   usesWorldPrice?: boolean;
   /** На что действует множитель. */
   scope?: 'all' | 'tap' | 'passive';
+  /** Канал сбыта (для type: 'sell'). */
+  channel?: Channel;
+  /** Прибавка к влиянию за уровень. */
+  influence?: number;
+  /** Скидка на «отжатие» (доля за уровень). */
+  conquestCut?: number;
+  /** Разовая акция продаёт нефть со склада, а не «воздух». */
+  sellsOil?: boolean;
+  /** Канал, через который разовая акция сбрасывает нефть. */
+  burstChannel?: Channel;
+  /** Разовая акция отмывает деньги: не платит налог. */
+  launder?: boolean;
+  /** Тонн за операцию (для разовых акций сбыта). */
+  tonnes?: number;
 }
 
 export interface UnlockRequirement {
@@ -52,6 +106,8 @@ export interface UnlockRequirement {
   upgrade?: string;
   /** Требуемый уровень покупки из upgrade. */
   level?: number;
+  /** Требуемое влияние империи. */
+  influence?: number;
 }
 
 export interface UpgradeDef {
@@ -64,6 +120,8 @@ export interface UpgradeDef {
   type: UpgradeType;
   baseCost: number;
   maxLevel: number;
+  /** Индивидуальный рост цены (по умолчанию config.costGrowth). */
+  costGrowth?: number;
   effect: UpgradeEffect;
   cooldownSeconds?: number;
   /** Покупка-действие: можно повторять после перезарядки, уровень не растёт. */
@@ -72,6 +130,8 @@ export interface UpgradeDef {
   achievement?: string;
   win?: boolean;
   tag?: string;
+  /** Это «отжатие» у конкурента: цена ниже, но нужно влияние (и часто ЧВК). */
+  conquest?: boolean;
 }
 
 export interface GameConfig {
@@ -99,6 +159,14 @@ export interface GameConfig {
     startPrice: number;
     smoothing: number;
   };
+  oil: OilConfig;
+  /** Бонусы за «дружбу» с разными ветвями власти. */
+  influence: {
+    /** Влияние за каждый уровень политической покупки (по группам). */
+    perGroup: Record<string, number>;
+    /** Максимальное влияние, которое можно получить (для прогресс-бара). */
+    cap: number;
+  };
   autosaveSeconds: number;
   winCost: number;
   winRequirements: UnlockRequirement[];
@@ -114,6 +182,8 @@ export type AchievementRule =
   | { kind: 'costCut'; value: number }
   | { kind: 'own'; upgrade: string; value?: number }
   | { kind: 'ownGroup'; group: string }
+  | { kind: 'influence'; value: number }
+  | { kind: 'sold'; value: number }
   | { kind: 'win' };
 
 export interface AchievementDef {
@@ -142,6 +212,10 @@ export interface TextsFile {
   shop: Record<string, string>;
   panel: Record<string, string>;
   stats: Record<string, string>;
+  sales: Record<string, string>;
+  log: Record<string, string>;
+  /** Единицы измерения: чтобы в коде не было даже «т» и «₦/с». */
+  units: Record<string, string>;
   finale: {
     pumpName: string;
     buyButton: string;
@@ -159,6 +233,8 @@ export interface TextsFile {
   news: NewsTexts;
   achievements: { list: Array<{ id: string; name: string; description: string }> };
   tips: string[];
+  /** id покупки → название: журналу нужны имена без обращения к играм-данным. */
+  upgrades?: Record<string, string>;
   purchase: { okNews: string[] };
 }
 
@@ -171,13 +247,32 @@ export interface Content {
   credits: string;
 }
 
+/** Запись в журнале операций под скважиной. */
+export interface LogEntry {
+  /** Игровое время, мс. */
+  at: number;
+  kind: 'sold' | 'bought' | 'event' | 'conquest' | 'launder' | 'drill' | 'achievement';
+  /** id покупки, если запись про покупку. */
+  upgradeId?: string;
+  channel?: Channel;
+  tonnes?: number;
+  price?: number;
+  money?: number;
+  /** Ключ текста в log.* для нестандартных записей. */
+  textKey?: string;
+}
+
 /** Полный снимок прогресса, который сохраняется в localStorage. */
 export interface GameState {
   version: number;
   coins: number;
+  /** Добытая и ещё не проданная нефть, тонн. */
+  oil: number;
   totalEarned: number;
   totalTaps: number;
   totalPurchases: number;
+  /** Всего продано нефти, тонн. */
+  totalSold: number;
   luxurySpent: number;
   /** id покупки → уровень. */
   levels: Record<string, number>;
@@ -188,6 +283,8 @@ export interface GameState {
   /** Гэмблы «в полёте». */
   gambles: Array<{ id: string; amount: number; factor: number; resolveAt: number }>;
   achievements: string[];
+  /** Журнал последних операций (самые свежие — первыми). */
+  log: LogEntry[];
   /** Логические часы игры, мс (не зависят от системного времени). */
   clockMs: number;
   playtimeMs: number;
@@ -202,9 +299,32 @@ export interface GameState {
   rngSeed: number;
 }
 
+export interface ChannelRate {
+  /** Пропускная способность канала, тонн в секунду. */
+  rate: number;
+  /** Цена тонны через этот канал, ₦. */
+  price: number;
+  /** Сколько тонн канал реально продаёт в секунду (учитывая запас нефти). */
+  sold: number;
+}
+
 export interface DerivedStats {
+  /** Нефть за один тап, тонн. */
   tapValue: number;
+  /** Деньги за один тап при текущей цене (справочно, для интерфейса). */
+  tapRevenue: number;
   autoTapsPerSecond: number;
+  /** Автодобыча, тонн/с. */
+  oilPerSecond: number;
+  /** Сколько нефти уходит в сбыт за секунду (сумма по каналам). */
+  sellPerSecond: number;
+  /** Запас нефти, тонн. */
+  oil: number;
+  /** Ёмкость резервуаров, тонн. */
+  oilCapacity: number;
+  /** Цена тонны при текущей мировой цене, ₦. */
+  oilPricePerTon: number;
+  /** Доход от продажи нефти (до налогов), ₦/с. */
   grossPerSecond: number;
   netPerSecond: number;
   expensesPerSecond: number;
@@ -215,8 +335,15 @@ export interface DerivedStats {
   salaries: number;
   officials: number;
   exportMultiplier: number;
+  /** Влияние империи: дружба с властью, газеты, парламент, ЧВК. */
+  influence: number;
+  /** Скидка на отжатие активов, доля. */
+  conquestCut: number;
+  /** Работает ли автодобыча (все сотрудники наняты). */
+  autoDrill: boolean;
   totalLevels: number;
   luxuries: string[];
+  channels: Record<Channel, ChannelRate>;
   winCost: number;
   winReady: boolean;
   progress: number;
@@ -228,10 +355,12 @@ export type GameEvent =
   | { type: 'purchase'; id: string; level: number; cost: number }
   | { type: 'oneShot'; id: string; amount: number }
   | { type: 'periodic'; id: string; amount: number }
+  | { type: 'sold'; channel: Channel; tonnes: number; money: number }
+  | { type: 'oilFull' }
   | { type: 'gambleStarted'; id: string; amount: number }
   | { type: 'gambleResult'; id: string; won: boolean; amount: number }
   | { type: 'worldPrice'; price: number }
   | { type: 'achievement'; id: string }
   | { type: 'win' }
   | { type: 'offline'; seconds: number; coins: number }
-  | { type: 'error'; code: 'noMoney' | 'cooldown' | 'locked' | 'maxLevel'; id?: string };
+  | { type: 'error'; code: 'noMoney' | 'cooldown' | 'locked' | 'maxLevel' | 'noOil'; id?: string };

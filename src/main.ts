@@ -19,7 +19,7 @@ import {
   serializeState,
 } from './core/state';
 import { clearSave, readSave, writeSave } from './core/storage';
-import { formatMoney } from './core/format';
+import { formatMoney, formatNumber } from './core/format';
 import { Rng } from './core/rng';
 import { image } from './core/assets';
 import { SoundEngine } from './audio/sound';
@@ -34,6 +34,7 @@ import { Finale } from './ui/finale';
 import { StartScreen } from './ui/start';
 import { Settings } from './ui/settings';
 import { Wealth } from './ui/wealth';
+import { OperationLog } from './ui/log';
 import creditsRaw from './content/credits.txt?raw';
 import type { GameState } from './core/types';
 
@@ -87,13 +88,21 @@ function boot(): void {
     onError: (check) => reportBuyError(check.reason),
   });
 
+  const oplog = new OperationLog(texts, currency);
+
   const drill = new Drill(texts, {
     onTap: ({ x, y }) => {
+      // Тап добывает нефть. Деньги появятся, когда её продадут каналы сбыта.
       const gain = game.tap();
       if (gain <= 0) return;
       sound.tap();
       effects.splash(x, y, 1);
-      effects.floatText(x, y - 10, `+${formatMoney(gain, currency)}`, 'gain');
+      effects.floatText(
+        x,
+        y - 10,
+        texts.get('units.tonnesValue', { value: formatNumber(gain), tonnes: texts.get('units.tonnes') }),
+        'gain',
+      );
       scheduleUi();
     },
     onFirstTouch: () => {
@@ -161,9 +170,10 @@ function boot(): void {
   }
 
   const stage = el('main', { class: 'stage' }, [
-    hud.root,
-    el('div', { class: 'stage__middle' }, [drill.root, badge]),
-    el('aside', { class: 'stage__side' }, [shop.root]),
+    // Слева (сверху на телефоне): скважина и журнал операций под ней.
+    el('div', { class: 'stage__middle' }, [drill.root, oplog.root, badge]),
+    // Справа (снизу на телефоне): панель империи и магазин.
+    el('aside', { class: 'stage__side' }, [hud.root, shop.root]),
   ]);
 
   const newsBar = el('div', { class: 'newspane' }, [news.root]);
@@ -249,7 +259,7 @@ function boot(): void {
     const def = content.byId.get(id);
     const result = game.buy(id);
     if (!result.ok) {
-      if (result.reason === 'noMoney') sound.event(false);
+      if (result.reason === 'noMoney' || result.reason === 'noOil') sound.event(false);
       return;
     }
     sound.purchase();
@@ -330,6 +340,16 @@ function boot(): void {
       case 'win':
         onWin();
         break;
+      case 'sold':
+        // Продажа идёт непрерывно: не шумим звуком, но обновляем цифры.
+        break;
+      case 'oilFull':
+        if (!oilFullShown) {
+          oilFullShown = true;
+          showBadge(texts.get('shop.buyFailOil'));
+          window.setTimeout(() => { oilFullShown = false; }, 8000);
+        }
+        break;
       case 'offline':
         break;
       default:
@@ -337,6 +357,8 @@ function boot(): void {
     }
     scheduleUi();
   });
+
+  let oilFullShown = false;
 
   function onWin(): void {
     sound.fanfare();
@@ -381,8 +403,9 @@ function boot(): void {
   function refreshUi(forceShop: boolean): void {
     const derived = game.derived();
     hud.update(game.state, derived, derived.winCost);
-    if (forceShop) shop.update();
-    else shop.update();
+    oplog.update(game.state.log);
+    shop.update();
+    void forceShop;
     if (game.state.won && !lastWinShown) {
       lastWinShown = true;
     }

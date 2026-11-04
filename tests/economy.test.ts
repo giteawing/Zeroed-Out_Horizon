@@ -4,10 +4,12 @@ import {
   computeDerived,
   costFor,
   eventPayout,
-  exportPayout,
+  exportTonnes,
   isUnlocked,
   isWinReady,
   netForInterval,
+  saleProceeds,
+  sellOil,
   totalCostFor,
   unlockBlocker,
   winCostOf,
@@ -94,34 +96,40 @@ describe('разблокировка покупок', () => {
 });
 
 describe('производные показатели', () => {
-  it('без покупок тап равен базовому значению', () => {
+  it('без покупок тап добывает базовые тонны, а денег ещё нет', () => {
     const d = computeDerived(config, content.upgrades, withUpgrades());
-    expect(d.tapValue).toBeCloseTo(config.baseTapValue, 6);
+    // Тап добывает НЕФТЬ; базовое значение тапа — это tonnы из config.oil.
+    expect(d.tapValue).toBeCloseTo(config.oil.tapTonnes, 6);
+    // Каналы сбыта не построены: продавать пока некуда (контракты безлимитны,
+    // но их вклад считается по факту продажи, а не «теоретически»).
     expect(d.grossPerSecond).toBe(0);
     expect(d.netPerSecond).toBe(0);
   });
 
-  it('perTap складывается линейно и умножается на множители', () => {
+  it('perTap складывается линейно и умножается на множители (с затуханием)', () => {
     const tap = makeUpgrade({ id: 'tap', type: 'perTap', effect: { value: 5 } });
     const mult = makeUpgrade({ id: 'mult', type: 'multiplier', effect: { factor: 2 } });
     const d = computeDerived(config, [tap, mult], withUpgrades({ tap: 3, mult: 2 }));
-    // (1 + 5*3) * 2^2
-    expect(d.tapValue).toBeCloseTo((config.baseTapValue + 15) * 4, 4);
+    // (oil.tapTonnes + 5*3) * 2^√2 — отдача множителей затухает,
+    // иначе к концу игры цены и доходы «взрываются».
+    expect(d.tapValue).toBeCloseTo((config.oil.tapTonnes + 15) * Math.pow(2, Math.SQRT2), 4);
   });
 
   it('passive складывается и умножается на множители пассива', () => {
     const passive = makeUpgrade({ id: 'p', type: 'passive', effect: { value: 10 } });
     const mult = makeUpgrade({ id: 'm', type: 'multiplier', effect: { factor: 1.5, scope: 'passive' } });
     const d = computeDerived(config, [passive, mult], withUpgrades({ p: 2, m: 2 }));
-    expect(d.grossPerSecond).toBeCloseTo(20 * Math.pow(1.5, 2), 4);
+    // Пассив — это ДОБЫЧА нефти (тонн/с), а не деньги.
+    expect(d.oilPerSecond).toBeCloseTo(20 * Math.pow(1.5, Math.SQRT2), 4);
   });
 
   it('множитель с scope=tap не влияет на пассив', () => {
     const passive = makeUpgrade({ id: 'p', type: 'passive', effect: { value: 10 } });
     const mult = makeUpgrade({ id: 'm', type: 'multiplier', effect: { factor: 3, scope: 'tap' } });
     const d = computeDerived(config, [passive, mult], withUpgrades({ p: 1, m: 1 }));
-    expect(d.grossPerSecond).toBeCloseTo(10, 4);
-    expect(d.tapValue).toBeCloseTo(config.baseTapValue * 3, 4);
+    expect(d.oilPerSecond).toBeCloseTo(10, 4);
+    expect(d.tapValue).toBeCloseTo(config.oil.tapTonnes * 3, 4);
+    expect(d.grossPerSecond).toBe(0);
   });
 
   it('налог не опускается ниже минимума и не растёт выше 100%', () => {
@@ -158,7 +166,7 @@ describe('производные показатели', () => {
     const d = computeDerived(config, [yacht], withUpgrades({ y: 1 }));
     expect(d.luxuries).toContain('y');
     expect(d.grossPerSecond).toBe(0);
-    expect(d.tapValue).toBeCloseTo(config.baseTapValue, 6);
+    expect(d.tapValue).toBeCloseTo(config.oil.tapTonnes, 6);
   });
 });
 
@@ -166,12 +174,17 @@ describe('условия победы', () => {
   it('требует денег и ключевых улучшений', () => {
     const state = withUpgrades();
     state.coins = config.winCost;
-    expect(isWinReady(config, content.upgrades, state, state.coins)).toBe(false);
-
-    for (const req of config.winRequirements) {
-      if (req.upgrade) state.levels[req.upgrade] = req.level ?? 1;
+    const requirements = config.winRequirements;
+    if (requirements.length === 0) {
+      // Требований нет — достаточно денег.
+      expect(isWinReady(config, content.upgrades, state, state.coins)).toBe(true);
+    } else {
+      expect(isWinReady(config, content.upgrades, state, state.coins)).toBe(false);
+      for (const req of requirements) {
+        if (req.upgrade) state.levels[req.upgrade] = req.level ?? 1;
+      }
+      expect(isWinReady(config, content.upgrades, state, state.coins)).toBe(true);
     }
-    expect(isWinReady(config, content.upgrades, state, state.coins)).toBe(true);
     state.coins = config.winCost - 1;
     expect(isWinReady(config, content.upgrades, state, state.coins)).toBe(false);
   });
@@ -186,8 +199,8 @@ describe('выплаты событий', () => {
 
   it('растут вместе с империей', () => {
     const def = content.byId.get('p_monarch') as UpgradeDef;
-    const small = eventPayout(def, { ...derived, tapValue: 1, grossPerSecond: 0 }, 1, 0);
-    const big = eventPayout(def, { ...derived, tapValue: 100, grossPerSecond: 0 }, 1, 0);
+    const small = eventPayout(def, { ...derived, grossPerSecond: 1, oilPerSecond: 0 }, 1, 0);
+    const big = eventPayout(def, { ...derived, grossPerSecond: 1000, oilPerSecond: 0 }, 1, 0);
     expect(big).toBeGreaterThan(small);
   });
 
@@ -197,13 +210,44 @@ describe('выплаты событий', () => {
     expect(payout).toBe(1000 * (def.effect.factor ?? 1));
   });
 
-  it('экспорт зависит от мировой цены и терминала', () => {
+  it('экспорт продаёт нефть со склада по цене канала', () => {
     const def = content.byId.get('p_export') as UpgradeDef;
-    const cheap = exportPayout(def, { ...derived, exportMultiplier: 1 }, 0.7);
-    const dear = exportPayout(def, { ...derived, exportMultiplier: 1 }, 1.3);
-    const withTerminal = exportPayout(def, { ...derived, exportMultiplier: 2 }, 1.3);
-    expect(dear).toBeGreaterThan(cheap);
-    expect(withTerminal).toBeCloseTo(dear * 2, -1);
+    const cheap = { ...derived, channels: { ...derived.channels, export: { ...derived.channels.export, price: 10 } } };
+    const dear = { ...derived, channels: { ...derived.channels, export: { ...derived.channels.export, price: 20 } } };
+    const tonnes = 100;
+    expect(saleProceeds(def, dear, tonnes)).toBeGreaterThan(saleProceeds(def, cheap, tonnes));
+    // Разовая акция не может продать больше, чем лежит в резервуарах.
+    expect(exportTonnes(config, derived, 5)).toBeLessThanOrEqual(5);
+  });
+
+  it('каналы делят нефть по приоритету «дорогой сначала»', () => {
+    const custom = {
+      ...derived,
+      channels: {
+        contract: { rate: 1, price: 1, sold: 1 },
+        export: { rate: 1, price: 10, sold: 1 },
+        refine: { rate: 1, price: 100, sold: 1 },
+      },
+    };
+    const sold = sellOil(custom, 3, 10, []);
+    // Вся нефть ушла через самый дорогой канал.
+    expect(sold.byChannel.refine).toBeCloseTo(3, 6);
+    expect(sold.gross).toBeCloseTo(300, 6);
+    expect(sold.oil).toBeCloseTo(0, 6);
+  });
+
+  it('безлимитные контракты продают всё, что осталось', () => {
+    const custom = {
+      ...derived,
+      channels: {
+        contract: { rate: 0, price: 1, sold: 0 },
+        export: { rate: 0, price: 10, sold: 0 },
+        refine: { rate: 0, price: 100, sold: 0 },
+      },
+    };
+    const sold = sellOil(custom, 50, 1, ['contract']);
+    expect(sold.oil).toBeCloseTo(0, 6);
+    expect(sold.byChannel.contract).toBeCloseTo(50, 6);
   });
 });
 

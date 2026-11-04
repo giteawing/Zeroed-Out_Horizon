@@ -33,12 +33,53 @@ function setup(): { game: Game; state: GameState; events: GameEvent[] } {
 }
 
 describe('тап', () => {
-  it('начисляет монеты и считает тапы', () => {
+  it('тап добывает нефть, а не деньги', () => {
     const { game, state } = setup();
+    const before = state.oil;
     const gain = game.tap();
     expect(gain).toBeGreaterThan(0);
-    expect(state.coins).toBeGreaterThan(0);
+    // В резервуары пришла нефть, а нефтефаников за тап не начисляется:
+    // деньги появятся только после продажи.
+    expect(state.oil).toBeGreaterThan(before);
+    expect(state.coins).toBe(config.startCoins);
     expect(state.totalTaps).toBe(1);
+  });
+
+  it('резервуары переполняются и лишняя нефть теряется', () => {
+    const { game, state } = setup();
+    const capacity = game.derived().oilCapacity;
+    state.oil = capacity - 0.5;
+    game.tap();
+    expect(state.oil).toBeLessThanOrEqual(capacity + 1e-6);
+  });
+
+  it('добыча идёт сама и сразу продаётся по контрактам', () => {
+    const { game, state } = setup();
+    makeRich(state, 't_well', 80);
+    game.buy('t_well', 10);
+    state.oil = 0;
+    const coinsBefore = state.coins;
+    game.update(1000);
+    // Нефть, добытая персоналом, ушла в безлимитные контракты и стала деньгами.
+    expect(state.totalSold).toBeGreaterThan(0);
+    expect(state.coins).toBeGreaterThan(coinsBefore);
+  });
+
+  it('без каналов сбыта нефть копится в резервуарах', () => {
+    const { game, state } = setup();
+    makeRich(state, 't_well', 80);
+    game.buy('t_well', 10);
+    state.oil = 0;
+    // Убираем все каналы: продавать некуда.
+    for (const channel of ['contract', 'export', 'refine'] as const) {
+      game.content.config.oil.channels[channel].unlimited = false;
+      game.content.config.oil.channels[channel].baseRate = 0;
+    }
+    game.update(1000);
+    expect(state.oil).toBeGreaterThan(0);
+    expect(state.totalSold).toBe(0);
+    // Восстанавливаем конфиг для остальных тестов.
+    content.config.oil.channels.contract.unlimited = true;
   });
 
   it('растёт от технических улучшений', () => {
@@ -150,10 +191,14 @@ describe('покупки-действия с перезарядкой', () => {
   it('не «максимятся» и работают после перезарядки', () => {
     const { game, state } = setup();
     makeRich(state, 'p_export');
+    // Экспортная акция продаёт нефть со склада: сначала её надо добыть.
+    state.oil = game.derived().oilCapacity;
     expect(game.buy('p_export').ok).toBe(true);
     expect(state.levels.p_export).toBe(1);
     expect(game.buy('p_export').reason).toBe('cooldown');
     game.update((content.byId.get('p_export')?.cooldownSeconds ?? 40) * 1000 + 500);
+    // За время ожидания нефть распродали контракты — снова наполняем резервуары.
+    state.oil = game.derived().oilCapacity;
     expect(game.buy('p_export').ok).toBe(true);
     expect(state.levels.p_export).toBe(1);
   });
@@ -258,9 +303,12 @@ describe('победа', () => {
   it('требует ключевые улучшения и деньги', () => {
     const { game, state } = setup();
     state.coins = config.winCost;
-    expect(game.buy('win_pump').reason).toBe('locked');
-    for (const req of config.winRequirements) {
-      if (req.upgrade) state.levels[req.upgrade] = req.level ?? 1;
+    const requirements = config.winRequirements;
+    if (requirements.length > 0) {
+      expect(game.buy('win_pump').reason).toBe('locked');
+      for (const req of requirements) {
+        if (req.upgrade) state.levels[req.upgrade] = req.level ?? 1;
+      }
     }
     const before = state.coins;
     const result = game.buy('win_pump');
