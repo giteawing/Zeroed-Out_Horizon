@@ -146,6 +146,35 @@ describe('покупки', () => {
   });
 });
 
+describe('покупки-действия с перезарядкой', () => {
+  it('не «максимятся» и работают после перезарядки', () => {
+    const { game, state } = setup();
+    makeRich(state, 'p_export');
+    expect(game.buy('p_export').ok).toBe(true);
+    expect(state.levels.p_export).toBe(1);
+    expect(game.buy('p_export').reason).toBe('cooldown');
+    game.update((content.byId.get('p_export')?.cooldownSeconds ?? 40) * 1000 + 500);
+    expect(game.buy('p_export').ok).toBe(true);
+    expect(state.levels.p_export).toBe(1);
+  });
+
+  it('роскошь покупается один раз', () => {
+    const { game, state } = setup();
+    makeRich(state, 'l_boat');
+    expect(game.buy('l_boat').ok).toBe(true);
+    expect(game.buy('l_boat').reason).toBe('maxLevel');
+  });
+
+  it('выплата события растёт вместе с империей', () => {
+    const { game, state } = setup();
+    makeRich(state, 'p_contractor');
+    game.buy('t_well', 10);
+    const before = state.coins;
+    game.buy('p_contractor');
+    expect(state.coins).toBeGreaterThan(before);
+  });
+});
+
 describe('гэмблы', () => {
   it('возвращают деньги через заявленное время', () => {
     const { game, state } = setup();
