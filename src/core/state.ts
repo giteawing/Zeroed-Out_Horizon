@@ -153,6 +153,7 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
           price: typeof e.price === 'number' ? e.price : undefined,
           money: typeof e.money === 'number' ? e.money : undefined,
           textKey: typeof e.textKey === 'string' ? e.textKey : undefined,
+          count: typeof e.count === 'number' ? e.count : undefined,
         })))
     : [];
 

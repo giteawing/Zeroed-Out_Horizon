@@ -92,19 +92,32 @@ export class Hud {
       ]),
 
       el('div', { class: 'hud__rows' }, [
-        row('oilRate', texts.get('hud.oilRate'), 'hud__row-value--oil').root,
+        // «Добыча» в тоннах в секунду убрана: игроку хватает суточного дебита.
         row('dailyRate', texts.get('hud.dailyRate'), 'hud__row-value--oil').root,
         row('wellsCount', texts.get('hud.wellsCount')).root,
         row('sellRate', texts.get('hud.sellRate'), 'hud__row-value--sell').root,
-        row('pricePerTon', texts.get('hud.pricePerTon'), 'hud__row-value--price').root,
+        row('domesticPrice', texts.get('hud.domesticPrice'), 'hud__row-value--price').root,
+        row('exportPrice', texts.get('hud.exportPrice'), 'hud__row-value--price').root,
         row('gross', texts.get('hud.gross'), 'hud__row-value--plus').root,
         row('net', texts.get('hud.perSecond'), 'hud__row-value--plus').root,
+        row('profit', texts.get('hud.profit'), 'hud__row-value--profit').root,
+        row('assets', texts.get('hud.assets'), 'hud__row-value--assets').root,
         row('perTap', texts.get('hud.perTap'), 'hud__row-value--oil').root,
         row('salaries', texts.get('hud.salaries'), 'hud__row-value--minus').root,
         row('officials', texts.get('hud.officials'), 'hud__row-value--minus').root,
         row('expenses', texts.get('hud.expenses'), 'hud__row-value--minus').root,
         row('taxRate', texts.get('hud.taxRate'), 'hud__row-value--minus').root,
         row('capacity', texts.get('hud.capacity')).root,
+      ]),
+
+      // Сколько чего построено: НПЗ, нефтебазы, АЗС, трубопроводы.
+      el('div', { class: 'hud__assets' }, [
+        el('span', { class: 'hud__label' }, texts.get('hud.assetCounts')),
+        row('assetsRefinery', texts.get('hud.refineries')).root,
+        row('assetsDepot', texts.get('hud.depots')).root,
+        row('assetsAzs', texts.get('hud.azsCount')).root,
+        row('assetsExportPipe', texts.get('hud.exportPipes')).root,
+        row('assetsRefineryPipe', texts.get('hud.refineryPipes')).root,
       ]),
 
       el('div', { class: 'hud__sales' }, [
@@ -166,19 +179,10 @@ export class Hud {
     const daily = wellsDailyTonnes(state, this.config);
     set('dailyRate', units('tonnesPerDay', { value: formatNumber(daily), tonnes }));
     set('wellsCount', String(state.wells.length));
-    set('oilRate', units('tonnesRate', {
-      value: formatNumber(derived.oilPerSecond),
-      tonnes,
-      s: perSecond.replace('/', ''),
-    }));
     set('sellRate', units('tonnesRate', {
       value: formatNumber(derived.sellPerSecond),
       tonnes,
       s: perSecond.replace('/', ''),
-    }));
-    set('pricePerTon', units('pricePerTon', {
-      price: formatMoney(derived.oilPricePerTon, this.currency),
-      tonnes,
     }));
     set('gross', units('moneyRate', {
       value: formatMoney(derived.grossPerSecond, this.currency),
@@ -188,6 +192,25 @@ export class Hud {
       value: formatMoney(derived.netPerSecond, this.currency),
       s: perSecond.replace('/', ''),
     }));
+    // Разные цены: внутренняя (контракты) и экспортная — обычно выше.
+    set('domesticPrice', units('pricePerTon', {
+      price: formatMoney(derived.domesticPricePerTon, this.currency),
+      tonnes,
+    }));
+    set('exportPrice', units('pricePerTon', {
+      price: formatMoney(derived.exportPricePerTon, this.currency),
+      tonnes,
+    }));
+    set('profit', units('moneyRate', {
+      value: formatMoney(derived.profitPerSecond, this.currency),
+      s: perSecond.replace('/', ''),
+    }));
+    set('assets', formatMoney(derived.assetsValue, this.currency));
+    set('assetsRefinery', String(derived.assetCounts.refinery));
+    set('assetsDepot', String(derived.assetCounts.depot));
+    set('assetsAzs', String(derived.assetCounts.azs));
+    set('assetsExportPipe', String(derived.assetCounts.exportPipe));
+    set('assetsRefineryPipe', String(derived.assetCounts.refineryPipe));
     set('perTap', units('tonnesValue', { value: formatNumber(derived.tapValue), tonnes }));
     set('salaries', units('minusRate', {
       value: formatMoney(derived.salaries, this.currency),

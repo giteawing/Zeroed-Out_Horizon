@@ -12,7 +12,7 @@ import type { Texts } from './texts';
 import { formatMoney, formatNumber } from '../core/format';
 import type { LogEntry } from '../core/types';
 
-const VISIBLE = 4;
+const VISIBLE = 3;
 
 export class OperationLog {
   readonly root: HTMLElement;
@@ -58,6 +58,15 @@ export class OperationLog {
           money,
         });
       case 'conquest':
+        // Реприватизация приносит скважины — ей нужна своя строка с цифрами.
+        if (entry.upgradeId === 'p_reprivatize' && entry.tonnes !== undefined) {
+          return this.texts.get('log.reprivat', {
+            wells: entry.count ?? 1,
+            tonnes: formatNumber(entry.tonnes),
+            unit: tonnes,
+            money: entry.money !== undefined ? formatMoney(entry.money, this.currency) : money,
+          });
+        }
         return this.texts.get('log.conquest', { name, money });
       case 'launder':
         return this.texts.get('log.launder', { name, money });

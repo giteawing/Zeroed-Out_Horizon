@@ -1041,6 +1041,25 @@ const icons = {
 };
 
 /** Всё, что не описано выше — собираем по типу/группе. */
+/** Иконки покупок этапа 5: банк-масштаб, ЧОП, телеканал, секретарь, трубы и ветка. */
+icons['bank-scale'] = `${rect(20, 40, 60, 40, P.cream, 4)}${poly([[14, 40], [50, 22], [86, 40]], 'url(#gold)')}${rect(28, 48, 8, 24, 'url(#steel)', 2)}${rect(46, 48, 8, 24, 'url(#steel)', 2)}${rect(64, 48, 8, 24, 'url(#steel)', 2)}${path('M18 80h64', 'none')}${path('M62 22l14 -8 6 10-14 8Z', 'url(#green)')}${circle(78, 18, 7, 'url(#gold)')}${line(74, 18, 82, 14, 3, P.ink)}`;
+
+icons['bank-payroll'] = `${rect(24, 30, 48, 30, 'url(#steel)', 4)}${rect(30, 36, 20, 12, 'url(#gold)', 2)}${line(38, 42, 46, 42, 2, P.ink)}${circle(64, 50, 6, 'url(#crimson)')}${coin(50, 74, 12)}${path('M20 74h60', 'none')}${spark(78, 30, 6)}`;
+
+icons['pmc-chop'] = `${path('M50 14l30 10v26c0 18-14 28-30 36C34 78 20 68 20 50V24Z', P.oliveDark)}${path('M50 22l22 7v22c0 14-10 22-22 29-12-7-22-15-22-29V29Z', 'none')}${rect(38, 40, 24, 18, 'url(#steel)', 3)}${path('M44 40v-6a6 6 0 0 1 12 0v6', 'none')}${rect(60, 44, 16, 10, 'url(#gold)', 3)}`;
+
+icons['tv-channel'] = `${rect(18, 32, 64, 44, P.ink, 5)}${rect(25, 38, 50, 32, '#14202e', 2)}${path('M32 58l10 -10 8 8 12 -14 8 10', 'none')}${path('M68 56l6 -8', 'none')}${line(50, 24, 38, 12, 4, P.steel)}${line(50, 24, 62, 12, 4, P.steel)}${star(84, 26, 7)}`;
+
+icons['secretary'] = `${facade()}${person({ suit: P.ink, tie: P.gold, baseY: 84, scale: 0.55, cx: 50 })}${document(62, 20, 26, 32)}${stamp(76, 36, 11)}${star(22, 26, 6)}`;
+
+icons['rail-branch'] = `${rect(10, 58, 80, 12, 'url(#steel)', 3)}${line(18, 64, 28, 76, 4, P.inkSoft)}${line(28, 76, 40, 64, 4, P.inkSoft)}${line(60, 64, 72, 76, 4, P.inkSoft)}${line(72, 76, 82, 64, 4, P.inkSoft)}${rect(18, 34, 40, 20, 'url(#crimson)', 4)}${circle(28, 78, 7, 'url(#gold)')}${circle(72, 78, 7, 'url(#gold)')}${drop(76, 20, 0.7)}`;
+
+icons['refinery-pipe'] = `${factory(16, 44, 40, 28)}${pipe('M56 58h22q10 0 10 10v12', 'url(#steel)', 10)}${circle(78, 74, 6, 'url(#steelDark)')}${drop(42, 24, 0.7)}${spark(30, 22, 6)}`;
+
+icons['export-pipe'] = `${fill('M4 74q46 10 92 0v12H4Z', '#8a5c2c', 0.55)}${pipe('M6 62q30 -10 46 0t42 -6', 'url(#steel)', 12)}${circle(34, 57, 8, 'url(#gold)')}${circle(34, 57, 3.4, P.ink)}${circle(78, 57, 8, 'url(#gold)')}${circle(78, 57, 3.4, P.ink)}${rect(46, 22, 6, 30, P.crimson, 2)}${poly([[42, 22], [56, 22], [49, 12]], 'url(#gold)')}${drop(88, 30, 0.75)}`;
+
+icons['export-terminal'] = `${fill('M2 80q48 8 96 0v14H2Z', 'url(#sky)', 0.5)}${rect(8, 68, 84, 8, 'url(#steel)', 3)}${rect(10, 42, 26, 26, 'url(#gold)', 4)}${rect(16, 38, 14, 6, 'url(#steel)', 2)}${ship(66, 62, 0.7, 'url(#crimson)')}${line(34, 56, 52, 56, 6, P.steelDark)}${rect(52, 24, 6, 26, P.inkSoft, 2)}${line(55, 24, 76, 18, 4, P.inkSoft)}${circle(76, 18, 5, 'url(#gold)')}${drop(46, 20, 0.6)}`;
+
 const FALLBACKS = {
   technical: (def) => `${factory(24, 44, 50, 32)}${spark(72, 30, 6)}`,
   political: (def) => `${facade()}${coin(72, 30, 7)}`,

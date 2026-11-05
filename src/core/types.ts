@@ -26,8 +26,14 @@ export type UpgradeType =
   | 'storage'
   | 'win';
 
-/** Каналы сбыта нефти. */
+/** Каналы сбыта нефти: внутренний рынок, экспорт и переработка. */
 export type Channel = 'contract' | 'export' | 'refine';
+
+/**
+ * Что именно построено: нужно, чтобы панель считала «сколько у меня НПЗ,
+ * нефтебаз, АЗС и трубопроводов», не зашивая id покупок в интерфейс.
+ */
+export type AssetKind = 'refinery' | 'depot' | 'azs' | 'exportPipe' | 'refineryPipe';
 
 export interface ChannelConfig {
   /** Множитель к базовой цене тонны. */
@@ -98,6 +104,11 @@ export interface WellConfig {
     /** За сколько секунд дебит падает вдвое (при отсутствии пола). */
     halfLifeSeconds: number;
   };
+  /**
+   * Сколько секунд продаж по базовой цене стоит одна тонна суточного дебита.
+   * Нужно для оценки активов и для приза реприватизации.
+   */
+  priceSeconds: number;
 }
 
 export interface UpgradeEffect {
@@ -139,6 +150,11 @@ export interface UpgradeEffect {
   launder?: boolean;
   /** Тонн за операцию (для разовых акций сбыта). */
   tonnes?: number;
+  /**
+   * Насколько усиливается операция за каждый уровень «масштаба банка»
+   * (0.3 = +30 % к выплате при каждом уровне «Увеличения масштабов»).
+   */
+  bankScale?: number;
 }
 
 export interface UnlockRequirement {
@@ -174,6 +190,20 @@ export interface UpgradeDef {
   tag?: string;
   /** Это «отжатие» у конкурента: цена ниже, но нужно влияние (и часто ЧВК). */
   conquest?: boolean;
+  /**
+   * Улучшение с «историей»: долото, насос, двигатель, раствор, ГРП.
+   * При каждой покупке название меняется (долото «Турбо-12», насос «Имперский-7»),
+   * поэтому игрок видит, что купил именно новую модель, а не абстрактный «+1».
+   */
+  staged?: boolean;
+  /** Что построено этим уровнем: НПЗ, нефтебаза, АЗС, трубопровод. */
+  assetKind?: AssetKind;
+  /**
+   * Названия моделей по уровням: у «истории» (dолото, насос, двигатель,
+   * раствор, ГРП) каждая покупка — новая модель, и её имя берётся отсюда.
+   * Если уровни кончились, показывается последнее название.
+   */
+  stagedNames?: string[];
 }
 
 export interface GameConfig {
@@ -214,6 +244,11 @@ export interface GameConfig {
     smoothing: number;
   };
   oil: OilConfig;
+  /** Оценка собственности для панели «Активы». */
+  assets: {
+    /** Сколько секунд продаж стоит тонна суточного дебита скважины. */
+    tonnesValueSeconds: number;
+  };
   /** Бонусы за «дружбу» с разными ветвями власти. */
   influence: {
     /** Влияние за каждый уровень политической покупки (по группам). */
@@ -314,9 +349,21 @@ export interface LogEntry {
   money?: number;
   /** Ключ текста в log.* для нестандартных записей. */
   textKey?: string;
+  /** Сколько объектов пришло одной операцией (например, скважин при реприватизации). */
+  count?: number;
 }
 
 /** Пробуренная скважина: класс и её суточный дебит. */
+/** Приз реприватизации: случайные месторождения со скважинами конкурента. */
+export interface ReprivatizationPrize {
+  /** Сколько скважин досталось. */
+  wells: number;
+  /** Суммарный суточный дебит этих скважин, т/сут. */
+  dailyTonnes: number;
+  /** Сколько стоило бы построить столько же самому, ₦. */
+  marketValue: number;
+}
+
 export interface Well {
   /** Класс скважины: обычная, хорошая или уникальная. */
   kind: 'ordinary' | 'good' | 'unique';
@@ -391,6 +438,16 @@ export interface DerivedStats {
   oilCapacity: number;
   /** Цена тонны при текущей мировой цене, ₦. */
   oilPricePerTon: number;
+  /** Цена тонны на внутреннем рынке (контракты), ₦. */
+  domesticPricePerTon: number;
+  /** Экспортная цена тонны, ₦ — обычно выше внутренней. */
+  exportPricePerTon: number;
+  /** Чистая прибыль в секунду: выручка минус налог и расходы, ₦/с. */
+  profitPerSecond: number;
+  /** Стоимость всех активов империи (заводы, трубы, скважины, роскошь), ₦. */
+  assetsValue: number;
+  /** Сколько чего построено — для панели империи. */
+  assetCounts: Record<AssetKind, number>;
   /** Доход от продажи нефти (до налогов), ₦/с. */
   grossPerSecond: number;
   netPerSecond: number;
@@ -428,6 +485,7 @@ export type GameEvent =
   | { type: 'gambleResult'; id: string; won: boolean; amount: number }
   | { type: 'worldPrice'; price: number }
   | { type: 'drilled'; kind: 'ordinary' | 'good' | 'unique'; dailyTonnes: number }
+  | { type: 'reprivatized'; wells: number; dailyTonnes: number; marketValue: number }
   | { type: 'achievement'; id: string }
   | { type: 'win' }
   | { type: 'offline'; seconds: number; coins: number }

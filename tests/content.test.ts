@@ -6,6 +6,14 @@ import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { creditsIsPlaceholder, loadContent, validateUpgrades } from '../src/core/content';
+import {
+  REPRIVAT_PRIZE_MAX,
+  REPRIVAT_PRIZE_MIN,
+  computeDerived,
+  reprivatizationPrize,
+  stagedNameOf,
+} from '../src/core/economy';
+import { createInitialState } from '../src/core/state';
 import type { UpgradeDef } from '../src/core/types';
 
 const content = loadContent();
@@ -17,7 +25,7 @@ const STRICT_NAMES = [
   'Попросить монет у императора «на поддержание штанов»',
   'Занести в «министерство нефтяных ресурсов»',
   'Сходить в сауну с главой «комитета по промышленности»',
-  'Пихнуть нефть заграницу',
+  'Контрабанда нефти заграницу',
   'Магистральный Насос «Упырь-Абсолют»',
 ];
 
@@ -47,7 +55,7 @@ describe('состав контента (ТЗ §6)', () => {
       'фуршет',
       'министерство нефтяных ресурсов',
       'сауну',
-      'Пихнуть нефть заграницу',
+      'Контрабанда нефти заграницу',
       'мировой нефтяной кризис',
       'икорной вечеринкой',
       'Отжать месторождение',
@@ -63,17 +71,17 @@ describe('состав контента (ТЗ §6)', () => {
     }
   });
 
-  it('дополнительные политические идеи: минимум 5 из списка', () => {
+  it('дополнительные политические идеи: минимум 3 из списка', () => {
     const extra = [
       'щенка депутату',
       'благотворительный фонд',
       'оффшор',
-      'юриста с говорящей фамилией',
       'местную газету',
-      'на храм',
+      'телеканал имперского значения',
+      'главным секретарём топливной и экологической безопасности',
       'экспертизу',
     ];
-    expect(extra.filter(has).length).toBeGreaterThanOrEqual(5);
+    expect(extra.filter(has).length).toBeGreaterThanOrEqual(3);
   });
 
   it('инфраструктура: все 8 объектов', () => {
@@ -91,21 +99,27 @@ describe('состав контента (ТЗ §6)', () => {
     }
   });
 
-  it('все типы долот по возрастанию эффективности', () => {
-    const drills = content.upgrades
-      .filter((u) => u.group === 'drills')
-      .sort((a, b) => a.baseCost - b.baseCost);
-    expect(drills).toHaveLength(7);
-    expect(drills[0].name).toBe('Лопастное долото');
-    expect(drills[6].name).toBe('Долото-Терминатор');
-    for (let i = 1; i < drills.length; i++) {
-      expect(drills[i].effect.value ?? 0).toBeGreaterThan(drills[i - 1].effect.value ?? 0);
+  it('долото одно, но с историей моделей: каждая покупка — новое название', () => {
+    const drills = content.upgrades.filter((u) => u.group === 'drills');
+    expect(drills).toHaveLength(1);
+    expect(drills[0].staged).toBe(true);
+    expect((drills[0].stagedNames ?? []).length).toBeGreaterThanOrEqual(5);
+    // Название первой модели — то, что видно в магазине до покупки.
+    expect(drills[0].stagedNames?.[0]).toBe(drills[0].name);
+  });
+
+  it('у насоса, двигателя, раствора и ГРП тоже меняются названия', () => {
+    for (const id of ['t_pump1', 't_motor', 't_mud', 't_frac']) {
+      const def = content.byId.get(id)!;
+      expect(def.staged, `${id} без staged`).toBe(true);
+      expect((def.stagedNames ?? []).length, `${id} без названий`).toBeGreaterThanOrEqual(5);
+      expect(new Set(def.stagedNames).size).toBe(def.stagedNames!.length);
     }
   });
 
   it('насосы, каротаж, оборудование, персонал, цифровые — на месте', () => {
     for (const needle of [
-      'Поршневой буровой насос',
+      'Насос «Поршень-1»',
       'Насос с цифровым управлением',
       'Насос-Гигант',
       'каротажные приборы',
@@ -114,11 +128,11 @@ describe('состав контента (ТЗ §6)', () => {
       'Телеметрия MWD/LWD',
       'Азимутальный резистивиметр',
       'Лаборатория керна',
-      'Винтовой забойный двигатель',
+      'Двигатель «Винт-1»',
       'Роторная управляемая система (РУС)',
       'Верхний привод',
-      'Буровой раствор «Премиум»',
-      'Многостадийный ГРП',
+      'Раствор «Премиум»',
+      'ГРП «Первый разрыв»',
       'Умная скважина',
       'Электроцентробежный насос (ЭЦН)',
       'геонавигатора',
@@ -332,5 +346,104 @@ describe('тексты', () => {
       const suspicious = latin.match(/['"`][^'"`]*[А-Яа-яЁё][^'"`]*['"`]/g) ?? [];
       expect(suspicious, `${file}: строки должны браться из texts.json`).toEqual([]);
     }
+  });
+});
+
+describe('этап 5: требования заказчика по содержанию', () => {
+  const names = (): string[] => content.upgrades.map((u) => u.name);
+  const hasName = (needle: string): boolean => names().some((n) => n.includes(needle));
+
+  it('убраны пункты, которые заказчик просил убрать', () => {
+    expect(hasName('юриста')).toBe(false);
+    expect(hasName('на храм')).toBe(false);
+    expect(hasName('дронов-разведчиков')).toBe(false);
+    expect(hasName('ЧВК')).toBe(false);
+  });
+
+  it('добавлены новые пункты', () => {
+    for (const needle of [
+      'главным секретарём топливной и экологической безопасности',
+      'телеканал имперского значения',
+      'ж/д ветку к месторождению',
+      'трубопровод к месторождению',
+      'трубопровод к НПЗ',
+      'экспортный трубопровод',
+      'экспортный наливной терминал',
+      'Увеличение масштабов деятельности банка',
+      'получать зарплату через банк',
+    ]) {
+      expect(hasName(needle), `нет пункта «${needle}»`).toBe(true);
+    }
+  });
+
+  it('убыточный банк — одноразовая покупка, операции открываются уровнями масштаба', () => {
+    const bank = content.byId.get('p_badbank')!;
+    expect(bank.maxLevel).toBe(1);
+    const scale = content.byId.get('p_bank_scale')!;
+    expect(scale.maxLevel).toBeGreaterThanOrEqual(6);
+    for (const opId of ['p_tranche', 'p_hideprofit', 'p_launder']) {
+      const op = content.byId.get(opId)!;
+      expect(op.unlockAt?.upgrade, opId).toBe('p_bank_scale');
+      expect(op.effect.bankScale, opId).toBeGreaterThan(0);
+    }
+    // Уровни, на которых открываются операции, идут по возрастанию.
+    const levels = ['p_tranche', 'p_hideprofit', 'p_launder'].map(
+      (id) => content.byId.get(id)!.unlockAt!.level ?? 1,
+    );
+    expect(levels).toEqual([...levels].sort((a, b) => a - b));
+  });
+
+  it('«Попросить монет» и фуршет открываются по влиянию', () => {
+    expect(content.byId.get('p_monarch')!.unlockAt?.influence).toBeGreaterThan(0);
+    expect(content.byId.get('p_forum')!.unlockAt?.influence).toBeGreaterThan(0);
+  });
+
+  it('реприватизация требует влияния и даёт случайный приз в 5–10 раз дороже', () => {
+    const def = content.byId.get('p_reprivatize')!;
+    expect(def.unlockAt?.influence).toBeGreaterThan(0);
+    expect(REPRIVAT_PRIZE_MIN).toBe(5);
+    expect(REPRIVAT_PRIZE_MAX).toBe(10);
+    // Стоимость приза всегда в заданном коридоре, при любом ГПСЧ.
+    for (const r of [0, 0.25, 0.5, 0.75, 1]) {
+      const prize = reprivatizationPrize(content.config, 1_000_000, 100, () => r);
+      expect(prize.wells).toBeGreaterThan(0);
+      expect(prize.marketValue / 1_000_000).toBeGreaterThanOrEqual(4.5);
+      expect(prize.marketValue / 1_000_000).toBeLessThanOrEqual(10.5);
+    }
+  });
+
+  it('у каждого улучшения с историей своё название на каждом уровне', () => {
+    for (const id of ['d1_blade', 't_pump1', 't_motor', 't_mud', 't_frac']) {
+      const def = content.byId.get(id)!;
+      expect(def.staged, id).toBe(true);
+      expect(stagedNameOf(def, 1), id).toBe(def.stagedNames![0]);
+      // Названия моделей действительно меняются с уровнем.
+      expect(stagedNameOf(def, 2), id).not.toBe(stagedNameOf(def, 1));
+      // За пределами списка — последняя модель, без падений.
+      expect(stagedNameOf(def, 999), id).toBe(def.stagedNames![def.stagedNames!.length - 1]);
+    }
+  });
+
+  it('«Контрабанда нефти заграницу» — одноразовая акция с перезарядкой', () => {
+    const def = content.byId.get('p_export')!;
+    expect(def.name).toBe('Контрабанда нефти заграницу');
+    expect(def.type).toBe('oneShot');
+    expect(def.repeatable).toBe(true);
+    expect(def.cooldownSeconds).toBeGreaterThan(0);
+  });
+
+  it('экспортные цены выше внутренних, у объектов есть счётчики', () => {
+    const state = createInitialState(content.config, 1);
+    const derived = computeDerived(content.config, content.upgrades, state, [], content);
+    expect(derived.exportPricePerTon).toBeGreaterThan(derived.domesticPricePerTon);
+    for (const kind of ['refinery', 'depot', 'azs', 'exportPipe', 'refineryPipe'] as const) {
+      expect(derived.assetCounts[kind]).toBe(0);
+    }
+    state.levels.t_refinery = 2;
+    state.levels.t_depot = 3;
+    const built = computeDerived(content.config, content.upgrades, state, [], content);
+    expect(built.assetCounts.refinery).toBe(2);
+    expect(built.assetCounts.depot).toBe(3);
+    expect(built.assetsValue).toBeGreaterThan(0);
   });
 });

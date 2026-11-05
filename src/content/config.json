@@ -96,7 +96,8 @@
       "decline": {
         "minFactor": 0.7,
         "halfLifeSeconds": 1800
-      }
+      },
+      "priceSeconds": 600
     }
   },
   "influence": {
@@ -112,7 +113,10 @@
     "cap": 400
   },
   "autosaveSeconds": 10,
-  "winCost": 80000000000,
+  "assets": {
+    "tonnesValueSeconds": 900
+  },
+  "winCost": 120000000000,
   "winRequirements": [],
   "achievementsTickSeconds": 1,
   "particles": {

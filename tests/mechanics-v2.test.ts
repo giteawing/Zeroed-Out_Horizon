@@ -65,14 +65,60 @@ describe('новые покупки из заявки', () => {
     expect(def!.unlockAt?.influence).toBeGreaterThan(0);
   });
 
-  it('убыточный банк и операции отмывания/ухода от налогов', () => {
+  it('убыточный банк покупается один раз и открывает масштабы и операции', () => {
     expect(has('убыточный банк')).toBe(true);
+    const bank = content.byId.get('p_badbank')!;
+    expect(bank.maxLevel).toBe(1);
     const launder = content.upgrades.filter((u) => u.effect.launder === true);
     expect(launder.length).toBeGreaterThanOrEqual(2);
-    // Каждая операция отмывания требует купленного банка.
+    // Сразу после банка открывается «масштаб», а операции — на его уровнях.
+    const scale = content.byId.get('p_bank_scale')!;
+    expect(scale.unlockAt?.upgrade).toBe('p_badbank');
     for (const def of launder) {
-      expect(def.unlockAt?.upgrade).toBe('p_badbank');
+      expect(def.unlockAt?.upgrade, def.id).toBe('p_bank_scale');
+      expect(def.effect.bankScale, def.id).toBeGreaterThan(0);
     }
+    // Зарплаты через банк — отдельный пункт, он снижает расходы.
+    const payroll = content.byId.get('p_bank_payroll')!;
+    expect(payroll.type).toBe('costCut');
+    expect(payroll.unlockAt?.upgrade).toBe('p_badbank');
+  });
+
+  it('уровни масштаба банка действительно усиливают выплаты', () => {
+    const { game, state } = setup();
+    rich(state, 1e12);
+    expect(game.buy('p_badbank').ok).toBe(true);
+    // Банк одноразовый: второй раз не покупается.
+    expect(game.buy('p_badbank').ok).toBe(false);
+    const before = game.bankScale();
+    expect(game.buy('p_bank_scale').ok).toBe(true);
+    expect(game.bankScale()).toBeGreaterThan(before);
+  });
+
+  it('реприватизация приносит скважины стоимостью в 5–10 раз больше цены', () => {
+    const { game, state } = setup();
+    rich(state, 1e12);
+    // Реприватизация доступна только при влиянии: у «сетапа» его нет,
+    // поэтому выставляем порог напрямую (влияние проверяется отдельным тестом).
+    state.levels.p_parliament = 10;
+    state.levels.pmc_chvk = 1;
+    state.levels.pmc_vet = 1;
+    game.invalidate();
+    expect(game.derived().influence).toBeGreaterThanOrEqual(45);
+    const check = game.checkBuy('p_reprivatize');
+    expect(check.unlocked, JSON.stringify(check.blocker)).toBe(true);
+    const wellsBefore = state.wells.length;
+    const dailyBefore = game.derived().oilPerSecond;
+    expect(game.buy('p_reprivatize').ok).toBe(true);
+    const prize = state.wells.slice(wellsBefore);
+    expect(prize.length).toBeGreaterThan(0);
+    expect(game.derived().oilPerSecond).toBeGreaterThan(dailyBefore);
+    // Стоимость приза в 5–10 раз больше уплаченного (с округлением до тонн).
+    const daily = prize.reduce((sum, w) => sum + w.dailyTonnes, 0);
+    const price = (game.derived().exportPricePerTon || 1) * config.oil.wells.priceSeconds;
+    const ratio = (daily * price) / check.cost;
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+    expect(ratio).toBeLessThanOrEqual(10.5);
   });
 
   it('своя ЧВК усиливает влияние и удешевляет отжатие', () => {
@@ -169,6 +215,8 @@ describe('сбыт нефти', () => {
     const { game, state } = setup();
     rich(state, 1e10);
     game.buy('p_badbank');
+    state.levels.p_bank_scale = 6;
+    game.invalidate();
     state.coins = 1e10;
     expect(game.buy('p_launder').ok).toBe(true);
     expect(state.log.some((e) => e.kind === 'launder')).toBe(true);
