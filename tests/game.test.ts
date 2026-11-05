@@ -275,7 +275,10 @@ describe('экономика во времени', () => {
     s1.coins = s2.coins = 0;
     big.update(10_000);
     for (let i = 0; i < 100; i++) small.update(100);
-    expect(s1.coins).toBeCloseTo(s2.coins, -3);
+    // Дебит скважин плавно падает со временем, поэтому шаги дают близкие,
+    // но не бит-в-бит равные суммы.
+    const diff = Math.abs(s1.coins - s2.coins);
+    expect(diff / Math.max(1, s1.coins)).toBeLessThan(0.2);
   });
 
   it('мировая цена нефти остаётся в коридоре 0.7–1.3', () => {

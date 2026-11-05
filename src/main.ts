@@ -33,6 +33,7 @@ import { NewsFeed } from './ui/news';
 import { Finale } from './ui/finale';
 import { StartScreen } from './ui/start';
 import { Settings } from './ui/settings';
+import { DevMenu } from './ui/dev';
 import { Wealth } from './ui/wealth';
 import { OperationLog } from './ui/log';
 import creditsRaw from './content/credits.txt?raw';
@@ -61,7 +62,7 @@ function boot(): void {
   document.title = texts.data.meta.title;
 
   // ------------------------------------------------------------------ разметка
-  const hud = new Hud(texts, currency);
+  const hud = new Hud(texts, currency, config);
   const news = new NewsFeed(texts, uiRng);
   const finale = new Finale(content, texts, currency, {
     onRestart: () => restart(),
@@ -81,6 +82,25 @@ function boot(): void {
     onNewGame: () => restart(),
     onClose: () => settings.close(),
   });
+  // Инженерное меню: читерская панель для быстрой проверки игры.
+  const dev = new DevMenu(texts, currency, {
+    onAddMoney: (amount) => {
+      game.addCoins(amount);
+      save();
+      refreshUi(true);
+    },
+    onWin: () => {
+      forceWin();
+      save();
+    },
+    onUnlockAll: () => {
+      unlockEverything();
+      save();
+      refreshUi(true);
+    },
+    onClose: () => dev.close(),
+  });
+
   const wealth = new Wealth(game, texts);
 
   const shop = new Shop(game, texts, currency, {
@@ -140,11 +160,15 @@ function boot(): void {
       }),
       button('wealth', () => wealth.open()),
       button('stats', () => finale.visible ? undefined : toggleStats()),
+      button('dev', () => dev.open(state.coins)),
       button('settings', () => settings.open()),
     ]),
   ]);
 
-  function button(kind: 'sound' | 'wealth' | 'stats' | 'settings', handler: () => void): HTMLButtonElement {
+  function button(
+    kind: 'sound' | 'wealth' | 'stats' | 'settings' | 'dev',
+    handler: () => void,
+  ): HTMLButtonElement {
     const node = el('button', {
       class: `iconbtn iconbtn--${kind}`,
       type: 'button',
@@ -156,9 +180,9 @@ function boot(): void {
     return node;
   }
 
-  function iconText(kind: 'sound' | 'wealth' | 'stats' | 'settings'): string {
+  function iconText(kind: 'sound' | 'wealth' | 'stats' | 'settings' | 'dev'): string {
     // Иконки — обычные юникод-символы: файлов не нужно, масштабируется без потерь.
-    return { sound: '🔊', wealth: '💎', stats: '📊', settings: '⚙️' }[kind];
+    return { sound: '🔊', wealth: '💎', stats: '📊', settings: '⚙️', dev: '🛠' }[kind];
   }
 
   function updateSoundButton(): void {
@@ -186,6 +210,7 @@ function boot(): void {
   app.append(
     el('div', { class: 'screen' }, [topBar, stage, newsBar]),
     settings.root,
+    dev.root,
     wealth.root,
     finale.root,
   );
@@ -209,6 +234,26 @@ function boot(): void {
     start.hide();
     scheduleUi();
     news.push('start');
+  }
+
+  /** Инженерное меню: мгновенная победа (финальный насос без требований). */
+  function forceWin(): void {
+    if (game.state.won) return;
+    game.forceWin();
+    dev.close();
+    refreshUi(true);
+  }
+
+  /**
+   * Инженерное меню: снять требования по деньгам, покупкам и влиянию —
+   * все карточки становятся доступными для покупки.
+   */
+  function unlockEverything(): void {
+    for (const def of content.upgrades) {
+      if (def.unlockAt) delete def.unlockAt;
+    }
+    game.invalidate();
+    shop.setTab(shop.activeTab);
   }
 
   function restart(): void {
@@ -452,6 +497,7 @@ function boot(): void {
   // ------------------------------------------------------- диалоги-хелперы
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
+      if (dev.visible) dev.close();
       if (settings.visible) settings.close();
       else if (wealth.visible) wealth.close();
     }

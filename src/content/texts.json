@@ -37,7 +37,8 @@
     "channelRefine": "Переработка",
     "dailyRate": "Добыча в сутки",
     "wellsCount": "Скважины",
-    "taxRelief": "Послабления"
+    "taxRelief": "Послабления",
+    "worldPriceValue": "Мировая цена: {price}/{tonnes}"
   },
   "tabs": {
     "political": "Политика",
@@ -52,8 +53,8 @@
     "level": "Уровень",
     "maxLevel": "Максимум",
     "locked": "Закрыто",
-    "unlockHint": "Откроется, когда заработаете {cost}",
-    "unlockHintUpgrade": "Нужно: {name}",
+    "unlockHint": "Нужно заработать {cost}",
+    "unlockHintUpgrade": "Нужно: «{name}» (уровень {level})",
     "unlockHintInfluence": "Нужно влияние не меньше {value}",
     "cooldown": "Через {seconds} с",
     "effectPerTap": "+{value} нефти за тап",
@@ -94,7 +95,8 @@
     "expand": "Развернуть",
     "collapse": "Свернуть",
     "log": "Журнал операций",
-    "hint": "Империя"
+    "hint": "Империя",
+    "dev": "Инженерное меню"
   },
   "stats": {
     "title": "Статистика империи",
@@ -533,5 +535,17 @@
     "ordinary": "обычная",
     "good": "хорошая",
     "unique": "уникальная"
+  },
+  "dev": {
+    "title": "Инженерное меню",
+    "note": "Читерская панель для проверки игры. Всё сразу пишется в сохранение.",
+    "wallet": "В кошельке",
+    "addTrillion": "Добавить {amount}",
+    "addTrillionHint": "Один триллион нефтефаников сразу",
+    "buyWin": "Купить «Упырь-Абсолют»",
+    "buyWinHint": "Финальный насос без требований — смотрим титры",
+    "unlockAll": "Открыть все покупки",
+    "unlockAllHint": "Снять требования по деньгам, влиянию и зависимостям",
+    "done": "готово"
   }
 }

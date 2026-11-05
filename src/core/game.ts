@@ -160,10 +160,35 @@ export class Game {
     return added;
   }
 
-  private addCoins(amount: number): void {
+  private grantCoins(amount: number): void {
     if (amount <= 0) return;
     this.state.coins += amount;
     this.state.totalEarned += amount;
+  }
+
+  /**
+   * Начислить деньги извне (инженерное меню). Учитывается в totalEarned,
+   * поэтому разблокировки по заработку тоже открываются.
+   */
+  addCoins(amount: number): void {
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    this.grantCoins(amount);
+    this.invalidate();
+  }
+
+  /**
+   * Мгновенная победа для инженерного меню: финальный насос покупается
+   * напрямую, без требований по деньгам и влиянию.
+   */
+  forceWin(): boolean {
+    const winDef = this.content.upgrades.find((u) => u.win);
+    if (!winDef || this.state.won) return false;
+    this.state.levels[winDef.id] = 1;
+    this.state.won = true;
+    this.state.wonAtMs = this.state.clockMs;
+    this.invalidate();
+    this.emit({ type: 'win' });
+    return true;
   }
 
   /** Авто-тап от «Верхнего привода». */
@@ -349,7 +374,7 @@ export class Game {
         const amount = Math.round(tonnes * price * (1 + (def.effect.exportBonus ?? 0)));
         this.state.oil -= tonnes;
         this.state.totalSold += tonnes;
-        this.addCoins(amount);
+        this.grantCoins(amount);
         this.pushLog({
           kind: 'sold',
           upgradeId: def.id,
@@ -367,7 +392,7 @@ export class Game {
       // Отмывание через убыточный банк проходит мимо налогового ведомства:
       // деньги те же, но налог с них не берут (это и есть «уход от налогов»).
       const gross = def.effect.launder ? amount : amount;
-      this.addCoins(gross);
+      this.grantCoins(gross);
       this.pushLog({
         kind: def.effect.launder ? 'launder' : 'event',
         upgradeId: def.id,
@@ -411,8 +436,24 @@ export class Game {
   // ------------------------------------------------------------------ тик
 
   /** Продвинуть время. Большой шаг допустим (симулятор, офлайн-доход). */
+  /**
+   * Один игровой шаг. Большие интервалы (вкладка подвисла, офлайн-доход)
+   * режутся на подшаги: иначе за один шаг добыча «переполняет» резервуары
+   * и сгорает, а сумма дохода зависит от размера шага.
+   */
   update(dtMs: number): void {
     if (dtMs <= 0) return;
+    const maxStep = 250;
+    let left = dtMs;
+    while (left > 0) {
+      const step = Math.min(maxStep, left);
+      left -= step;
+      this.step(step);
+      if (this.state.won) break;
+    }
+  }
+
+  private step(dtMs: number): void {
     this.state.playtimeMs += dtMs;
     if (this.state.won) return;
 
@@ -433,7 +474,7 @@ export class Game {
     //    обнуляли бы «теоретический» доход.
     const expenses = this.derived().expensesPerSecond * dtSeconds;
     const net = Math.max(0, gross * (1 - this.derived().taxRate) - expenses);
-    if (net > 0) this.addCoins(net);
+    if (net > 0) this.grantCoins(net);
     this.trackRevenue(net, dtSeconds);
 
     this.tickCooldowns(dtMs);
@@ -538,7 +579,7 @@ export class Game {
         acc -= intervalMs;
         fired++;
         const amount = eventPayout(def, derived, level, 0);
-        this.addCoins(amount);
+        this.grantCoins(amount);
         this.emit({ type: 'periodic', id: def.id, amount });
         if (def.effect.taxCut) {
           this.buffs.push({
@@ -563,7 +604,7 @@ export class Game {
       const chance = def?.effect.chance ?? 0.5;
       const won = this.rng.next() < chance;
       const amount = won ? Math.round(g.amount * g.factor) : 0;
-      if (won) this.addCoins(amount);
+      if (won) this.grantCoins(amount);
       this.emit({ type: 'gambleResult', id: g.id, won, amount });
     }
   }
@@ -630,7 +671,7 @@ export class Game {
   /** Начислить офлайн-доход (один раз при загрузке). */
   applyOffline(seconds: number, coins: number): void {
     if (coins <= 0) return;
-    this.addCoins(coins);
+    this.grantCoins(coins);
     this.state.playtimeMs += seconds * 1000;
     this.emit({ type: 'offline', seconds, coins });
   }

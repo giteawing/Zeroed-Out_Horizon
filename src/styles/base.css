@@ -814,7 +814,9 @@ img {
 }
 
 .card--locked {
-  opacity: 0.62;
+  /* Заблокированная карточка видна, но приглушена — причина ниже красным. */
+  opacity: 0.72;
+  border-color: rgba(179, 36, 59, 0.55);
 }
 
 .card--maxed {
@@ -889,8 +891,13 @@ img {
 }
 
 .card__lock {
-  font-size: 10px;
+  display: block;
+  margin-top: 2px;
+  font-size: clamp(11px, 2.6vw, 12px);
+  font-weight: 700;
+  line-height: 1.25;
   color: var(--crimson-light);
+  overflow-wrap: anywhere;
 }
 
 .card__action {
@@ -1212,6 +1219,46 @@ img {
 .wealth__item figcaption strong {
   color: var(--cream);
   font-size: 12px;
+}
+
+/* -------------------------------------------------------- инженерное меню */
+
+.dev {
+  border-color: var(--crimson);
+}
+
+.dev__note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--steel);
+}
+
+.dev__wallet {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 2px solid rgba(242, 180, 48, 0.45);
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.35);
+  font-size: 13px;
+}
+
+.dev__value {
+  font-weight: 800;
+  color: var(--gold-light);
+}
+
+.dev__btn {
+  border-color: rgba(179, 36, 59, 0.7);
+}
+
+.dev__log {
+  margin: 0;
+  min-height: 18px;
+  font-size: 12px;
+  color: var(--green-light);
 }
 
 /* -------------------------------------------------------------------- финал */
