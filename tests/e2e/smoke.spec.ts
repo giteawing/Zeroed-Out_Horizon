@@ -159,11 +159,24 @@ test('панель империи видна всегда и держит все
   }
   // «Влияние» — отдельный блок со шкалой, а не строка.
   await expect(hud.locator('.hud__influence')).toContainText('Влияние');
-  // Панель в правой колонке и не перекрывает скважину.
+  // Правая колонка: панель, журнал и долото стоят столбиком и не закрывают магазин.
+  const side = page.locator('.stage__side');
+  const shopBox = await page.locator('.shop').boundingBox();
   const hudBox = await hud.boundingBox();
   const drillBox = await page.locator('[data-testid="drill"]').boundingBox();
+  const oplogBox = await page.locator('[data-testid="oplog"]').boundingBox();
   expect(hudBox?.width ?? 0).toBeGreaterThan(200);
   expect(drillBox?.width ?? 0).toBeGreaterThan(120);
+  expect(oplogBox?.width ?? 0).toBeGreaterThan(200);
+  // Журнал идёт под таблицей, долото — под журналом.
+  expect(oplogBox!.y).toBeGreaterThan(hudBox!.y + hudBox!.height - 1);
+  expect(drillBox!.y).toBeGreaterThan(oplogBox!.y + oplogBox!.height - 1);
+  // На широком экране два столбца: магазин слева и шире правой колонки.
+  const wide = (await page.viewportSize())!.width >= 860;
+  if (wide) {
+    expect(side).toBeTruthy();
+    expect((shopBox?.width ?? 0)).toBeGreaterThan((hudBox?.width ?? 0) * 1.5);
+  }
 });
 
 test('раскладка: магазин и кнопки доступны на узком экране', async ({ page }, testInfo) => {

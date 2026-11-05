@@ -79,6 +79,7 @@ describe('сцена с долотом', () => {
     const stage = document.querySelector<HTMLElement>('[data-testid="drill"]');
     expect(stage).not.toBeNull();
     const before = game.state.oil;
+    const tapsBefore = game.state.totalTaps;
     stage?.dispatchEvent(
       new PointerEvent('pointerdown', {
         bubbles: true,
@@ -90,7 +91,8 @@ describe('сцена с долотом', () => {
     await flush();
     // Деньги за тап не начисляются: сначала нефть, потом продажа.
     expect(game.state.oil).toBeGreaterThan(before);
-    expect(game.state.totalTaps).toBe(1);
+    // Считаем прирост, а не абсолют: тест не зависит от других файлов прогона.
+    expect(game.state.totalTaps).toBe(tapsBefore + 1);
   });
 
   it('поддерживает мультитач: два pointerdown = два тапа', async () => {

@@ -430,9 +430,12 @@ img {
 /* ------------------------------------------------------- журнал операций */
 .oplog {
   display: grid;
+  /* Заголовок держит свой минимум, список забирает остаток и прокручивается. */
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 4px;
   width: 100%;
-  max-width: 560px;
+  min-height: 0;
+  max-height: 100%;
   padding: 8px 10px;
   border: var(--stroke-w) solid var(--ink);
   border-radius: var(--radius);
@@ -455,8 +458,11 @@ img {
   list-style: none;
   display: grid;
   gap: 2px;
-  max-height: 92px;
-  overflow: hidden;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Журнал растёт по свободному месту в правой колонке, список прокручивается. */
+  align-content: start;
 }
 
 .oplog__item {
@@ -489,29 +495,30 @@ img {
 
 .stage {
   display: grid;
-  /* Телефон: скважина с журналом сверху, панель империи и магазин снизу. */
+  /* Телефон: магазин сверху (он один занимает весь левый столбец на десктопе),
+     под ним — таблица доходов, журнал и долото. */
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1.02fr) minmax(0, 0.98fr);
+  grid-template-rows: minmax(0, 1fr) auto;
   min-height: 0;
   gap: 8px;
 }
 
-.stage__middle {
-  position: relative;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  justify-items: center;
-  align-items: center;
-  gap: 6px;
+/* Левый, широкий столбец: только магазин со вкладками. */
+.stage__main {
   min-height: 0;
-  overflow: visible;
+  min-width: 0;
+  display: grid;
+  overflow: hidden;
 }
 
+/* Правый, узкий столбец: таблица, журнал, долото — сверху вниз. */
 .stage__side {
   min-height: 0;
+  min-width: 0;
   display: grid;
-  /* Панель империи занимает свой минимум и никогда не схлопывается. */
-  grid-template-rows: auto minmax(0, 1fr);
+  /* Таблица и журнал берут свой минимум, долото — остаток и не схлопывается. */
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  justify-items: center;
   gap: 8px;
   overflow: hidden;
 }
@@ -525,6 +532,8 @@ img {
   width: min(100%, 420px);
   aspect-ratio: 1 / 1;
   max-height: 100%;
+  /* В узкой правой колонке долото ограничено высотой, а не шириной. */
+  max-width: 100%;
 }
 
 .drill__stage {
@@ -1344,19 +1353,46 @@ img {
   }
 
   .stage {
-    grid-template-columns: minmax(0, 1fr) minmax(380px, 470px);
+    /* Левый столбец — большой (магазин), правый — узкий (таблица, журнал, долото). */
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
     grid-template-rows: minmax(0, 1fr);
     align-items: stretch;
-    gap: 16px;
+    gap: 14px;
   }
 
-  /* Панель империи — выше магазина и не сжимается никогда. */
   .stage__side {
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
   }
 
+  /* Таблица доходов и расходов в узком столбце: строки идут парами. */
+  .hud__rows {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 12px;
+  }
+
+  .hud__row-label {
+    white-space: normal;
+    line-height: 1.15;
+  }
+
+  .hud__row-value {
+    text-align: right;
+  }
+
+  .hud__invoice .hud__row:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .shop__list {
+    align-content: start;
+  }
+
+  /* В узкой правой колонке долото ограничено высотой: квадрат по меньшей стороне. */
   .drill {
-    width: min(100%, 520px);
+    width: auto;
+    height: 100%;
+    max-height: 260px;
+    aspect-ratio: 1 / 1;
   }
 
   .news__list {

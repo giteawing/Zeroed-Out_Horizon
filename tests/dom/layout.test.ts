@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 /**
- * Проверка состава интерфейса: панель империи стоит в правой колонке
- * (на телефоне — первой в нижней половине), журнал операций — под долотом,
- * а магазин не перекрывает панель.
+ * Проверка состава интерфейса (замечание заказчика):
+ *   • левый столбец — большой, и в нём только магазин с вкладками;
+ *   • правый столбец — узкий, и в нём сверху вниз таблица доходов и расходов,
+ *     журнал операций и долото для тапов.
  *
  * happy-dom не считает CSS-раскладку, поэтому проверяем структуру и классы:
  * именно они задают grid-порядок в base.css.
@@ -32,46 +33,75 @@ beforeAll(async () => {
 });
 
 describe('раскладка', () => {
-  it('сцена идёт первой, панель империи — внутри правой колонки', () => {
+  it('в сцене ровно два столбца: большой левый и узкий правый', () => {
     const stage = document.querySelector('.stage');
     expect(stage).not.toBeNull();
     const children = [...(stage?.children ?? [])];
     expect(children).toHaveLength(2);
-    expect(children[0].classList.contains('stage__middle')).toBe(true);
+    expect(children[0].classList.contains('stage__main')).toBe(true);
     expect(children[1].classList.contains('stage__side')).toBe(true);
-    // Ни HUD, ни магазин не «выпали» из колонки.
-    expect(children[1].querySelector('.hud')).not.toBeNull();
-    expect(children[1].querySelector('.shop')).not.toBeNull();
-    expect(stage?.querySelector('.hud')).toBe(children[1].querySelector('.hud'));
   });
 
-  it('панель империи первая в колонке: её не закрывает магазин', () => {
+  it('в левом столбце только магазин со вкладками', () => {
+    const main = document.querySelector('.stage__main');
+    expect(main?.children).toHaveLength(1);
+    expect(main?.firstElementChild?.classList.contains('shop')).toBe(true);
+    // Ничего из правого столбца в левый не попало.
+    expect(main?.querySelector('.hud')).toBeNull();
+    expect(main?.querySelector('[data-testid="oplog"]')).toBeNull();
+    expect(main?.querySelector('[data-testid="drill"]')).toBeNull();
+    // Все пять вкладок — внутри магазина.
+    const tabs = [...(main?.querySelectorAll('.tab') ?? [])].map((n) => n.textContent);
+    expect(tabs).toEqual(['Техника', 'Сбыт', 'Политика', 'Роскошь', 'Цель']);
+  });
+
+  it('в правом столбце таблица, журнал и долото — именно в этом порядке', () => {
     const side = document.querySelector('.stage__side');
-    expect(side?.firstElementChild?.className).toContain('hud');
-    // Панель и магазин — соседи, а не вложенные друг в друга.
-    expect(side?.querySelector('.hud .shop')).toBeNull();
+    expect(side).not.toBeNull();
+    const blocks = [...(side?.children ?? [])].map((n) =>
+      n.classList.contains('hud')
+        ? 'hud'
+        : n.classList.contains('oplog')
+          ? 'oplog'
+          : n.classList.contains('drill')
+            ? 'drill'
+            : n.className,
+    );
+    // Долото может идти вместе с бейджем последним блоком.
+    expect(blocks[0]).toBe('hud');
+    expect(blocks[1]).toBe('oplog');
+    expect(blocks.slice(2)).toContain('drill');
+
+    expect(side?.querySelector('.shop')).toBeNull();
+    expect(side?.querySelector('[data-testid="drill"]')).not.toBeNull();
+    expect(side?.querySelector('[data-testid="oplog"]')).not.toBeNull();
   });
 
-  it('журнал операций лежит под долотом', () => {
-    const middle = document.querySelector('.stage__middle');
-    const drill = middle?.querySelector('[data-testid="drill"]');
-    const oplog = middle?.querySelector('[data-testid="oplog"]');
-    expect(drill).not.toBeNull();
-    expect(oplog).not.toBeNull();
-    // Журнал идёт после долота — значит, визуально ниже.
-    const children = [...(middle?.children ?? [])];
-    expect(children.indexOf(oplog as Element)).toBeGreaterThan(children.indexOf(drill?.closest('.drill') as Element));
+  it('долото стоит ниже журнала, то есть тапать можно в правом столбце', () => {
+    const side = document.querySelector('.stage__side');
+    const children = [...(side?.children ?? [])];
+    const oplogIndex = children.findIndex((n) => n.classList.contains('oplog'));
+    const drillIndex = children.findIndex((n) => n.classList.contains('drill'));
+    expect(oplogIndex).toBeGreaterThan(-1);
+    expect(drillIndex).toBeGreaterThan(oplogIndex);
   });
 
   it('в панели есть все показатели империи', () => {
-    const labels = [...document.querySelectorAll('.hud__row-label')].map((n) => n.textContent);
-    for (const expected of ['Добыча', 'Сбыт', 'Доход в секунду', 'Зарплаты', 'Чиновники', 'Влияние', 'Резервуары']) {
+    const hud = document.querySelector('.hud');
+    const labels = [...(hud?.querySelectorAll('.hud__row-label') ?? [])].map((n) => n.textContent);
+    for (const expected of [
+      'Добыча',
+      'Сбыт',
+      'Доход в секунду',
+      'Зарплаты',
+      'Чиновники',
+      'Резервуары',
+    ]) {
       expect(labels).toContain(expected);
     }
-  });
-
-  it('в магазине пять вкладок, включая «Сбыт»', () => {
-    const tabs = [...document.querySelectorAll('.tab')].map((n) => n.textContent);
-    expect(tabs).toEqual(['Техника', 'Сбыт', 'Политика', 'Роскошь', 'Цель']);
+    // «Влияние» — отдельный блок со шкалой.
+    expect(hud?.querySelector('.hud__influence')?.textContent).toContain('Влияние');
+    // Магазин не вложен в панель.
+    expect(hud?.querySelector('.shop')).toBeNull();
   });
 });
