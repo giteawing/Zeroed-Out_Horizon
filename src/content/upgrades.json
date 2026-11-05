@@ -1060,14 +1060,14 @@
       "tab": "political",
       "group": "conquest",
       "name": "Отжать месторождение у конкурентов",
-      "description": "Там уже стоят их скважины. Сколько даст каждая — как повезёт: от 8 т/сут до тысяч.",
+      "description": "Целое месторождение: от 5 до 50 скважин за раз. Сколько даст каждая — как повезёт: от 8 т/сут до тысяч.",
       "icon": "field",
-      "type": "well",
-      "baseCost": 36667,
+      "type": "field",
+      "baseCost": 10000000,
       "maxLevel": 45,
       "effect": {},
       "unlockAt": {
-        "balance": 18000
+        "balance": 3000000
       },
       "conquest": true,
       "costGrowth": 1.34
@@ -1944,7 +1944,7 @@
       "description": "Полный контроль над всей империей. Качает всё: нефть, бюджет, горизонт и соседей.",
       "icon": "win-pump",
       "type": "win",
-      "baseCost": 25000000000,
+      "baseCost": 60000000000,
       "maxLevel": 1,
       "win": true,
       "tag": "strict",

@@ -169,6 +169,12 @@ describe('HUD', () => {
     expect(order.some((line) => line.startsWith('Налог на прибыль'))).toBe(true);
     expect(order[order.length - 1]).toBe('Чистая прибыль');
     expect(order.indexOf('EBT')).toBeLessThan(order.findIndex((l) => l.startsWith('Налог на прибыль')));
+    // Способы доставки — подпункты экспорта: у них класс-связка, чтобы
+    // визуально было видно, что они входят в строку «экспорт», а не стоят
+    // наравне с каналами сбыта.
+    const under = [...document.querySelectorAll('[data-section="crude"] .hud__row--under')];
+    expect(under.map((n) => n.querySelector('.hud__row-label')?.textContent))
+      .toEqual(['трубопроводом', 'поездами', 'танкерами']);
     // Прогресс-бар до финала заказчик просил убрать совсем.
     expect(document.querySelector('.hud__progress')).toBeNull();
   });

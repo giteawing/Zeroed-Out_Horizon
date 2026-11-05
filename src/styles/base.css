@@ -1802,6 +1802,40 @@ img {
 }
 
 /*
+ * Подпункты экспорта: «поездами», «танкерами», «трубопроводом» — это не
+ * отдельные каналы, а способы доставки внутри строки «экспорт». Поэтому у
+ * них отступ слева, вертикальная связка и приглушённый шрифт: видно, что
+ * они относятся к экспорту, а не стоят наравне с ним.
+ */
+.hud__row--under .hud__row-label {
+  position: relative;
+  padding-left: 18px;
+  color: var(--steel);
+  font-size: clamp(10px, 2.4vw, 12px);
+}
+
+/* Связка: вертикальная линия от «экспорта» к его подпунктам. */
+.hud__row--under .hud__row-label::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: -6px;
+  bottom: 50%;
+  border-left: 2px solid rgba(255, 255, 255, 0.22);
+}
+
+/* У последнего подпункта линия загибается вправо, как в дереве. */
+.hud__row--under:last-of-type .hud__row-label::before {
+  border-bottom: 2px solid rgba(255, 255, 255, 0.22);
+  border-bottom-left-radius: 4px;
+}
+
+.hud__row-value--under {
+  opacity: 0.9;
+  font-weight: 600;
+}
+
+/*
  * Автодобыча — отдельная строка во всю ширину колонки: подписи у неё нет,
  * весь текст «автодобыча: команда в сборе / не собрана» стоит значением.
  */

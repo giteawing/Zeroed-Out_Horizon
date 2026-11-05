@@ -296,6 +296,19 @@ export function estimatedGain(
       const perSecond = avgDaily / cfg.secondsPerDay;
       return perSecond * derived.multiplier * derived.oilPricePerTon;
     }
+    case 'field': {
+      // Месторождение — сразу 5–50 скважин: бот оценивает прирост по среднему
+      // числу скважин и среднему дебиту, иначе покупка кажется ему дешёвой.
+      const cfg = gameConfig.oil.wells;
+      const avgDaily = cfg.classes.reduce(
+        (sum, cls) => sum + cls.chance * ((cls.minDailyTonnes + cls.maxDailyTonnes) / 2),
+        0,
+      );
+      const avgWells = ((gameConfig.oil.conquestWells?.min ?? 5) +
+        (gameConfig.oil.conquestWells?.max ?? 50)) / 2;
+      const perSecond = (avgDaily * avgWells) / cfg.secondsPerDay;
+      return perSecond * derived.multiplier * derived.oilPricePerTon;
+    }
     case 'storage': {
       // Ёмкость нужна, когда добыча превышает сбыт и нефть некуда девать.
       const overflow = Math.max(0, derived.oilPerSecond + derived.tapValue * 4 - derived.sellPerSecond);

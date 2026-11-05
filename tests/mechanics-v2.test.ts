@@ -13,8 +13,8 @@ import type { GameState } from '../src/core/types';
 const content = loadContent();
 const config = content.config;
 
-function setup(): { game: Game; state: GameState } {
-  const state = createInitialState(config, 424242);
+function setup(seed = 424242): { game: Game; state: GameState } {
+  const state = createInitialState(config, seed);
   return { game: new Game(content, state), state };
 }
 
@@ -351,12 +351,27 @@ describe('скважины со случайным дебитом', () => {
     expect(game.derived().oilPerSecond).toBeCloseTo(expected, 6);
   });
 
-  it('«Отжать месторождение» тоже бурит скважину', () => {
-    const { game, state } = setup();
-    rich(state);
-    expect(content.byId.get('p_field')!.type).toBe('well');
-    expect(game.buy('p_field').ok).toBe(true);
-    expect(state.wells.length).toBe(1);
+  it('«Отжать месторождение» приносит целое месторождение: от 5 до 50 скважин', () => {
+    const field = content.byId.get('p_field')!;
+    expect(field.type).toBe('field');
+    // Цена отжатия — не меньше 10 млн.
+    expect(field.baseCost).toBeGreaterThanOrEqual(10_000_000);
+
+    const counts: number[] = [];
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      const { game, state } = setup(seed);
+      // Разблокировка открывается по заработку — ставим его, а не только монеты.
+      rich(state, 1e9);
+      expect(game.buy('p_field').ok).toBe(true);
+      counts.push(state.wells.length);
+    }
+    // Каждое отжатие — случайное число скважин в границах из конфига.
+    for (const count of counts) {
+      expect(count).toBeGreaterThanOrEqual(config.oil.conquestWells.min);
+      expect(count).toBeLessThanOrEqual(config.oil.conquestWells.max);
+    }
+    // И число действительно разное от партии к партии, а не всегда одно.
+    expect(new Set(counts).size).toBeGreaterThan(1);
   });
 
   it('скважины сохраняются вместе с дебетом', () => {
