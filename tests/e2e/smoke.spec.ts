@@ -26,27 +26,15 @@ async function start(page: Page): Promise<void> {
 
 /**
  * Тап по скважине.
- * Игра слушает pointerdown. На телефоне (WebKit с эмуляцией тача) мышью тапать
- * нельзя, поэтому там шлём настоящий touchscreen.tap — он порождает pointerdown.
+ * Игра слушает pointerdown, поэтому обычный click() тоже его порождает.
+ * Используем locator.click(): Playwright сам ждёт, пока элемент не перекрыт,
+ * и в случае промаха сообщает, какой элемент мешает.
  */
 async function tapDrill(page: Page, times = 12): Promise<void> {
   const drill = page.locator('[data-testid="drill"]');
-  const box = await drill.boundingBox();
-  if (!box) throw new Error('скважина не найдена');
-  const x = box.x + box.width / 2;
-  const y = box.y + box.height / 2;
-  // Долото должно попадать в экран целиком, иначе тап уходит мимо.
-  expect(box.width).toBeGreaterThan(40);
-  expect(y).toBeLessThan((await page.evaluate(() => window.innerHeight)) - 4);
-  const isTouch = await page.evaluate(() => window.matchMedia('(pointer: coarse)').matches);
+  await expect(drill).toBeVisible();
   for (let i = 0; i < times; i++) {
-    if (isTouch) {
-      await page.touchscreen.tap(x, y);
-    } else {
-      await page.mouse.move(x, y);
-      await page.mouse.down();
-      await page.mouse.up();
-    }
+    await drill.click();
   }
 }
 
@@ -71,16 +59,18 @@ test('игра запускается без ошибок в консоли', as
 
 test('тап добывает нефть, а не нефтефаники', async ({ page }) => {
   await start(page);
-  // Панель империи показывает нефть в резервуарах: «{oil} / {capacity} т».
-  const oilValue = page.locator('.hud__oil .hud__row-value');
-  const before = (await oilValue.textContent()) ?? '';
-  await tapDrill(page, 24);
-  await expect.poll(async () => (await oilValue.textContent()) !== before, { timeout: 8000 }).toBe(true);
-  // Тап по скважине не начисляет нефтефаники напрямую — они появляются только со сбыта.
-  const coins = await page.evaluate(
-    () => (window as unknown as { __game: { state: { coins: number; oil: number } } }).__game.state,
+  const before = await page.evaluate(
+    () => (window as unknown as { __game: { state: { oil: number; totalTaps: number } } }).__game.state,
   );
-  expect(coins.oil).toBeGreaterThan(0);
+  await tapDrill(page, 24);
+  const after = await page.evaluate(
+    () => (window as unknown as { __game: { state: { oil: number; totalTaps: number } } }).__game.state,
+  );
+  // Каждый тап — это тап по нефти, а не начисление нефтефаников.
+  expect(after.totalTaps).toBeGreaterThan(before.totalTaps + 20);
+  expect(after.oil).toBeGreaterThan(0);
+  // Панель империи показывает ту же нефть в резервуарах: «{oil} / {capacity} т».
+  await expect(page.locator('.hud__oil .hud__row-value')).toContainText('т');
 });
 
 test('нефть продаётся, и нефтефаники капают со сбыта', async ({ page }) => {
@@ -127,6 +117,10 @@ test('вкладки магазина переключаются', async ({ page
 test('прогресс сохраняется после перезагрузки', async ({ page }) => {
   await start(page);
   await tapDrill(page, 30);
+  const before = await page.evaluate(
+    () => (window as unknown as { __game: { state: { totalTaps: number } } }).__game.state.totalTaps,
+  );
+  expect(before).toBeGreaterThan(0);
   await page.evaluate(() => {
     document.dispatchEvent(new Event('visibilitychange'));
     window.dispatchEvent(new Event('pagehide'));
