@@ -290,33 +290,11 @@ img {
   color: var(--crimson-light);
 }
 
-.hud__wallet {
-  display: grid;
-  gap: 6px;
-}
-
-.hud__wallet-main {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
 .hud__label {
   font-size: clamp(10px, 2.4vw, 12px);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--steel);
-}
-
-.hud__balance {
-  font-family: var(--font-display);
-  font-size: clamp(20px, 5.2vw, 30px);
-  line-height: 1.05;
-  color: var(--gold-light);
-  text-shadow: 0 2px 0 var(--ink), 0 0 18px rgba(242, 180, 48, 0.35);
-  white-space: nowrap;
 }
 
 /* --- нефть в резервуарах: главный ресурс --- */
@@ -400,9 +378,7 @@ img {
 .hud__row-value--plus { color: var(--green-light); }
 .hud__row-value--minus { color: var(--crimson-light); }
 .hud__row-value--oil { color: var(--gold-light); }
-.hud__row-value--sell { color: var(--steel-light); }
 .hud__row-value--price { color: var(--cream); }
-.hud__row-value--profit { color: var(--green-light); font-weight: 800; }
 .hud__row-value--assets { color: var(--gold-light); font-weight: 800; }
 
 /* --- каналы сбыта --- */
@@ -468,6 +444,12 @@ img {
   transition: width 0.3s ease;
 }
 
+.hud__influence-value {
+  font-family: var(--font-display);
+  font-size: clamp(15px, 3.6vw, 19px);
+  color: var(--cream);
+}
+
 /* --- чипы под панелью (налог) --- */
 .hud__chips {
   display: flex;
@@ -486,13 +468,31 @@ img {
 }
 
 /* --- прогресс до финала --- */
+.hud__progress {
+  display: grid;
+  gap: 4px;
+}
+
 .hud__progress-head {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
   font-size: clamp(10px, 2.4vw, 12px);
   color: var(--steel);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+/* Заголовок приглушён, процент — акцент, чтобы шкалу читали с одного взгляда. */
+.hud__progress-label {
+  color: var(--steel);
+}
+
+.hud__progress-value {
+  font-family: var(--font-display);
+  font-size: clamp(12px, 2.8vw, 14px);
+  color: var(--gold-light);
 }
 
 .hud__progress-track {
