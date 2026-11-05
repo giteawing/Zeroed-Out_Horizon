@@ -153,15 +153,40 @@ export class Game {
     return added;
   }
 
-  /** Долить нефть в резервуары. Лишнее «переливается» и теряется. */
+  /**
+   * Долить нефть в резервуары. Лишнее не сгорает: оно сразу уходит
+   * «на разлив» через безлимитные контракты (это и есть переполнение).
+   *
+   * Раньше излишек просто исчезал. При сутках в одну секунду скважины
+   * качают десятки тысяч тонн в секунду, резервуары мгновенно полны —
+   * и почти вся добыча испарялась, а доход стоял на месте.
+   */
   private addOil(tonnes: number): number {
     if (tonnes <= 0) return 0;
     const capacity = this.derived().oilCapacity;
     const free = Math.max(0, capacity - this.state.oil);
     const added = Math.min(free, tonnes);
     this.state.oil += added;
-    if (added < tonnes - 1e-9) this.emit({ type: 'oilFull' });
+    const spilled = tonnes - added;
+    if (spilled > 1e-9) {
+      this.dumpOil(spilled);
+      this.emit({ type: 'oilFull' });
+    }
     return added;
+  }
+
+  /** Продать нефть, которая не влезла в резервуары, по цене «на разлив». */
+  private dumpOil(tonnes: number): void {
+    if (tonnes <= 0) return;
+    const derived = this.derived();
+    const channels = CHANNELS.filter((c) => this.config.oil.channels[c].unlimited);
+    // Если безлимитного канала нет (игрок продал всё?), излишку некуда идти.
+    const channel = channels[0];
+    if (!channel) return;
+    const price = derived.channels[channel].price || derived.oilPricePerTon;
+    const money = tonnes * price;
+    this.state.totalSold += tonnes;
+    if (money > 0) this.grantCoins(money * (1 - derived.taxRate));
   }
 
   private grantCoins(amount: number): void {

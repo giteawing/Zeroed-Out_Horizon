@@ -1941,7 +1941,7 @@
       "description": "Полный контроль над всей империей. Качает всё: нефть, бюджет, горизонт и соседей.",
       "icon": "win-pump",
       "type": "win",
-      "baseCost": 120000000000,
+      "baseCost": 22000000000,
       "maxLevel": 1,
       "win": true,
       "tag": "strict",

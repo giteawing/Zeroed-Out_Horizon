@@ -282,3 +282,40 @@ describe('устойчивость формул', () => {
     expect(Number.isFinite(d.taxRate)).toBe(true);
   });
 });
+
+describe('регрессии экономики: выручка по фактической продаже', () => {
+  it('безлимитные контракты входят в доход в секунду', () => {
+    const state = createInitialState(config, 41);
+    state.wells = [{ kind: 'ordinary', dailyTonnes: 9 }];
+    const d = computeDerived(config, content.upgrades, state, [], content);
+    // Вся добыча уходит в контракты: доход не может быть нулевым.
+    expect(d.oilPerSecond).toBeGreaterThan(0);
+    expect(d.grossPerSecond).toBeGreaterThan(d.oilPerSecond * d.domesticPricePerTon * 0.9);
+    expect(d.netPerSecond).toBeGreaterThan(0);
+  });
+
+  it('прибыль = доходы − налог − расходы, как показано в панели', () => {
+    const state = createInitialState(config, 42);
+    state.wells = [{ kind: 'good', dailyTonnes: 60 }];
+    state.levels = { t_azs: 20, s_brigade: 1, s_engineer: 1 };
+    const d = computeDerived(config, content.upgrades, state, [], content);
+    const shownExpenses = d.salaries + d.officials;
+    expect(d.expensesPerSecond).toBeCloseTo(shownExpenses, 6);
+    expect(d.netPerSecond).toBeCloseTo(
+      d.grossPerSecond - d.taxPaidPerSecond - shownExpenses,
+      6,
+    );
+  });
+
+  it('раскладка сбыта по каналам совпадает с суммой продаж', () => {
+    const state = createInitialState(config, 43);
+    state.wells = [{ kind: 'good', dailyTonnes: 60 }];
+    const d = computeDerived(config, content.upgrades, state, [], content);
+    const sum = d.salesByChannel.contract + d.salesByChannel.export + d.salesByChannel.refine;
+    expect(sum).toBeCloseTo(d.sellPerSecond, 6);
+    expect(d.sellPerSecond).toBeGreaterThan(0);
+    // Дорогие каналы забирают первыми, остаток уходит в контракты.
+    expect(d.salesByChannel.refine).toBeLessThanOrEqual(d.channels.refine.rate + 1e-9);
+    expect(d.salesByChannel.export).toBeLessThanOrEqual(d.channels.export.rate + 1e-9);
+  });
+});

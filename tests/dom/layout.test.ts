@@ -91,12 +91,11 @@ describe('раскладка', () => {
     const hud = document.querySelector('.hud');
     const labels = [...(hud?.querySelectorAll('.hud__row-label') ?? [])].map((n) => n.textContent);
     for (const expected of [
-      'Сбыт',
+      'Автодобыча',
       'Доход в секунду',
-      'Прибыль',
+      'Налог',
       'Активы',
-      'Внутренняя цена',
-      'Экспортная цена',
+      'Цена тонны',
       'Нефтезаводы (НПЗ)',
       'Нефтебазы',
       'АЗС',
@@ -105,9 +104,18 @@ describe('раскладка', () => {
       'Зарплаты',
       'Чиновники',
       'Резервуары',
+      'Скважины',
     ]) {
       expect(labels).toContain(expected);
     }
+    // Прибыль стоит отдельной строкой под таблицей доходов и расходов.
+    const money = hud?.querySelector('[data-group="money"]');
+    expect(money?.querySelector('.hud__invoice')?.textContent).toContain('Доходы');
+    expect(money?.querySelector('.hud__invoice')?.textContent).toContain('Расходы');
+    expect(money?.querySelector('.hud__profit')?.textContent).toContain('Прибыль');
+    // Кошелёк переехал в шапку к иконкам меню.
+    expect(document.querySelector('.topbar__coins')).not.toBeNull();
+    expect(hud?.querySelector('.topbar__coins')).toBeNull();
     // «Добыча» в тоннах в секунду убрана: остался только суточный дебит.
     expect(labels).toContain('Добыча в сутки');
     expect(labels).not.toContain('Добыча');

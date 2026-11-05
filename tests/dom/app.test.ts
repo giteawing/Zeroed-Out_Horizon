@@ -118,13 +118,16 @@ describe('сцена с долотом', () => {
 
 describe('HUD', () => {
   it('показывает баланс, нефть, каналы сбыта и прогресс', () => {
-    const balance = document.querySelector('.hud__balance');
+    // Кошелёк переехал в шапку, к иконкам меню.
+    const balance = document.querySelector('.topbar__coins');
     expect(balance?.textContent ?? '').toMatch(/₦/);
     // Панель империи: нефть в резервуарах, цена тонны, влияние.
     expect(document.querySelector('.hud__oilbar')).not.toBeNull();
     expect(document.querySelector('.hud__influence-fill')).not.toBeNull();
     expect(document.querySelectorAll('.sale').length).toBe(3);
     expect(document.querySelectorAll('.hud__row').length).toBeGreaterThan(8);
+    // Прибыль — отдельная строка под таблицей доходов и расходов.
+    expect(document.querySelector('.hud__profit')?.textContent).toContain('Прибыль');
     expect(document.querySelector('.hud__progress-label')?.textContent).toBe('До «Упыря-Абсолюта»');
     expect(document.querySelector('.hud__progress-fill')).not.toBeNull();
   });
@@ -234,15 +237,14 @@ describe('настройки', () => {
 });
 
 describe('мировая цена, магазин и инженерное меню', () => {
-  it('мировая цена в шапке — в нефтефаниках за тонну, а не в процентах', () => {
-    const chip = document.querySelector('.hud__chip--price');
-    const text = chip?.textContent ?? '';
-    expect(text).toContain('Мировая цена');
-    expect(text).toMatch(/₦[\d.,]+\s*\/\s*т$/);
-    const bar = document.querySelector<HTMLElement>('.hud__pricebar-fill');
-    const width = Number.parseFloat(bar?.style.width ?? '0');
-    expect(width).toBeGreaterThan(0);
-    expect(width).toBeLessThanOrEqual(100);
+  it('мировая цена показана в нефтефаниках за тонну, полосы сверху больше нет', () => {
+    const rows = [...document.querySelectorAll('.hud .hud__row')];
+    const priceRow = rows.find((row) => row.textContent?.includes('Мировая цена'));
+    expect(priceRow).toBeDefined();
+    expect(priceRow!.textContent).toMatch(/₦[\d.,]+\s*\/\s*т/);
+    // Полоса-прогресс мировой цены убрана по требованию заказчика.
+    expect(document.querySelector('.hud__pricebar')).toBeNull();
+    expect(document.querySelector('.hud__chip--price')).toBeNull();
   });
 
   it('закрытые покупки видны в магазине с красной причиной блокировки', async () => {
@@ -383,9 +385,10 @@ describe('этап 5: банк, реприватизация, активы и к
 
   it('в панели есть прибыль, активы и счётчики объектов', () => {
     const labels = [...document.querySelectorAll('.hud .hud__row-label')].map((n) => n.textContent);
-    for (const expected of ['Прибыль', 'Активы', 'Нефтезаводы (НПЗ)', 'Нефтебазы', 'АЗС']) {
+    for (const expected of ['Активы', 'Нефтезаводы (НПЗ)', 'Нефтебазы', 'АЗС']) {
       expect(labels).toContain(expected);
     }
+    expect(document.querySelector('.hud__profit-label')?.textContent).toBe('Прибыль');
     // Добыча в тоннах в секунду убрана — остался суточный дебит.
     expect(labels).toContain('Добыча в сутки');
     expect(labels).not.toContain('Добыча');

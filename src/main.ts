@@ -148,6 +148,11 @@ function boot(): void {
     el('div', { class: 'topbar__brand' }, [
       el('img', { src: image('logo.svg'), alt: texts.data.meta.title, width: 132, height: 66 }),
     ]),
+    // Кошелёк в шапке: раньше здесь было пусто, а сумма занимала место в панели.
+    el('div', { class: 'topbar__wallet' }, [
+      el('span', { class: 'topbar__wallet-label' }, texts.get('hud.balance')),
+      hud.balance,
+    ]),
     el('div', { class: 'topbar__actions' }, [
       button('sound', () => {
         const next = !game.state.soundOn;
