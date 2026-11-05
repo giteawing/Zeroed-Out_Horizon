@@ -192,10 +192,12 @@ test('панель империи видна всегда и держит все
   expect(oplogBox!.y).toBeGreaterThan(hudBox!.y + hudBox!.height - 1);
   const drillBlock = await page.locator('.stage__drill').boundingBox();
   expect(drillBlock!.y).toBeGreaterThan(oplogBox!.y + oplogBox!.height - 1);
-  // Панель империи стала широкой (460–620 px), но магазин всё равно шире неё.
+  // Панель империи стала широкой: 460–620 px на десктопе. Магазин при этом
+  // не схлопывается — иначе карточки покупок не читаются.
   expect(side).toBeTruthy();
   expect(hudBox?.width ?? 0).toBeGreaterThanOrEqual(440);
-  expect(shopBox?.width ?? 0).toBeGreaterThan(hudBox?.width ?? 0);
+  expect(hudBox?.width ?? 0).toBeLessThanOrEqual(680);
+  expect(shopBox?.width ?? 0).toBeGreaterThan(360);
 });
 
 test('финал открывается, показывает карикатуру и титры', async ({ page }) => {
