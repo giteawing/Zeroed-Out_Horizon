@@ -9,7 +9,7 @@ import { el } from './dom';
 import type { Texts } from './texts';
 import { formatMoney, formatNumber, formatPercent, interpolate } from '../core/format';
 import { wellsDailyTonnes } from '../core/economy';
-import type { DerivedStats, GameState } from '../core/types';
+import type { DerivedStats, GameConfig, GameState } from '../core/types';
 
 interface Row {
   root: HTMLElement;
@@ -40,6 +40,7 @@ export class Hud {
   constructor(
     private readonly texts: Texts,
     private readonly currency: string,
+    private readonly config: GameConfig,
   ) {
     this.balance = el('strong', { class: 'hud__balance' }, '');
     this.tax = el('span', { class: 'hud__chip' }, '');
@@ -162,7 +163,7 @@ export class Hud {
       capacity: formatNumber(derived.oilCapacity),
       tonnes,
     }));
-    const daily = wellsDailyTonnes(state);
+    const daily = wellsDailyTonnes(state, this.config);
     set('dailyRate', units('tonnesPerDay', { value: formatNumber(daily), tonnes }));
     set('wellsCount', String(state.wells.length));
     set('oilRate', units('tonnesRate', {
@@ -220,8 +221,17 @@ export class Hud {
       node.dataset.active = channel.rate > 0 ? '1' : '0';
     }
 
-    const pricePercent = Math.round(((state.worldPrice - 0.7) / 0.6) * 100);
-    const priceText = `${this.texts.get('hud.worldPrice')}: ${formatPercent(state.worldPrice)}`;
+    // Мировая цена показывается в нефтефантиках за тонну, а не в процентах:
+    // полоса слева — это доля от диапазона цен, справа — живая цена тонны.
+    const wpMin = this.config.worldPrice.min;
+    const wpMax = this.config.worldPrice.max;
+    const pricePercent = Math.round(
+      ((state.worldPrice - wpMin) / Math.max(1e-6, wpMax - wpMin)) * 100,
+    );
+    const priceText = interpolate(this.texts.get('hud.worldPriceValue'), {
+      price: formatMoney(derived.oilPricePerTon, this.currency),
+      tonnes: this.texts.get('units.tonnes'),
+    });
     if (this.price.textContent !== priceText) this.price.textContent = priceText;
     this.priceBar.style.width = `${Math.max(4, Math.min(100, pricePercent))}%`;
     this.priceBar.dataset.trend =

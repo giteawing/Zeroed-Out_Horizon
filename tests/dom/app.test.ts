@@ -216,16 +216,81 @@ describe('настройки', () => {
     settingsButton?.click();
     const sheet = document.querySelector('.sheet');
     expect(sheet?.hasAttribute('hidden')).toBe(false);
-    const soundButton = [...document.querySelectorAll<HTMLButtonElement>('.sheet .btn')][0];
+    // На странице два «листа»: настройки и инженерное меню. Берём настройки.
+    const settingsSheet = [...document.querySelectorAll('.sheet')].find(
+      (node) => !node.classList.contains('dev'),
+    )!;
+    const soundButton = [...settingsSheet.querySelectorAll<HTMLButtonElement>('.btn')][0];
     expect(soundButton.textContent).toContain('🔊');
     soundButton.click();
     expect(soundButton.textContent).toContain('🔇');
     expect(game.state.soundOn).toBe(false);
     soundButton.click();
     expect(game.state.soundOn).toBe(true);
-    const close = [...document.querySelectorAll<HTMLButtonElement>('.sheet .btn')].pop();
+    const close = [...settingsSheet.querySelectorAll<HTMLButtonElement>('.btn')].pop();
     close?.click();
     expect(document.querySelector('.sheet')?.hasAttribute('hidden')).toBe(true);
+  });
+});
+
+describe('мировая цена, магазин и инженерное меню', () => {
+  it('мировая цена в шапке — в нефтефаниках за тонну, а не в процентах', () => {
+    const chip = document.querySelector('.hud__chip--price');
+    const text = chip?.textContent ?? '';
+    expect(text).toContain('Мировая цена');
+    expect(text).toMatch(/₦[\d.,]+\s*\/\s*т$/);
+    const bar = document.querySelector<HTMLElement>('.hud__pricebar-fill');
+    const width = Number.parseFloat(bar?.style.width ?? '0');
+    expect(width).toBeGreaterThan(0);
+    expect(width).toBeLessThanOrEqual(100);
+  });
+
+  it('закрытые покупки видны в магазине с красной причиной блокировки', async () => {
+    const technical = [...document.querySelectorAll<HTMLButtonElement>('.tab')].find(
+      (tab) => tab.textContent === 'Технические',
+    );
+    technical?.click();
+    game.state.coins = 0;
+    await nextFrame();
+    const locked = [...document.querySelectorAll<HTMLElement>('.card--locked')];
+    expect(locked.length).toBeGreaterThan(0);
+    // Карточка не спрятана: она есть в списке и содержит условие разблокировки.
+    const hint = locked[0].querySelector('.card__lock')?.textContent ?? '';
+    expect(hint.length).toBeGreaterThan(0);
+    const disabled = locked[0].querySelector<HTMLButtonElement>('.card__buy')?.disabled;
+    expect(disabled).toBe(true);
+    // Все покупки вкладки на месте, включая закрытые.
+    const cards = document.querySelectorAll('.shop__list .card').length;
+    expect(cards).toBeGreaterThan(locked.length);
+  });
+
+  it('🛠 открывает инженерное меню, «+1 трлн» начисляет деньги и закрывается по Esc', async () => {
+    const devButton = document.querySelector<HTMLButtonElement>('.iconbtn--dev');
+    expect(devButton).not.toBeNull();
+    devButton?.click();
+    const menu = document.querySelector<HTMLElement>('.sheet__inner.dev')?.closest('.sheet');
+    expect(menu?.hasAttribute('hidden')).toBe(false);
+    const coinsBefore = game.state.coins;
+    menu?.querySelector<HTMLButtonElement>('[data-action="money"]')?.click();
+    await flush();
+    expect(game.state.coins).toBeCloseTo(coinsBefore + 1e12, 0);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await flush();
+    expect(menu?.hasAttribute('hidden')).toBe(true);
+  });
+
+  it('«Открыть все покупки» снимает требования по деньгам', async () => {
+    const devButton = document.querySelector<HTMLButtonElement>('.iconbtn--dev');
+    devButton?.click();
+    const menu = document.querySelector<HTMLElement>('.sheet__inner.dev')!.closest('.sheet');
+    menu?.querySelector<HTMLButtonElement>('[data-action="unlock"]')?.click();
+    await flush();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    game.state.coins = 0;
+    await nextFrame();
+    const locked = [...document.querySelectorAll<HTMLElement>('.card--locked')];
+    // Требования по накопленному заработку сняты — закрытых карточек не осталось.
+    expect(locked.length).toBe(0);
   });
 });
 

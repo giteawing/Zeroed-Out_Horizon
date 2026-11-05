@@ -322,3 +322,68 @@ describe('скважины со случайным дебитом', () => {
     expect(contract.baseRate).toBeGreaterThan(8);
   });
 });
+
+describe('правки после ревью: цена, сутки, падение дебита', () => {
+  it('игровые сутки равны одной секунде', () => {
+    expect(config.oil.wells.secondsPerDay).toBe(1);
+    // 8 т/сут — это 8 тонн в секунду.
+    const { game, state } = setup();
+    state.wells = [{ kind: 'ordinary', dailyTonnes: 8 }];
+    game.invalidate();
+    expect(game.derived().oilPerSecond).toBeCloseTo(8, 6);
+  });
+
+  it('дебит падает со временем, но не сильно (не ниже 70%)', () => {
+    const { game, state } = setup();
+    state.wells = [{ kind: 'good', dailyTonnes: 60 }];
+    state.playtimeMs = 0;
+    game.invalidate();
+    const start = game.derived().oilPerSecond;
+    // Половина партии.
+    state.playtimeMs = 9 * 60 * 1000;
+    game.invalidate();
+    const middle = game.derived().oilPerSecond;
+    expect(middle).toBeLessThan(start);
+    expect(middle / start).toBeGreaterThan(0.7);
+    // Даже очень долгая игра не роняет добычу ниже пола.
+    state.playtimeMs = 5 * 60 * 60 * 1000;
+    game.invalidate();
+    const late = game.derived().oilPerSecond;
+    expect(late / start).toBeCloseTo(config.oil.wells.decline.minFactor, 2);
+  });
+
+  it('мировая цена в панели показывается в нефтефаниках за тонну', () => {
+    const { game, state } = setup();
+    game.invalidate();
+    const derived = game.derived();
+    // Цена тонны = базовая цена × мировая цена × бонусы, и она в ₦.
+    expect(derived.oilPricePerTon).toBeGreaterThan(0);
+    expect(state.worldPrice).toBeGreaterThanOrEqual(config.worldPrice.min);
+    expect(state.worldPrice).toBeLessThanOrEqual(config.worldPrice.max);
+  });
+});
+
+describe('инженерное меню', () => {
+  it('«+1 трлн» начисляет триллион и увеличивает заработок', () => {
+    const { game, state } = setup();
+    const before = state.coins;
+    game.addCoins(1e12);
+    expect(state.coins).toBeCloseTo(before + 1e12, 0);
+    expect(state.totalEarned).toBeGreaterThanOrEqual(1e12);
+  });
+
+  it('«Купить Упырь-Абсолют» мгновенно завершает игру', () => {
+    const { game, state } = setup();
+    expect(state.won).toBe(false);
+    expect(game.forceWin()).toBe(true);
+    expect(state.won).toBe(true);
+    const winDef = content.upgrades.find((u) => u.win)!;
+    expect(state.levels[winDef.id]).toBe(1);
+  });
+
+  it('покупка после победы закрыта', () => {
+    const { game } = setup();
+    game.forceWin();
+    expect(game.buy('t_well').ok).toBe(false);
+  });
+});

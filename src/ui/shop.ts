@@ -93,13 +93,11 @@ export class Shop {
   }
 
   private defsFor(tab: Tab): UpgradeDef[] {
-    const all = this.game.content.upgrades.filter((u) => u.tab === tab);
-    if (tab === 'goals') return all;
-    // Показываем разблокированные и те, что вот-вот откроются (по порядку цены).
-    const sorted = [...all].sort((a, b) => a.baseCost - b.baseCost);
-    const unlocked = sorted.filter((def) => this.game.checkBuy(def.id).unlocked);
-    const startIndex = unlocked.length > 0 ? sorted.indexOf(unlocked[unlocked.length - 1]) : 0;
-    return sorted.filter((def, index) => index <= startIndex + 2 || this.game.checkBuy(def.id).unlocked);
+    // Показываем ВСЁ, что есть на вкладке: игрок должен видеть, к чему идёт.
+    // Заблокированные карточки неактивны, а красной строкой написано, что нужно.
+    return this.game.content.upgrades
+      .filter((u) => u.tab === tab)
+      .sort((a, b) => a.baseCost - b.baseCost);
   }
 
   private signature(defs: UpgradeDef[]): string {
@@ -254,6 +252,10 @@ export class Shop {
     }
   }
 
+  /**
+   * Что нужно, чтобы карточка открылась. Пишется красным прямо в карточке:
+   * заблокированные покупки видит вся вкладка, а не только «следующие две».
+   */
   private describeLock(def: UpgradeDef, check: BuyCheck): string {
     void def;
     if (check.unlocked) return '';
@@ -268,7 +270,10 @@ export class Shop {
       return this.texts.get('shop.unlockHintInfluence', { value: blocker.value });
     }
     const target = this.game.content.byId.get(blocker.id);
-    return this.texts.get('shop.unlockHintUpgrade', { name: target?.name ?? blocker.id });
+    return this.texts.get('shop.unlockHintUpgrade', {
+      name: target?.name ?? blocker.id,
+      level: blocker.level,
+    });
   }
 
   /** Частое обновление: только значения, без пересборки DOM. */

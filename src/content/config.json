@@ -69,7 +69,7 @@
     },
     "spillLoss": 0.25,
     "wells": {
-      "secondsPerDay": 20,
+      "secondsPerDay": 1,
       "classes": [
         {
           "key": "ordinary",
@@ -92,7 +92,11 @@
           "maxDailyTonnes": 5000,
           "step": 50
         }
-      ]
+      ],
+      "decline": {
+        "minFactor": 0.7,
+        "halfLifeSeconds": 1800
+      }
     }
   },
   "influence": {
@@ -108,7 +112,7 @@
     "cap": 400
   },
   "autosaveSeconds": 10,
-  "winCost": 65000000000,
+  "winCost": 80000000000,
   "winRequirements": [],
   "achievementsTickSeconds": 1,
   "particles": {
