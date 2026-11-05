@@ -1,5 +1,10 @@
 /**
  * «Витрина богатства»: все купленные предметы роскоши в одном месте (ТЗ §6.3).
+ *
+ * Окно закрывается тремя способами, как и остальные шторки: кнопкой «Закрыть»,
+ * кликом по пустому месту вокруг листа и Escape (Escape обрабатывает main.ts).
+ * Раньше кнопки не было вовсе, а клик по фону никто не слушал — открытая
+ * витрина оставалась на экране навсегда.
  */
 import { el } from './dom';
 import { icon } from '../core/assets';
@@ -15,12 +20,22 @@ export class Wealth {
     texts: Texts,
   ) {
     this.grid = el('div', { class: 'wealth__grid' });
+
+    const close = el('button', { class: 'btn btn--gold', type: 'button' }, texts.get('panel.close'));
+    close.addEventListener('click', () => this.close());
+
     this.root = el('div', { class: 'sheet', hidden: true, role: 'dialog', 'aria-modal': 'true' }, [
       el('div', { class: 'sheet__inner' }, [
         el('h2', { class: 'sheet__title' }, texts.get('panel.wealth')),
         this.grid,
+        close,
       ]),
     ]);
+
+    // Клик по затемнению закрывает окно, клик по самому листу — нет.
+    this.root.addEventListener('pointerdown', (event) => {
+      if (event.target === this.root) this.close();
+    });
   }
 
   open(): void {

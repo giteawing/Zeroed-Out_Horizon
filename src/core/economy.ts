@@ -450,9 +450,6 @@ export function computeDerived(
   // ----------------------------------------------------------------- сбыт
   const oilPricePerTon =
     config.oil.basePricePerTon * state.worldPrice * priceMultiplier;
-  // Внутренняя и экспортная цены — разные: экспорт обычно дороже.
-  const domesticPricePerTon = oilPricePerTon * config.oil.channels.contract.priceFactor;
-  const exportPricePerTon = oilPricePerTon * config.oil.channels.export.priceFactor;
   const channels = {} as Record<Channel, ChannelRate>;
   for (const channel of CHANNELS) {
     const cfg = config.oil.channels[channel];
@@ -462,6 +459,14 @@ export function computeDerived(
     const boosted = (channel === 'export' ? rate * exportMultiplier : rate);
     channels[channel] = { rate: boosted, price, sold: boosted };
   }
+  /*
+   * Внутренняя и экспортная цены — это ФАКТИЧЕСКИЕ цены каналов, вместе с
+   * надбавками от сбытовых построек. Раньше здесь стояла базовая цена без
+   * них, и панель показывала ₦1,37/т, а строки сбыта — ₦4,13/т: игрок видел
+   * два разных числа для одной и той же тонны. Теперь источник один.
+   */
+  const domesticPricePerTon = channels.contract.price;
+  const exportPricePerTon = channels.export.price;
 
   /*
    * Товарная модель: сырьё → нефтепродукты.

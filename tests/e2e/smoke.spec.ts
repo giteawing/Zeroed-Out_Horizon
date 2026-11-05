@@ -164,6 +164,34 @@ test('меню шапки закрыто, пока его не открыли', 
   expect(errors).toEqual([]);
 });
 
+test('витрина богатства закрывается кнопкой и кликом по фону', async ({ page }) => {
+  await start(page);
+  const trigger = page.locator('.iconbtn--menu');
+  const wealth = page.locator('.sheet').filter({ has: page.locator('.wealth__grid') });
+
+  await trigger.click();
+  await page.locator('[data-menu="wealth"]').click();
+  await expect(wealth).toBeVisible();
+  // Кнопка «Закрыть» внизу листа.
+  await wealth.locator('.btn--gold').click();
+  await expect(wealth).toBeHidden();
+
+  // Клик по пустому месту вокруг листа — тоже закрывает.
+  await trigger.click();
+  await page.locator('[data-menu="wealth"]').click();
+  await expect(wealth).toBeVisible();
+  await page.mouse.click(8, 8);
+  await expect(wealth).toBeHidden();
+
+  // И Escape.
+  await trigger.click();
+  await page.locator('[data-menu="wealth"]').click();
+  await expect(wealth).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(wealth).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
 test('звук переключается в настройках', async ({ page }) => {
   await start(page);
   // Все действия шапки теперь живут в одном меню: сначала открываем его.
