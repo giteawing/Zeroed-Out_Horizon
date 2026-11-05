@@ -24,17 +24,17 @@ async function start(page: Page): Promise<void> {
   await expect(page.locator('.start')).toHaveCount(0, { timeout: 5000 });
 }
 
-/** Тап по скважине. Игра слушает pointerdown, поэтому mouse.down() достаточно. */
+/**
+ * Тап по скважине.
+ * Игра слушает pointerdown, поэтому обычный click() тоже его порождает.
+ * Используем locator.click(): Playwright сам ждёт, пока элемент не перекрыт,
+ * и в случае промаха сообщает, какой элемент мешает.
+ */
 async function tapDrill(page: Page, times = 12): Promise<void> {
   const drill = page.locator('[data-testid="drill"]');
-  const box = await drill.boundingBox();
-  if (!box) throw new Error('скважина не найдена');
-  const x = box.x + box.width / 2;
-  const y = box.y + box.height / 2;
+  await expect(drill).toBeVisible();
   for (let i = 0; i < times; i++) {
-    await page.mouse.move(x, y);
-    await page.mouse.down();
-    await page.mouse.up();
+    await drill.click();
   }
 }
 
@@ -59,16 +59,18 @@ test('игра запускается без ошибок в консоли', as
 
 test('тап добывает нефть, а не нефтефаники', async ({ page }) => {
   await start(page);
-  // Панель империи показывает нефть в резервуарах: «{oil} / {capacity} т».
-  const oilValue = page.locator('.hud__oil .hud__row-value');
-  const before = (await oilValue.textContent()) ?? '';
-  await tapDrill(page, 24);
-  await expect.poll(async () => (await oilValue.textContent()) !== before, { timeout: 8000 }).toBe(true);
-  // Тап по скважине не начисляет нефтефаники напрямую — они появляются только со сбыта.
-  const coins = await page.evaluate(
-    () => (window as unknown as { __game: { state: { coins: number; oil: number } } }).__game.state,
+  const before = await page.evaluate(
+    () => (window as unknown as { __game: { state: { oil: number; totalTaps: number } } }).__game.state,
   );
-  expect(coins.oil).toBeGreaterThan(0);
+  await tapDrill(page, 24);
+  const after = await page.evaluate(
+    () => (window as unknown as { __game: { state: { oil: number; totalTaps: number } } }).__game.state,
+  );
+  // Каждый тап — это тап по нефти, а не начисление нефтефаников.
+  expect(after.totalTaps).toBeGreaterThan(before.totalTaps + 20);
+  expect(after.oil).toBeGreaterThan(0);
+  // Панель империи показывает ту же нефть в резервуарах: «{oil} / {capacity} т».
+  await expect(page.locator('.hud__oil .hud__row-value')).toContainText('т');
 });
 
 test('нефть продаётся, и нефтефаники капают со сбыта', async ({ page }) => {
@@ -115,6 +117,10 @@ test('вкладки магазина переключаются', async ({ page
 test('прогресс сохраняется после перезагрузки', async ({ page }) => {
   await start(page);
   await tapDrill(page, 30);
+  const before = await page.evaluate(
+    () => (window as unknown as { __game: { state: { totalTaps: number } } }).__game.state.totalTaps,
+  );
+  expect(before).toBeGreaterThan(0);
   await page.evaluate(() => {
     document.dispatchEvent(new Event('visibilitychange'));
     window.dispatchEvent(new Event('pagehide'));
@@ -159,11 +165,31 @@ test('панель империи видна всегда и держит все
   }
   // «Влияние» — отдельный блок со шкалой, а не строка.
   await expect(hud.locator('.hud__influence')).toContainText('Влияние');
-  // Панель в правой колонке и не перекрывает скважину.
+  // Правая колонка: панель, журнал и долото стоят столбиком и не закрывают магазин.
+  const side = page.locator('.stage__side');
+  const shopBox = await page.locator('.shop').boundingBox();
   const hudBox = await hud.boundingBox();
   const drillBox = await page.locator('[data-testid="drill"]').boundingBox();
+  const oplogBox = await page.locator('[data-testid="oplog"]').boundingBox();
   expect(hudBox?.width ?? 0).toBeGreaterThan(200);
   expect(drillBox?.width ?? 0).toBeGreaterThan(120);
+  expect(oplogBox?.width ?? 0).toBeGreaterThan(200);
+  // Журнал идёт под таблицей.
+  expect(oplogBox!.y).toBeGreaterThan(hudBox!.y + hudBox!.height - 1);
+  const wide = (await page.viewportSize())!.width >= 860;
+  if (wide) {
+    // Десктоп: долото под журналом, магазин шире правой колонки.
+    const drillBlock = await page.locator('.stage__drill').boundingBox();
+    expect(drillBlock!.y).toBeGreaterThan(oplogBox!.y + oplogBox!.height - 1);
+    expect(side).toBeTruthy();
+    expect(shopBox?.width ?? 0).toBeGreaterThan((hudBox?.width ?? 0) * 1.5);
+  } else {
+    // Телефон: журнал и долото стоят рядом, под таблицей, и не наезжают на магазин.
+    const drillBlock = await page.locator('.stage__drill').boundingBox();
+    expect(drillBlock!.x).toBeGreaterThan(oplogBox!.x + oplogBox!.width - 1);
+    expect(drillBlock!.y).toBeLessThan(oplogBox!.y + oplogBox!.height);
+    expect(hudBox!.y).toBeGreaterThan(shopBox!.y + shopBox!.height - 1);
+  }
 });
 
 test('раскладка: магазин и кнопки доступны на узком экране', async ({ page }, testInfo) => {
