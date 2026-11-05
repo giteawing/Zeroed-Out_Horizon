@@ -449,7 +449,6 @@ export function computeDerived(
   const domesticPricePerTon = oilPricePerTon * config.oil.channels.contract.priceFactor;
   const exportPricePerTon = oilPricePerTon * config.oil.channels.export.priceFactor;
   const channels = {} as Record<Channel, ChannelRate>;
-  let grossPerSecond = 0;
   for (const channel of CHANNELS) {
     const cfg = config.oil.channels[channel];
     const rate = Math.max(0, cfg.baseRate + rateFlat[channel]);
@@ -457,10 +456,29 @@ export function computeDerived(
     // Пропускная способность экспорта дополнительно растёт от терминалов.
     const boosted = (channel === 'export' ? rate * exportMultiplier : rate);
     channels[channel] = { rate: boosted, price, sold: boosted };
-    // В «теоретический» доход безлимитный канал не входит: его вклад зависит
-    // от того, сколько нефти реально добывается (считается в sellOil).
-    if (!cfg.unlimited) grossPerSecond += boosted * price;
   }
+
+  /*
+   * Выручка в секунду — это ДЕНЬГИ ЗА ФАКТИЧЕСКИ ПРОДАННУЮ НЕФТЬ.
+   *
+   * Раньше здесь суммировались только каналы с ограниченной пропускной
+   * способностью («безлимитный в теоретический доход не входит»). Из-за этого
+   * строка «Доход в секунду» показывала копейки, хотя вся нефть уходила
+   * в контракты и деньги капали миллионами. А расходы, налог и «расходы от
+   * выручки» считались от этой же фиктивной базы — то есть были занижены.
+   *
+   * Теперь считаем ровно так же, как тик: берём всю нефть, которую империя
+   * добывает за секунду (скважины + автотапы), и распределяем её по каналам
+   * через sellOil — «дорогой сначала, остаток в безлимитные».
+   */
+  const unlimitedChannels = CHANNELS.filter((c) => config.oil.channels[c].unlimited);
+  const tonnesPerSecond = oilPerSecond + tapValue * autoTaps;
+  // Раскладка по каналам — та же, что в тике: дорогие первыми, остаток
+  // в безлимитные контракты. Нужна и для выручки, и для панели сбыта.
+  const sales = tonnesPerSecond > 0
+    ? sellOil({ channels } as DerivedStats, tonnesPerSecond, 1, unlimitedChannels)
+    : { oil: 0, gross: 0, sold: 0, byChannel: { contract: 0, export: 0, refine: 0 } as Record<Channel, number> };
+  const grossPerSecond = sales.gross;
 
   // Влияние считается до налога: больше влияния — меньше налог.
   const influenceTotal = Math.min(
@@ -478,8 +496,10 @@ export function computeDerived(
   // Расходы состоят из «постоянных» и «процентных» частей. Часть от уровней
   // ограничена долей от выручки — иначе к концу игры штат съедал весь доход
   // и империя банкротилась, хотя нефть качается.
+  // Штат не может съесть больше 8 % выручки, чиновники — ещё 8 %:
+  // иначе честная (по факту продаж) выручка почти вся уходила бы в расходы.
   const cappedLevelCost = (levels: number) =>
-    Math.min(config.expenses.levelRate * levels, grossPerSecond * 0.35);
+    Math.min(config.expenses.levelRate * levels, grossPerSecond * 0.08);
   const salaries =
     (config.expenses.baseSalaries +
       config.expenses.salariesPerGross * grossPerSecond +
@@ -492,10 +512,10 @@ export function computeDerived(
       cappedLevelCost(officialLevels)) *
     cutFactor;
 
-  // Расходы никогда не съедают больше половины выручки: иначе «успешная»
+  // Расходы никогда не съедают больше пятой части выручки: иначе «успешная»
   // империя с полными резервуарами показывает нулевой доход.
   const rawExpenses = salaries + officials;
-  const expenseCap = grossPerSecond * 0.5;
+  const expenseCap = grossPerSecond * 0.2;
   const capped = rawExpenses > expenseCap && expenseCap > 0;
   const expensesPerSecond = capped ? expenseCap : rawExpenses;
   const expenseScale = rawExpenses > 0 ? expensesPerSecond / rawExpenses : 1;
@@ -512,7 +532,10 @@ export function computeDerived(
     tapRevenue: tapValue * oilPricePerTon,
     autoTapsPerSecond: autoTaps,
     oilPerSecond,
-    sellPerSecond: CHANNELS.reduce((sum, c) => sum + channels[c].rate, 0),
+    // Не сумма пропускных способностей (у контрактов она бесконечна), а то,
+    // сколько тонн в секунду реально находит сбыт при текущей добыче.
+    sellPerSecond: sales.sold,
+    salesByChannel: sales.byChannel,
     oil: state.oil,
     oilCapacity: capacity,
     oilPricePerTon,
@@ -525,6 +548,7 @@ export function computeDerived(
     grossPerSecond,
     netPerSecond,
     expensesPerSecond,
+    taxPaidPerSecond: grossPerSecond * taxRate,
     taxRate,
     costCutPercent: Math.round((1 - cutFactor) * 100),
     multiplier: multTap * multPassive,

@@ -430,8 +430,10 @@ export interface DerivedStats {
   autoTapsPerSecond: number;
   /** Автодобыча, тонн/с. */
   oilPerSecond: number;
-  /** Сколько нефти уходит в сбыт за секунду (сумма по каналам). */
+  /** Сколько нефти реально уходит в сбыт за секунду (добыча, влезшая в каналы). */
   sellPerSecond: number;
+  /** Раскладка сбыта по каналам за секунду, тонн. */
+  salesByChannel: Record<'contract' | 'export' | 'refine', number>;
   /** Запас нефти, тонн. */
   oil: number;
   /** Ёмкость резервуаров, тонн. */
@@ -452,6 +454,8 @@ export interface DerivedStats {
   grossPerSecond: number;
   netPerSecond: number;
   expensesPerSecond: number;
+  /** Сколько уходит на налог, ₦/с (для таблицы «доходы − расходы = прибыль»). */
+  taxPaidPerSecond: number;
   taxRate: number;
   costCutPercent: number;
   multiplier: number;

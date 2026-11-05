@@ -65,6 +65,21 @@ describe('тап', () => {
     expect(state.coins).toBeGreaterThan(coinsBefore);
   });
 
+  it('переполнение резервуаров не сжигает нефть, а продаёт её', () => {
+    const { game, state } = setup();
+    // Много добычи и маленький склад: нефть гарантированно не влезет.
+    makeRich(state, 't_well', 50);
+    game.buy('t_well', 10);
+    state.oil = game.derived().oilCapacity;
+    const coinsBefore = state.coins;
+    const soldBefore = state.totalSold;
+    game.update(1000);
+    // Склад полон, но излишек ушёл в контракты — деньги пришли.
+    expect(state.oil).toBeLessThanOrEqual(game.derived().oilCapacity + 1e-6);
+    expect(state.totalSold).toBeGreaterThan(soldBefore);
+    expect(state.coins).toBeGreaterThan(coinsBefore);
+  });
+
   it('без каналов сбыта нефть копится в резервуарах', () => {
     const { game, state } = setup();
     makeRich(state, 't_well', 80);

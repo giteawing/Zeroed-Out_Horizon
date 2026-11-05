@@ -51,7 +51,8 @@ async function tapUntilAffordable(page: Page): Promise<void> {
 
 test('игра запускается без ошибок в консоли', async ({ page }) => {
   await start(page);
-  await expect(page.locator('.hud__balance')).toContainText('₦');
+  // Кошелёк с нефтефаниками живёт в шапке, а не в панели.
+  await expect(page.locator('.topbar__coins')).toContainText('₦');
   await expect(page.locator('.drill__art')).toHaveAttribute('src', /drill\.svg/);
   await expect(page.locator('.news__item').first()).toBeVisible();
   expect(errors).toEqual([]);
@@ -83,7 +84,7 @@ test('тап добывает нефть, а не нефтефаники', async
 
 test('нефть продаётся, и нефтефаники капают со сбыта', async ({ page }) => {
   await start(page);
-  const balance = page.locator('.hud__balance');
+  const balance = page.locator('.topbar__coins');
   await tapDrill(page, 40);
   // Сбыт идёт непрерывно: нефть уходит в контракты и превращается в деньги.
   await expect.poll(
@@ -160,19 +161,24 @@ test('панель империи видна всегда и держит все
   const hud = page.locator('.hud');
   await expect(hud).toBeVisible();
   for (const label of [
-    'Добыча',
-    'Сбыт',
+    'Добыча в сутки',
+    'Цена тонны',
     'Доход в секунду',
     'Зарплаты',
     'Чиновники',
     'Резервуары',
+    'Скважины',
+    'Активы',
   ]) {
     await expect(
       hud.locator('.hud__row-label').filter({ hasText: label }).first(),
     ).toBeVisible();
   }
-  // «Влияние» — отдельный блок со шкалой, а не строка.
-  await expect(hud.locator('.hud__influence')).toContainText('Влияние');
+  // Три смысловые группы панели, «Влияние» — отдельный блок со шкалой.
+  for (const group of ['goods', 'money', 'property']) {
+    await expect(hud.locator(`[data-group="${group}"]`)).toBeVisible();
+  }
+  await expect(hud).toContainText('Влияние');
   // Правая колонка: панель, журнал и долото стоят столбиком и не закрывают магазин.
   const side = page.locator('.stage__side');
   const shopBox = await page.locator('.shop').boundingBox();
@@ -186,9 +192,12 @@ test('панель империи видна всегда и держит все
   expect(oplogBox!.y).toBeGreaterThan(hudBox!.y + hudBox!.height - 1);
   const drillBlock = await page.locator('.stage__drill').boundingBox();
   expect(drillBlock!.y).toBeGreaterThan(oplogBox!.y + oplogBox!.height - 1);
-  // Левая колонка — магазин, он шире правой колонки с таблицей.
+  // Панель империи стала широкой: 460–620 px на десктопе. Магазин при этом
+  // не схлопывается — иначе карточки покупок не читаются.
   expect(side).toBeTruthy();
-  expect(shopBox?.width ?? 0).toBeGreaterThan((hudBox?.width ?? 0) * 1.5);
+  expect(hudBox?.width ?? 0).toBeGreaterThanOrEqual(440);
+  expect(hudBox?.width ?? 0).toBeLessThanOrEqual(680);
+  expect(shopBox?.width ?? 0).toBeGreaterThan(360);
 });
 
 test('финал открывается, показывает карикатуру и титры', async ({ page }) => {
@@ -208,7 +217,8 @@ test('финал открывается, показывает карикатур
     }
     g.buy('win_pump');
   });
-  await expect(page.locator('.finale')).toBeVisible();
+  // Финал показывается с задержкой 700 мс после победы — даём время.
+  await expect(page.locator('.finale')).toBeVisible({ timeout: 15_000 });
   await page.locator('.cutscene .btn--ghost').click();
   await expect(page.locator('.credits__art')).toHaveAttribute('src', /finale\.svg/);
   // Стихотворение кладёт владелец игры: проверяем, что титры не пустые

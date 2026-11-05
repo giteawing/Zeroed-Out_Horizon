@@ -183,7 +183,7 @@ export function runSimulation(content: Content, options: SimulatorOptions = {}):
  * лучшее соотношение «прирост дохода / цена».
  */
 /** С какой доли от цены финала бот перестаёт тратить и начинает копить. */
-const savingShare = 0.08;
+const savingShare = 0.05;
 
 export function decide(game: Game, content: Content, purchased: Set<string>): boolean {
   const state = game.state;
