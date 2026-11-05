@@ -91,15 +91,26 @@ describe('раскладка', () => {
     const hud = document.querySelector('.hud');
     const labels = [...(hud?.querySelectorAll('.hud__row-label') ?? [])].map((n) => n.textContent);
     for (const expected of [
-      'Добыча',
       'Сбыт',
       'Доход в секунду',
+      'Прибыль',
+      'Активы',
+      'Внутренняя цена',
+      'Экспортная цена',
+      'Нефтезаводы (НПЗ)',
+      'Нефтебазы',
+      'АЗС',
+      'Экспортные трубопроводы',
+      'Трубопроводы к НПЗ',
       'Зарплаты',
       'Чиновники',
       'Резервуары',
     ]) {
       expect(labels).toContain(expected);
     }
+    // «Добыча» в тоннах в секунду убрана: остался только суточный дебит.
+    expect(labels).toContain('Добыча в сутки');
+    expect(labels).not.toContain('Добыча');
     // «Влияние» — отдельный блок со шкалой.
     expect(hud?.querySelector('.hud__influence')?.textContent).toContain('Влияние');
     // Магазин не вложен в панель.

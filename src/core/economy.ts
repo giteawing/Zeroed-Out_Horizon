@@ -15,12 +15,14 @@
  *   net/s      = max(0, gross·(1 − taxRate) − salaries − officials)
  */
 import type {
+  AssetKind,
   Channel,
   ChannelRate,
   Content,
   DerivedStats,
   GameConfig,
   GameState,
+  ReprivatizationPrize,
   UpgradeDef,
 } from './types';
 
@@ -32,6 +34,17 @@ export interface TaxBuff {
 }
 
 export const CHANNELS: Channel[] = ['contract', 'export', 'refine'];
+
+/**
+ * Название улучшения с историей: у долота/насоса/двигателя/раствора/ГРП
+ * каждая покупка — новая модель, поэтому имя меняется вместе с уровнем.
+ */
+export function stagedNameOf(def: UpgradeDef, level: number): string {
+  const names = def.stagedNames;
+  if (!names || names.length === 0) return def.name;
+  const index = Math.max(0, Math.min(names.length - 1, level - 1));
+  return names[index] ?? def.name;
+}
 
 export function levelOf(state: GameState, id: string): number {
   return state.levels[id] ?? 0;
@@ -185,6 +198,125 @@ export function taxRateOf(
 }
 
 /**
+ * Сколько объектов построено: НПЗ, нефтебазы, АЗС, трубопроводы.
+ * Считается по `assetKind` покупок, поэтому новые объекты достаточно
+ * пометить в upgrades.json — панель подхватит их сама.
+ */
+export function assetCountsOf(upgrades: UpgradeDef[], state: GameState): Record<AssetKind, number> {
+  const counts: Record<AssetKind, number> = {
+    refinery: 0,
+    depot: 0,
+    azs: 0,
+    exportPipe: 0,
+    refineryPipe: 0,
+  };
+  for (const def of upgrades) {
+    if (!def.assetKind) continue;
+    counts[def.assetKind] += levelOf(state, def.id);
+  }
+  return counts;
+}
+
+/**
+ * Стоимость всей собственности империи: построенное (по цене следующего
+ * уровня — примерно столько объект стоил) плюс скважины по их дебиту
+ * плюс потраченное на роскошь. Это «Активы» в панели: сколько всего стоит
+ * то, чем игрок владеет, а не сколько у него денег на счету.
+ */
+export function assetsValueOf(
+  config: GameConfig,
+  upgrades: UpgradeDef[],
+  state: GameState,
+): number {
+  let total = state.luxurySpent;
+  for (const def of upgrades) {
+    const level = levelOf(state, def.id);
+    if (level <= 0) continue;
+    if (def.type === 'luxury') continue; // уже учтено через luxurySpent
+    if (def.type === 'well') continue; // скважины считаем по дебиту
+    if (def.type === 'win') continue;
+    // Цена следующего уровня ≈ цена текущего объекта с учётом роста.
+    const growth = def.costGrowth ?? config.costGrowth;
+    total += costFor(config, def, 0) * ((Math.pow(growth, level) - 1) / Math.max(1e-9, growth - 1));
+  }
+  // Скважины: тонна суточного дебита стоит как четверть часа продаж
+  // по базовой цене — так «уникальная» скважина действительно актив.
+  const daily = wellsDailyTonnes(state, config);
+  total += daily * config.oil.basePricePerTon * config.assets.tonnesValueSeconds;
+  return Math.max(0, Math.round(total));
+}
+
+/**
+ * Реприватизация: сколько объектов достаётся и сколько это стоит.
+ *
+ * По требованию владельца игрок получает СЛУЧАЙНОЕ число месторождений
+ * и скважин, но их суммарная стоимость обязана быть в 5–10 раз больше
+ * потраченного на активацию. Поэтому сначала считаем бюджет = цена × множитель,
+ * потом набираем объекты, пока бюджет не кончится.
+ */
+/**
+ * Разброс множителя выгоды. Нижняя граница и верхняя — из требований
+ * (5–10 раз дороже, чем заплатили), поэтому сделка всегда выгодна.
+ */
+export const REPRIVAT_PRIZE_MIN = 5;
+export const REPRIVAT_PRIZE_MAX = 10;
+
+/** Сколько «стоит» одна тонна суточного дебита при реприватизации, ₦. */
+export function wellPricePerDailyTonne(config: GameConfig, pricePerTon: number): number {
+  return Math.max(1, pricePerTon * config.oil.wells.priceSeconds);
+}
+
+/**
+ * Собирает приз реприватизации. `rand` — функция 0..1 (ГПСЧ игры),
+ * чтобы результат был воспроизводимым в тестах.
+ */
+export function reprivatizationPrize(
+  config: GameConfig,
+  paid: number,
+  pricePerTon: number,
+  rand: () => number,
+): ReprivatizationPrize {
+  const factor = REPRIVAT_PRIZE_MIN + rand() * (REPRIVAT_PRIZE_MAX - REPRIVAT_PRIZE_MIN);
+  const budget = Math.max(0, paid) * factor;
+  const perTonne = wellPricePerDailyTonne(config, pricePerTon);
+  // Сколько тонн в сутки «умещается» в бюджет и сколько это скважин.
+  const totalTonnes = budget / perTonne;
+  // Скважины разной мощности: от обычной до очень крупной,
+  // но всегда целое число, и всегда хотя бы одна.
+  // От 2 до 7 скважин: «месторождение», а не одна дырка в земле.
+  const count = Math.max(2, Math.round(2 + rand() * 5));
+  const weights: number[] = [];
+  for (let i = 0; i < count; i++) weights.push(0.5 + rand());
+  const weightSum = weights.reduce((a, b) => a + b, 0);
+  let dailyTonnes = 0;
+  for (const weight of weights) {
+    const share = (weight / weightSum) * totalTonnes;
+    dailyTonnes += Math.max(1, Math.round(share));
+  }
+  return {
+    wells: count,
+    dailyTonnes,
+    marketValue: Math.round(totalTonnes * perTonne),
+  };
+}
+
+/**
+ * Множитель выплат банка: «Увеличение масштабов деятельности банка»
+ * усиливает все операции с перезарядкой (транш, уход от налогов, отмывание).
+ */
+export function bankScaleOf(upgrades: UpgradeDef[], state: GameState): number {
+  let scale = 1;
+  for (const def of upgrades) {
+    const level = levelOf(state, def.id);
+    if (level <= 0) continue;
+    const per = def.effect.bankScale;
+    if (!per) continue;
+    scale += per * level;
+  }
+  return scale;
+}
+
+/**
  * Главная функция: считает все производные показатели империи.
  *
  * content нужен для ёмкости резервуаров и проверки автодобычи; если его нет
@@ -313,6 +445,9 @@ export function computeDerived(
   // ----------------------------------------------------------------- сбыт
   const oilPricePerTon =
     config.oil.basePricePerTon * state.worldPrice * priceMultiplier;
+  // Внутренняя и экспортная цены — разные: экспорт обычно дороже.
+  const domesticPricePerTon = oilPricePerTon * config.oil.channels.contract.priceFactor;
+  const exportPricePerTon = oilPricePerTon * config.oil.channels.export.priceFactor;
   const channels = {} as Record<Channel, ChannelRate>;
   let grossPerSecond = 0;
   for (const channel of CHANNELS) {
@@ -369,6 +504,8 @@ export function computeDerived(
   const capacity = content
     ? oilCapacityOf(config, content, state)
     : config.oil.baseCapacity + capacityBonus;
+  const assetCounts = assetCountsOf(upgrades, state);
+  const assetsValue = assetsValueOf(config, upgrades, state);
 
   return {
     tapValue,
@@ -379,6 +516,12 @@ export function computeDerived(
     oil: state.oil,
     oilCapacity: capacity,
     oilPricePerTon,
+    domesticPricePerTon,
+    exportPricePerTon,
+    // «Прибыль» = то, что реально капает на счёт: выручка минус налог и расходы.
+    profitPerSecond: netPerSecond,
+    assetsValue,
+    assetCounts,
     grossPerSecond,
     netPerSecond,
     expensesPerSecond,

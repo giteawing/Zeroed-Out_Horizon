@@ -134,7 +134,7 @@ export class Shop {
     const node = el('article', { class: 'card', 'data-id': def.id }, [
       el('div', { class: 'card__art' }, [icon, level]),
       el('div', { class: 'card__body' }, [
-        el('h3', { class: 'card__name' }, def.name),
+        el('h3', { class: 'card__name' }, this.cardName(def)),
         el('p', { class: 'card__desc' }, def.description),
         el('div', { class: 'card__meta' }, [effect, cost]),
         lock,
@@ -144,6 +144,18 @@ export class Shop {
     refs.root = node;
     this.refreshCard(def, refs);
     return { node, refs };
+  }
+
+  /**
+   * Название карточки. У улучшений с историей (долото, насос, двигатель,
+   * раствор, ГРП) каждая покупка — новая модель, поэтому показываем
+   * следующую модель, а купленную — в подписи эффекта.
+   */
+  private cardName(def: UpgradeDef): string {
+    if (!def.staged) return def.name;
+    // Показываем ту модель, которую игрок купит следующим нажатием.
+    const level = Math.max(1, this.game.level(def.id) + 1);
+    return this.game.stagedName(def.id, level);
   }
 
   /** Применить текущее состояние к карточке (дешёвая операция, вызывается часто). */
@@ -156,6 +168,9 @@ export class Shop {
     // иначе бейдж «1/1» выглядел бы как ошибка.
     refs.level.textContent = repeatable ? '×' : `${level}/${check.maxLevel}`;
     refs.level.hidden = level <= 0 && !repeatable;
+    const name = this.cardName(def);
+    const nameNode = refs.root.querySelector('.card__name');
+    if (nameNode && nameNode.textContent !== name) nameNode.textContent = name;
     refs.effect.textContent = this.describeEffect(def, level);
     const lockText = this.describeLock(def, check);
     if (refs.lock.textContent !== lockText) refs.lock.textContent = lockText;
@@ -212,8 +227,12 @@ export class Shop {
         return t('effectMultiplier', {
           value: formatPercent(Math.pow(e.factor ?? 1, Math.max(1, level)) - 1, 1),
         });
-      case 'taxCut':
-        return t('effectTaxCut', { value: formatPercent((e.percent ?? 0) / 100, 1) });
+      case 'taxCut': {
+        const parts = [t('effectTaxCut', { value: formatPercent((e.percent ?? 0) / 100, 1) })];
+        // Банк усиливает операции: показываем, насколько выросли выплаты.
+        if (e.bankScale) parts.push(t('effectBankScale', { value: formatPercent(e.bankScale, 0) }));
+        return parts.join(' · ');
+      }
       case 'costCut':
         return t('effectCostCut', { value: (e.percent ?? 0).toFixed(0) });
       case 'priceBoost':

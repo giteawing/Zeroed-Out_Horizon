@@ -1,20 +1,116 @@
 {
   "achievements": [
-    { "id": "a_first", "rule": { "kind": "taps", "value": 1 } },
-    { "id": "a_1000", "rule": { "kind": "earned", "value": 1000 } },
-    { "id": "a_1m", "rule": { "kind": "earned", "value": 1000000 } },
-    { "id": "a_1b", "rule": { "kind": "earned", "value": 1000000000 } },
-    { "id": "a_tap100", "rule": { "kind": "taps", "value": 100 } },
-    { "id": "a_tap1000", "rule": { "kind": "taps", "value": 1000 } },
-    { "id": "a_tax", "rule": { "kind": "taxRate", "value": 0.1 } },
-    { "id": "a_noexpense", "rule": { "kind": "costCut", "value": 30 } },
-    { "id": "a_courchevel", "rule": { "kind": "own", "upgrade": "l_courchevel" } },
-    { "id": "a_hat", "rule": { "kind": "ownGroup", "group": "bling" } },
-    { "id": "a_yacht", "rule": { "kind": "ownGroup", "group": "yachts" } },
-    { "id": "a_import", "rule": { "kind": "own", "upgrade": "p_export" } },
-    { "id": "a_crisis", "rule": { "kind": "own", "upgrade": "p_crisis" } },
-    { "id": "a_brilliant", "rule": { "kind": "own", "upgrade": "l_ring" } },
-    { "id": "a_drill7", "rule": { "kind": "own", "upgrade": "d7_terminator" } },
-    { "id": "a_win", "rule": { "kind": "win" } }
+    {
+      "id": "a_first",
+      "rule": {
+        "kind": "taps",
+        "value": 1
+      }
+    },
+    {
+      "id": "a_1000",
+      "rule": {
+        "kind": "earned",
+        "value": 1000
+      }
+    },
+    {
+      "id": "a_1m",
+      "rule": {
+        "kind": "earned",
+        "value": 1000000
+      }
+    },
+    {
+      "id": "a_1b",
+      "rule": {
+        "kind": "earned",
+        "value": 1000000000
+      }
+    },
+    {
+      "id": "a_tap100",
+      "rule": {
+        "kind": "taps",
+        "value": 100
+      }
+    },
+    {
+      "id": "a_tap1000",
+      "rule": {
+        "kind": "taps",
+        "value": 1000
+      }
+    },
+    {
+      "id": "a_tax",
+      "rule": {
+        "kind": "taxRate",
+        "value": 0.1
+      }
+    },
+    {
+      "id": "a_noexpense",
+      "rule": {
+        "kind": "costCut",
+        "value": 30
+      }
+    },
+    {
+      "id": "a_courchevel",
+      "rule": {
+        "kind": "own",
+        "upgrade": "l_courchevel"
+      }
+    },
+    {
+      "id": "a_hat",
+      "rule": {
+        "kind": "ownGroup",
+        "group": "bling"
+      }
+    },
+    {
+      "id": "a_yacht",
+      "rule": {
+        "kind": "ownGroup",
+        "group": "yachts"
+      }
+    },
+    {
+      "id": "a_import",
+      "rule": {
+        "kind": "own",
+        "upgrade": "p_export"
+      }
+    },
+    {
+      "id": "a_crisis",
+      "rule": {
+        "kind": "own",
+        "upgrade": "p_crisis"
+      }
+    },
+    {
+      "id": "a_brilliant",
+      "rule": {
+        "kind": "own",
+        "upgrade": "l_ring"
+      }
+    },
+    {
+      "id": "a_drill7",
+      "rule": {
+        "kind": "own",
+        "upgrade": "d1_blade",
+        "value": 5
+      }
+    },
+    {
+      "id": "a_win",
+      "rule": {
+        "kind": "win"
+      }
+    }
   ]
 }

@@ -346,3 +346,55 @@ describe('финал', () => {
     expect(document.querySelector('.finale')?.hasAttribute('hidden')).toBe(true);
   });
 });
+
+describe('этап 5: банк, реприватизация, активы и контробанда', () => {
+  it('убыточный банк покупается один раз и открывает «масштабы»', async () => {
+    game.state.coins = 1e12;
+    game.state.totalEarned = 1e12;
+    await nextFrame();
+    const political = [...document.querySelectorAll<HTMLButtonElement>('.tab')].find(
+      (tab) => tab.textContent === 'Политика',
+    );
+    political?.click();
+    const names = [...document.querySelectorAll('.shop .card__name')].map((n) => n.textContent);
+    expect(names).toContain('Увеличение масштабов деятельности банка');
+    expect(names).toContain('Заставить всех сотрудников компании получать зарплату через банк');
+    expect(names).toContain('Купить телеканал имперского значения');
+    expect(names).toContain('Стать главным секретарём топливной и экологической безопасности');
+    // Убранные заказчиком пункты не вернулись.
+    expect(names.join(' ')).not.toContain('юриста');
+    expect(names.join(' ')).not.toContain('на храм');
+    expect(names.join(' ')).not.toContain('дронов-разведчиков');
+  });
+
+  it('«Контрабанда нефти заграницу» — одноразовая акция с перезарядкой', async () => {
+    const political = [...document.querySelectorAll<HTMLButtonElement>('.tab')].find(
+      (tab) => tab.textContent === 'Политика',
+    );
+    political?.click();
+    const card = [...document.querySelectorAll<HTMLElement>('.shop .card')].find(
+      (c) => c.querySelector('.card__name')?.textContent === 'Контрабанда нефти заграницу',
+    );
+    expect(card).toBeDefined();
+    const def = game.content.byId.get('p_export')!;
+    expect(def.cooldownSeconds).toBeGreaterThan(0);
+    expect(def.repeatable).toBe(true);
+  });
+
+  it('в панели есть прибыль, активы и счётчики объектов', () => {
+    const labels = [...document.querySelectorAll('.hud .hud__row-label')].map((n) => n.textContent);
+    for (const expected of ['Прибыль', 'Активы', 'Нефтезаводы (НПЗ)', 'Нефтебазы', 'АЗС']) {
+      expect(labels).toContain(expected);
+    }
+    // Добыча в тоннах в секунду убрана — остался суточный дебит.
+    expect(labels).toContain('Добыча в сутки');
+    expect(labels).not.toContain('Добыча');
+  });
+
+  it('цены внутренняя и экспортная различаются, экспортная выше', () => {
+    const derived = game.derived();
+    expect(derived.exportPricePerTon).toBeGreaterThan(derived.domesticPricePerTon);
+    expect(derived.assetsValue).toBeGreaterThanOrEqual(0);
+    expect(derived.profitPerSecond).toBe(derived.netPerSecond);
+  });
+});

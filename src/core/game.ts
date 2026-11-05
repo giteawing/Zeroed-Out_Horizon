@@ -5,12 +5,15 @@
 import {
   CHANNELS,
   affordableLevels,
+  bankScaleOf,
+  reprivatizationPrize,
   computeDerived,
   costFor,
   eventPayout,
   isUnlocked,
   isWinReady,
   levelOf,
+  stagedNameOf,
   sellOil,
   tapReward,
   unlockBlocker,
@@ -25,6 +28,7 @@ import type {
   Well,
   GameState,
   LogEntry,
+  ReprivatizationPrize,
   UpgradeDef,
 } from './types';
 import { Rng } from './rng';
@@ -302,20 +306,64 @@ export class Game {
 
     // «Пробурить скважину» — это лотерея: класс скважины и её суточный дебит
     // выпадают случайно, поэтому каждая покупка даёт разную добычу.
-    if (WELL_UPGRADE_IDS.has(def.id) && !repeatable) {
+    if (def.id === 'p_reprivatize') {
+      // Реприватизация приносит случайный набор месторождений, но их
+      // стоимость всегда в 5–10 раз больше, чем заплачено за активацию.
+      const prize = this.applyReprivatization(cost);
+      payouts.push({ id: def.id, amount: prize.dailyTonnes });
+    } else if (WELL_UPGRADE_IDS.has(def.id) && !repeatable) {
       const drilled = this.drillWell();
       payouts.push({ id: def.id, amount: drilled.dailyTonnes });
     }
 
-    this.pushLog({
-      kind: def.conquest ? 'conquest' : def.tab === 'luxury' ? 'bought' : 'bought',
-      upgradeId: def.id,
-      money: cost,
-    });
+    // Реприватизация пишет свою строку с числом скважин и стоимостью активов,
+    // поэтому общая запись «Отжато: …» для неё не нужна — иначе в журнале дубль.
+    if (def.id !== 'p_reprivatize') {
+      this.pushLog({
+        kind: def.conquest ? 'conquest' : 'bought',
+        upgradeId: def.id,
+        money: cost,
+      });
+    }
     this.emit({ type: 'purchase', id, level: newLevel, cost });
     if (def.achievement) this.grantAchievement(def.achievement);
     this.checkAchievements();
     return { ok: true, cost, level: newLevel, payouts };
+  }
+
+  /**
+   * Реприватизация месторождения: игрок получает случайное число скважин,
+   * суммарная стоимость которых в 5–10 раз больше уплаченного.
+   * Сами скважины добавляются в состояние обычным путём, поэтому добыча,
+   * панель и сохранения работают без спецкода.
+   */
+  applyReprivatization(paid: number): ReprivatizationPrize {
+    const derived = this.derived();
+    const price = derived.exportPricePerTon || derived.oilPricePerTon;
+    const prize = reprivatizationPrize(this.config, paid, price, () => this.rng.next());
+    // Разбиваем суммарный дебит на скважины разных классов — «месторождение».
+    let left = prize.dailyTonnes;
+    for (let i = 0; i < prize.wells; i++) {
+      const share = i === prize.wells - 1 ? left : Math.max(1, Math.round(left * (0.3 + this.rng.next() * 0.4)));
+      left = Math.max(0, left - share);
+      const kind: Well['kind'] = share >= 500 ? 'unique' : share >= 50 ? 'good' : 'ordinary';
+      this.state.wells.push({ kind, dailyTonnes: share });
+    }
+    this.pushLog({
+      kind: 'conquest',
+      upgradeId: 'p_reprivatize',
+      tonnes: prize.dailyTonnes,
+      money: prize.marketValue,
+      count: prize.wells,
+    });
+    this.invalidate();
+    this.emit({
+      type: 'reprivatized',
+      wells: prize.wells,
+      dailyTonnes: prize.dailyTonnes,
+      marketValue: prize.marketValue,
+    });
+    return prize;
   }
 
   /**
@@ -349,6 +397,22 @@ export class Game {
   }
 
   /** Мгновенные эффекты покупки: разовая выплата, старт гэмбла, таймер периодики. */
+  /** Множитель выплат банка: растёт от «Увеличения масштабов деятельности». */
+  bankScale(): number {
+    return bankScaleOf(this.content.upgrades, this.state);
+  }
+
+  /**
+   * Как называется модель улучшения с историей (долото, насос…) на уровне level.
+   * В магазине показываем следующую модель (level = текущий + 1), чтобы было
+   * видно, что именно покупаешь сейчас.
+   */
+  stagedName(id: string, level?: number): string {
+    const def = this.content.byId.get(id);
+    if (!def) return id;
+    return stagedNameOf(def, level ?? this.level(id));
+  }
+
   private applyImmediateEffect(
     def: UpgradeDef,
     level: number,
@@ -388,7 +452,11 @@ export class Game {
         this.emit({ type: 'sold', channel, tonnes, money: amount });
         return payouts;
       }
-      const amount = eventPayout(def, derived, level, cost);
+      const base = eventPayout(def, derived, level, cost);
+      // Операции через банк усиливаются «масштабом деятельности банка».
+      const amount = def.effect.bankScale
+        ? Math.round(base * this.bankScale())
+        : base;
       // Отмывание через убыточный банк проходит мимо налогового ведомства:
       // деньги те же, но налог с них не берут (это и есть «уход от налогов»).
       const gross = def.effect.launder ? amount : amount;

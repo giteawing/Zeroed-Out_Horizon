@@ -283,6 +283,17 @@ img {
 .hud__row-value--oil { color: var(--gold-light); }
 .hud__row-value--sell { color: var(--steel-light); }
 .hud__row-value--price { color: var(--cream); }
+.hud__row-value--profit { color: var(--green-light); font-weight: 800; }
+.hud__row-value--assets { color: var(--gold-light); font-weight: 800; }
+
+/* --- сколько построено: НПЗ, нефтебазы, АЗС, трубопроводы --- */
+.hud__assets {
+  display: grid;
+  gap: 2px;
+  padding-top: 5px;
+  border-top: 2px solid rgba(255, 255, 255, 0.08);
+  font-size: clamp(11px, 2.7vw, 13px);
+}
 
 /* --- каналы сбыта --- */
 .hud__sales {
@@ -521,15 +532,25 @@ img {
   overflow: hidden;
 }
 
-/* Таблица доходов и расходов: свой минимум, никогда не сжимается. */
+/*
+ * Таблица доходов и расходов: своя прокрутка. Строк стало больше
+ * (прибыль, активы, счётчики объектов), и если оставить HUD «flex: none»,
+ * на низком экране он выдавит журнал и долото за пределы столбца.
+ */
 .stage__side > .hud {
-  flex: none;
+  flex: 0 1 auto;
+  min-height: 120px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 
 /* Журнал операций: забирает свободное место и прокручивается внутри. */
 .stage__side > .oplog {
   flex: 1 1 0;
-  min-height: 84px;
+  /* Журнал уступает место долоту: минимум маленький, иначе на низком
+     экране долото уезжает за нижнюю границу столбца. */
+  min-height: 64px;
 }
 
 /* Долото: последний блок, держит свой размер и не наезжает на журнал. */
@@ -548,7 +569,17 @@ img {
  * правом столбце оно переполняется, центр уезжает вниз и тапы промахиваются.
  */
 .stage__drill > .drill {
-  width: min(100%, 320px, 34vh);
+  width: min(100%, 320px, 30vh);
+}
+
+/* На низком экране HUD уступает место журналу и долоту. */
+@media (max-height: 820px) {
+  .stage__side > .hud {
+    max-height: 42vh;
+  }
+  .stage__drill > .drill {
+    width: min(100%, 280px, 24vh);
+  }
 }
 
 /* ------------------------------------------------------------------ скважина */

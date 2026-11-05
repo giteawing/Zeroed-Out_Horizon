@@ -31,7 +31,8 @@
         "balance": 8000000000
       },
       "costGrowth": 1.1475,
-      "tag": "pinned"
+      "tag": "pinned",
+      "assetKind": "refinery"
     },
     {
       "id": "t_depot",
@@ -50,7 +51,8 @@
         "balance": 4000000
       },
       "costGrowth": 1.15,
-      "tag": "pinned"
+      "tag": "pinned",
+      "assetKind": "depot"
     },
     {
       "id": "t_azs",
@@ -69,7 +71,8 @@
       "unlockAt": {
         "balance": 4000
       },
-      "costGrowth": 1.2
+      "costGrowth": 1.2,
+      "assetKind": "azs"
     },
     {
       "id": "t_pipeline",
@@ -88,7 +91,8 @@
       "unlockAt": {
         "balance": 15000
       },
-      "costGrowth": 1.2
+      "costGrowth": 1.2,
+      "assetKind": "exportPipe"
     },
     {
       "id": "t_terminal",
@@ -128,6 +132,105 @@
         "balance": 400000
       },
       "costGrowth": 1.18
+    },
+    {
+      "id": "t_railbranch",
+      "tab": "technical",
+      "group": "infrastructure",
+      "name": "Построить ж/д ветку к месторождению",
+      "description": "Ветка длиной «всего двадцать километров» по цене трёх городов: зато цистерны теперь не носят на руках.",
+      "icon": "rail-branch",
+      "type": "sell",
+      "baseCost": 1900000,
+      "maxLevel": 30,
+      "costGrowth": 1.2,
+      "effect": {
+        "channel": "export",
+        "value": 54000
+      },
+      "unlockAt": {
+        "balance": 600000
+      }
+    },
+    {
+      "id": "t_fieldpipe",
+      "tab": "technical",
+      "group": "infrastructure",
+      "name": "Построить трубопровод к месторождению",
+      "description": "Труба от куста до нефтебазы: нефть больше не ждёт цистерн и не греется на солнце.",
+      "icon": "export-pipe",
+      "type": "sell",
+      "baseCost": 420000,
+      "maxLevel": 30,
+      "costGrowth": 1.25,
+      "effect": {
+        "channel": "export",
+        "value": 21600
+      },
+      "unlockAt": {
+        "balance": 90000
+      }
+    },
+    {
+      "id": "t_refpipe",
+      "tab": "technical",
+      "group": "infrastructure",
+      "name": "Построить трубопровод к НПЗ",
+      "description": "Короткая труба до собственного завода: переработка перестаёт ждать, пока нефть приедет.",
+      "icon": "refinery-pipe",
+      "type": "sell",
+      "baseCost": 900000000,
+      "maxLevel": 25,
+      "costGrowth": 1.55,
+      "effect": {
+        "channel": "refine",
+        "value": 45
+      },
+      "unlockAt": {
+        "balance": 120000000
+      },
+      "assetKind": "refineryPipe"
+    },
+    {
+      "id": "t_exppipe",
+      "tab": "technical",
+      "group": "infrastructure",
+      "name": "Построить экспортный трубопровод",
+      "description": "Труба через три границы и один «суверенный» участок. Экспорт идёт мимо посредников.",
+      "icon": "export-pipe",
+      "type": "sell",
+      "baseCost": 1400000000,
+      "maxLevel": 25,
+      "costGrowth": 1.55,
+      "effect": {
+        "channel": "export",
+        "value": 72000,
+        "exportBonus": 0.02
+      },
+      "unlockAt": {
+        "balance": 200000000
+      },
+      "assetKind": "exportPipe"
+    },
+    {
+      "id": "t_exptanker",
+      "tab": "technical",
+      "group": "infrastructure",
+      "name": "Построить экспортный наливной терминал",
+      "description": "Причал, эстакада и очередь из танкеров. Налив круглосуточный, погода «лето».",
+      "icon": "export-terminal",
+      "type": "sell",
+      "baseCost": 2600000000,
+      "maxLevel": 25,
+      "costGrowth": 1.55,
+      "effect": {
+        "channel": "export",
+        "value": 96000,
+        "exportBonus": 0.03
+      },
+      "unlockAt": {
+        "balance": 400000000
+      }
     },
     {
       "id": "t_gasplant",
@@ -172,8 +275,8 @@
       "id": "d1_blade",
       "tab": "technical",
       "group": "drills",
-      "name": "Лопастное долото",
-      "description": "Устаревшее, базовое, но своё. Как первая машина.",
+      "name": "Долото «Буравчик-1»",
+      "description": "Устаревшее, базовое, но своё. Как первая машина. Каждая покупка — новая модель, название меняется.",
       "icon": "drill-blade",
       "type": "perTap",
       "baseCost": 70,
@@ -181,129 +284,27 @@
       "effect": {
         "value": 1
       },
-      "costGrowth": 1.3
-    },
-    {
-      "id": "d2_milled",
-      "tab": "technical",
-      "group": "drills",
-      "name": "Шарошечное долото с фрезерованными стальными зубьями",
-      "description": "Для мягких пород и мягких подрядчиков.",
-      "icon": "drill-milled",
-      "type": "perTap",
-      "baseCost": 85,
-      "maxLevel": 50,
-      "effect": {
-        "value": 2.5
-      },
-      "unlockAt": {
-        "upgrade": "d1_blade",
-        "level": 3
-      },
-      "costGrowth": 1.3
-    },
-    {
-      "id": "d3_tci",
-      "tab": "technical",
-      "group": "drills",
-      "name": "Шарошечное долото с твердосплавными вставками (TCI)",
-      "description": "Для средних и твёрдых пород. Твёрдый характер прилагается.",
-      "icon": "drill-tci",
-      "type": "perTap",
-      "baseCost": 138,
-      "maxLevel": 50,
-      "effect": {
-        "value": 6.5
-      },
-      "unlockAt": {
-        "upgrade": "d2_milled",
-        "level": 3
-      },
-      "costGrowth": 1.3
-    },
-    {
-      "id": "d4_hybrid",
-      "tab": "technical",
-      "group": "drills",
-      "name": "Гибридное долото (шарошки + резцы PDC)",
-      "description": "Два в одном: и жуёт, и режет. Инженеры гордятся, бухгалтер плачет.",
-      "icon": "drill-hybrid",
-      "type": "perTap",
-      "baseCost": 607,
-      "maxLevel": 50,
-      "effect": {
-        "value": 17
-      },
-      "unlockAt": {
-        "upgrade": "d3_tci",
-        "level": 3
-      },
-      "costGrowth": 1.3
-    },
-    {
-      "id": "d5_pdc",
-      "tab": "technical",
-      "group": "drills",
-      "name": "Долото PDC с резцами из поликристаллического алмаза",
-      "description": "Быстрое, износостойкое, дорогое как мечта.",
-      "icon": "drill-pdc",
-      "type": "perTap",
-      "baseCost": 111706,
-      "maxLevel": 50,
-      "effect": {
-        "value": 55
-      },
-      "unlockAt": {
-        "upgrade": "d4_hybrid",
-        "level": 3
-      },
-      "costGrowth": 1.3
-    },
-    {
-      "id": "d6_impreg",
-      "tab": "technical",
-      "group": "drills",
-      "name": "Импрегнированное алмазное долото",
-      "description": "Для самых твёрдых пород и самых мягких переговоров.",
-      "icon": "drill-impreg",
-      "type": "perTap",
-      "baseCost": 5900053,
-      "maxLevel": 50,
-      "effect": {
-        "value": 165
-      },
-      "unlockAt": {
-        "upgrade": "d5_pdc",
-        "level": 3
-      },
-      "costGrowth": 1.3
-    },
-    {
-      "id": "d7_terminator",
-      "tab": "technical",
-      "group": "drills",
-      "name": "Долото-Терминатор",
-      "description": "Проходит породу, бюджет и здравый смысл. Выдумка игры, но мы уже заказали.",
-      "icon": "drill-terminator",
-      "type": "perTap",
-      "baseCost": 233532022,
-      "maxLevel": 50,
-      "effect": {
-        "value": 520
-      },
-      "achievement": "a_drill7",
-      "unlockAt": {
-        "upgrade": "d6_impreg",
-        "level": 3
-      },
-      "costGrowth": 1.3
+      "costGrowth": 1.3,
+      "staged": true,
+      "stagedNames": [
+        "Долото «Буравчик-1»",
+        "Долото «Буравчик-2»",
+        "Долото «Шарошка»",
+        "Долото «Шарошка-Плюс»",
+        "Долото «Алмаз-1»",
+        "Долото «Алмаз-Турбо»",
+        "Долото «Гибрид»",
+        "Долото «Терминатор»",
+        "Долото «Имперский резец»",
+        "Долото «Абсолют-Бур»"
+      ]
     },
     {
       "id": "t_pump1",
       "tab": "technical",
       "group": "pumps",
-      "name": "Поршневой буровой насос",
-      "description": "Качает раствор и настроение.",
+      "name": "Насос «Поршень-1»",
+      "description": "Качает раствор и настроение. Каждая покупка — новая модель, название меняется.",
       "icon": "pump-piston",
       "type": "perTap",
       "baseCost": 79,
@@ -314,7 +315,20 @@
       "unlockAt": {
         "balance": 40
       },
-      "costGrowth": 1.3
+      "costGrowth": 1.3,
+      "staged": true,
+      "stagedNames": [
+        "Насос «Поршень-1»",
+        "Насос «Поршень-2»",
+        "Насос «Давление»",
+        "Насос «Давление-Турбо»",
+        "Насос «Цифра»",
+        "Насос «Цифра-Про»",
+        "Насос «Гигант»",
+        "Насос «Гигант-Империя»",
+        "Насос «Абсолют»",
+        "Насос «Упырь-Младший»"
+      ]
     },
     {
       "id": "t_pump2",
@@ -482,8 +496,8 @@
       "id": "t_motor",
       "tab": "technical",
       "group": "equipment",
-      "name": "Винтовой забойный двигатель",
-      "description": "Прибавка к доходу за тап и к самоуважению.",
+      "name": "Двигатель «Винт-1»",
+      "description": "Прибавка к доходу за тап и к самоуважению. Каждая покупка — новая модель, название меняется.",
       "icon": "motor",
       "type": "perTap",
       "baseCost": 315,
@@ -494,7 +508,20 @@
       "unlockAt": {
         "balance": 2500
       },
-      "costGrowth": 1.3
+      "costGrowth": 1.3,
+      "staged": true,
+      "stagedNames": [
+        "Двигатель «Винт-1»",
+        "Двигатель «Винт-2»",
+        "Двигатель «Турбо-Винт»",
+        "Двигатель «Турбо-Винт-2»",
+        "Двигатель «Ротор»",
+        "Двигатель «Ротор-Плюс»",
+        "Двигатель «Управляемый»",
+        "Двигатель «Управляемый-Про»",
+        "Двигатель «Имперский вал»",
+        "Двигатель «Абсолют-Винт»"
+      ]
     },
     {
       "id": "t_rss",
@@ -536,8 +563,8 @@
       "id": "t_mud",
       "tab": "technical",
       "group": "equipment",
-      "name": "Буровой раствор «Премиум»",
-      "description": "Инвертно-эмульсионный. Аварии меньше, счёт больше.",
+      "name": "Раствор «Премиум»",
+      "description": "Инвертно-эмульсионный. Аварии меньше, счёт больше. Каждая покупка — новая модель, название меняется.",
       "icon": "mud",
       "type": "costCut",
       "baseCost": 1238,
@@ -547,14 +574,27 @@
       },
       "unlockAt": {
         "balance": 6000
-      }
+      },
+      "staged": true,
+      "stagedNames": [
+        "Раствор «Премиум»",
+        "Раствор «Премиум-2»",
+        "Раствор «Глиняный»",
+        "Раствор «Глиняный-Турбо»",
+        "Раствор «Полимер»",
+        "Раствор «Полимер-Про»",
+        "Раствор «Ингибитор»",
+        "Раствор «Ингибитор-Х»",
+        "Раствор «Имперский»",
+        "Раствор «Абсолют-Буровой»"
+      ]
     },
     {
       "id": "t_frac",
       "tab": "technical",
       "group": "equipment",
-      "name": "Многостадийный ГРП",
-      "description": "Гидроразрыв пласта. Пласт не подписывал согласие.",
+      "name": "ГРП «Первый разрыв»",
+      "description": "Гидроразрыв пласта. Пласт не подписывал согласие. Каждая покупка — новая модель, название меняется.",
       "icon": "frac",
       "type": "multiplier",
       "baseCost": 2701764,
@@ -564,7 +604,20 @@
       },
       "unlockAt": {
         "balance": 120000
-      }
+      },
+      "staged": true,
+      "stagedNames": [
+        "ГРП «Первый разрыв»",
+        "ГРП «Второй разрыв»",
+        "ГРП «Трещина»",
+        "ГРП «Трещина-Плюс»",
+        "ГРП «Проппант»",
+        "ГРП «Проппант-Про»",
+        "ГРП «Многостадийный»",
+        "ГРП «Многостадийный-Х»",
+        "ГРП «Имперский разрыв»",
+        "ГРП «Абсолют-Пласт»"
+      ]
     },
     {
       "id": "t_smart",
@@ -783,7 +836,10 @@
         "value": 25
       },
       "tag": "strict",
-      "repeatable": true
+      "repeatable": true,
+      "unlockAt": {
+        "influence": 8
+      }
     },
     {
       "id": "p_forum",
@@ -800,7 +856,7 @@
         "value": 110
       },
       "unlockAt": {
-        "balance": 2000
+        "influence": 30
       },
       "repeatable": true
     },
@@ -935,13 +991,13 @@
       "id": "p_export",
       "tab": "political",
       "group": "deals",
-      "name": "Пихнуть нефть заграницу",
-      "description": "Слить накопленную нефть за границу по мировому курсу. Чем полнее резервуары — тем выгоднее.",
+      "name": "Контрабанда нефти заграницу",
+      "description": "Одноразовая акция с перезарядкой: вывозим со склада по мировой цене и без пошлин.",
       "icon": "export",
       "type": "oneShot",
       "baseCost": 0,
       "maxLevel": 1,
-      "cooldownSeconds": 40,
+      "cooldownSeconds": 45,
       "effect": {
         "value": 40,
         "usesWorldPrice": true,
@@ -997,27 +1053,6 @@
       "repeatable": true
     },
     {
-      "id": "p_lawyer",
-      "tab": "political",
-      "group": "deals",
-      "name": "Нанять юриста с говорящей фамилией",
-      "description": "Фамилия многое решает. Риск ниже, отдача скромнее.",
-      "icon": "lawyer",
-      "type": "gamble",
-      "baseCost": 4373,
-      "maxLevel": 1,
-      "cooldownSeconds": 60,
-      "effect": {
-        "factor": 3,
-        "seconds": 40,
-        "chance": 0.9
-      },
-      "unlockAt": {
-        "balance": 12000
-      },
-      "repeatable": true
-    },
-    {
       "id": "p_field",
       "tab": "political",
       "group": "conquest",
@@ -1054,7 +1089,8 @@
         "upgrade": "pmc_chvk",
         "level": 1
       },
-      "conquest": true
+      "conquest": true,
+      "assetKind": "refinery"
     },
     {
       "id": "p_press",
@@ -1109,6 +1145,25 @@
       }
     },
     {
+      "id": "p_secretary",
+      "tab": "political",
+      "group": "deals",
+      "name": "Стать главным секретарём топливной и экологической безопасности",
+      "description": "Должность придумана вчера, но печать уже есть. Влияние растёт, налоги уважительно снижаются.",
+      "icon": "secretary",
+      "type": "taxCut",
+      "baseCost": 5500000000,
+      "maxLevel": 4,
+      "costGrowth": 1.6,
+      "effect": {
+        "percent": 3,
+        "influence": 20
+      },
+      "unlockAt": {
+        "balance": 2000000000
+      }
+    },
+    {
       "id": "p_contractor",
       "tab": "political",
       "group": "conquest",
@@ -1146,6 +1201,24 @@
       }
     },
     {
+      "id": "p_tvchannel",
+      "tab": "political",
+      "group": "media",
+      "name": "Купить телеканал имперского значения",
+      "description": "Новости, погода и видение императора в каждом доме. Цена тонны растёт вместе с рейтингом.",
+      "icon": "tv-channel",
+      "type": "priceBoost",
+      "baseCost": 15000000000,
+      "maxLevel": 5,
+      "costGrowth": 1.7,
+      "effect": {
+        "factor": 1.1
+      },
+      "unlockAt": {
+        "balance": 4000000000
+      }
+    },
+    {
       "id": "p_puppy",
       "tab": "political",
       "group": "favors",
@@ -1161,25 +1234,6 @@
       },
       "unlockAt": {
         "balance": 3000
-      },
-      "repeatable": true
-    },
-    {
-      "id": "p_temple",
-      "tab": "political",
-      "group": "favors",
-      "name": "Пожертвовать на храм (и на уход за храмом)",
-      "description": "Скромно, но с расчётом: небесная бухгалтерия тоже бухгалтерия.",
-      "icon": "temple",
-      "type": "oneShot",
-      "baseCost": 0,
-      "maxLevel": 1,
-      "cooldownSeconds": 45,
-      "effect": {
-        "value": 12
-      },
-      "unlockAt": {
-        "balance": 2000
       },
       "repeatable": true
     },
@@ -1887,7 +1941,7 @@
       "description": "Полный контроль над всей империей. Качает всё: нефть, бюджет, горизонт и соседей.",
       "icon": "win-pump",
       "type": "win",
-      "baseCost": 80000000000,
+      "baseCost": 120000000000,
       "maxLevel": 1,
       "win": true,
       "tag": "strict",
@@ -2309,9 +2363,9 @@
       "id": "pmc_chvk",
       "tab": "political",
       "group": "pmc",
-      "name": "Создать свою ЧВК «Горизонт-Охрана»",
-      "description": "Юридически — охранное предприятие. Фактически — маленькая армия с бухгалтерией.",
-      "icon": "pmc-chvk",
+      "name": "Создать свой ЧОП",
+      "description": "Частное охранное предприятие с очень широкими полномочиями: влияние растёт, отжатия дешевеют.",
+      "icon": "pmc-chop",
       "type": "multiplier",
       "baseCost": 68000000,
       "maxLevel": 1,
@@ -2345,8 +2399,8 @@
       "id": "pmc_legal",
       "tab": "political",
       "group": "pmc",
-      "name": "Оформить ЧВК в тёплой юрисдикции",
-      "description": "В отчётности — консалтинг. В реальности — то же самое, но дешевле.",
+      "name": "Оформить ЧОП в тёплой юрисдикции",
+      "description": "Бумаги идут через остров, где охрана считается «рыболовством».",
       "icon": "pmc-chvk",
       "type": "multiplier",
       "baseCost": 3100000000,
@@ -2358,25 +2412,6 @@
       },
       "unlockAt": {
         "balance": 40000000000
-      }
-    },
-    {
-      "id": "pmc_drone",
-      "tab": "political",
-      "group": "pmc",
-      "name": "Завести дронов-разведчиков",
-      "description": "С высоты видно, какие заводы у конкурента плохо охраняются.",
-      "icon": "pmc-chvk",
-      "type": "multiplier",
-      "baseCost": 18000000000,
-      "maxLevel": 1,
-      "effect": {
-        "factor": 1,
-        "influence": 35,
-        "conquestCut": 0.04
-      },
-      "unlockAt": {
-        "balance": 300000000000
       }
     },
     {
@@ -2403,34 +2438,73 @@
       "tab": "political",
       "group": "conquest",
       "name": "Устроить реприватизацию месторождения со скважинами конкурента",
-      "description": "Скважины достаются вместе с лицензией. Дебит случайный, как в жизни.",
+      "description": "Забираем месторождение конкурента: случайное число скважин, но их стоимость всегда в 5–10 раз больше, чем заплатили за акцию.",
       "icon": "reprivat",
       "type": "well",
-      "baseCost": 260000000,
-      "maxLevel": 10,
+      "baseCost": 90000000,
+      "maxLevel": 6,
       "effect": {},
       "conquest": true,
       "unlockAt": {
-        "balance": 30000000000,
-        "influence": 40
+        "balance": 900000000,
+        "influence": 45
       },
-      "costGrowth": 1.34
+      "costGrowth": 1.9
     },
     {
       "id": "p_badbank",
       "tab": "political",
       "group": "taxes",
       "name": "Купить убыточный банк «Последний кредит»",
-      "description": "Отделение с разбитым стеклом, зато своя лицензия и «дружественный» аудит.",
+      "description": "Отделение с разбитым стеклом, зато своя лицензия и «дружественный» аудит. Покупается один раз и навсегда: после этого открываются масштабы банка и операции.",
       "icon": "badbank",
       "type": "taxCut",
       "baseCost": 90000000,
-      "maxLevel": 12,
+      "maxLevel": 1,
       "effect": {
         "percent": 2.5
       },
       "unlockAt": {
         "balance": 1200000000
+      }
+    },
+    {
+      "id": "p_bank_scale",
+      "tab": "political",
+      "group": "taxes",
+      "name": "Увеличение масштабов деятельности банка",
+      "description": "Ещё отделение, ещё один «убыточный» квартал. На уровнях 2, 4 и 6 банк открывает новые операции.",
+      "icon": "bank-scale",
+      "type": "taxCut",
+      "baseCost": 350000000,
+      "maxLevel": 6,
+      "costGrowth": 1.55,
+      "effect": {
+        "percent": 1,
+        "bankScale": 0.35
+      },
+      "unlockAt": {
+        "upgrade": "p_badbank",
+        "level": 1
+      }
+    },
+    {
+      "id": "p_bank_payroll",
+      "tab": "political",
+      "group": "taxes",
+      "name": "Заставить всех сотрудников компании получать зарплату через банк",
+      "description": "Зарплата приходит на карту банка, банк берёт «комиссию за обслуживание» — с каждой зарплаты компании.",
+      "icon": "bank-payroll",
+      "type": "costCut",
+      "baseCost": 900000000,
+      "maxLevel": 6,
+      "costGrowth": 1.6,
+      "effect": {
+        "percent": 10
+      },
+      "unlockAt": {
+        "upgrade": "p_badbank",
+        "level": 1
       }
     },
     {
@@ -2445,14 +2519,14 @@
       "maxLevel": 1,
       "effect": {
         "value": 90,
-        "launder": true
+        "launder": true,
+        "bankScale": 1
       },
       "cooldownSeconds": 90,
       "repeatable": true,
       "unlockAt": {
-        "balance": 500000000,
-        "upgrade": "p_badbank",
-        "level": 1
+        "upgrade": "p_bank_scale",
+        "level": 6
       }
     },
     {
@@ -2467,14 +2541,14 @@
       "maxLevel": 1,
       "effect": {
         "value": 160,
-        "launder": true
+        "launder": true,
+        "bankScale": 1
       },
       "cooldownSeconds": 90,
       "repeatable": true,
       "unlockAt": {
-        "balance": 5000000000,
-        "upgrade": "p_badbank",
-        "level": 1
+        "upgrade": "p_bank_scale",
+        "level": 4
       }
     },
     {
@@ -2489,14 +2563,14 @@
       "maxLevel": 1,
       "effect": {
         "value": 420,
-        "launder": true
+        "launder": true,
+        "bankScale": 1
       },
       "cooldownSeconds": 90,
       "repeatable": true,
       "unlockAt": {
-        "balance": 40000000000,
-        "upgrade": "p_badbank",
-        "level": 1
+        "upgrade": "p_bank_scale",
+        "level": 2
       }
     },
     {

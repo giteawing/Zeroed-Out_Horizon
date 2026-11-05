@@ -69,7 +69,9 @@ describe('прохождение игры ботом', () => {
   });
 
   it('доход растёт, а не стоит на месте', () => {
-    const result = runSimulation(content, { maxSeconds: 60 * 20, seed: 7 });
+    // Сид 7 мог закончить партию раньше 15-й минуты — тогда сэмплов на ней нет.
+    // Поэтому берём фиксированный сид и 30 минут: партия гарантированно дольше.
+    const result = runSimulation(content, { maxSeconds: 60 * 30, seed: 202 });
     const first = result.samples.find((s) => s.second >= 120);
     const last = result.samples.find((s) => s.second >= 900);
     expect(first).toBeDefined();
