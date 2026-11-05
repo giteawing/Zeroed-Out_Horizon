@@ -153,8 +153,22 @@ describe('HUD', () => {
     const text = document.querySelector('.hud')?.textContent ?? '';
     expect(text).toContain('Сырая нефть');
     expect(text).toContain('Нефтепродукты');
-    // Прибыль — отдельная строка под таблицей доходов и расходов.
-    expect(document.querySelector('.hud__profit')?.textContent).toContain('Прибыль');
+    // Чистая прибыль — последняя строка денежной таблицы.
+    expect(document.querySelector('.hud__profit')?.textContent).toContain('Чистая прибыль');
+    // Денежная таблица идёт в порядке применения: доход → расходы → EBT →
+    // налог на прибыль → чистая прибыль.
+    const invoice = document.querySelector('.hud__invoice');
+    const order = [...(invoice?.querySelectorAll('.hud__row-label, .hud__profit-label') ?? [])]
+      .map((n) => n.textContent ?? '');
+    expect(order[0]).toBe('Доход');
+    expect(order[1]).toBe('Расходы');
+    expect(order).toContain('EBT');
+    // Итог «Расходы» стоит перед своими статьями, статьи — перед EBT.
+    expect(order.indexOf('Расходы')).toBeLessThan(order.indexOf('Зарплаты'));
+    expect(order.indexOf('Чиновники')).toBeLessThan(order.indexOf('EBT'));
+    expect(order.some((line) => line.startsWith('Налог на прибыль'))).toBe(true);
+    expect(order[order.length - 1]).toBe('Чистая прибыль');
+    expect(order.indexOf('EBT')).toBeLessThan(order.findIndex((l) => l.startsWith('Налог на прибыль')));
     // Прогресс-бар до финала заказчик просил убрать совсем.
     expect(document.querySelector('.hud__progress')).toBeNull();
   });
@@ -427,7 +441,7 @@ describe('этап 5: банк, реприватизация, активы и к
     for (const expected of ['Активы', 'Нефтезаводы (НПЗ)', 'Нефтебазы', 'АЗС']) {
       expect(labels).toContain(expected);
     }
-    expect(document.querySelector('.hud__profit-label')?.textContent).toBe('Прибыль');
+    expect(document.querySelector('.hud__profit-label')?.textContent).toBe('Чистая прибыль');
     // Товарная статистика переехала в блоки «сырая нефть» и «нефтепродукты».
     expect(labels).toContain('производство');
     expect(labels).toContain('продажа вн. рынок');

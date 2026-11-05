@@ -1,7 +1,10 @@
 /**
  * Панель империи — правый столбец: товарная статистика (цены, сырая нефть,
- * нефтепродукты), денежная (доходы слева, расходы справа, под ними прибыль)
- * и собственность.
+ * нефтепродукты), денежная и собственность.
+ *
+ * Денежная часть идёт строго в порядке применения: доход → расходы → EBT →
+ * налог на прибыль → чистая прибыль. Так видно, из чего складывается каждая
+ * следующая строка, и не приходится считать в голове.
  *
  * Деньги и влияние живут в шапке — там же, где нефтефаники: правый столбец
  * отдан цифрам, которые меняются каждую секунду.
@@ -20,12 +23,14 @@ interface Row {
 export class Hud {
   readonly root: HTMLElement;
   private readonly rows = new Map<string, Row>();
-  private readonly tax: HTMLElement;
   private readonly oilBar: HTMLElement;
   private readonly oilFill: HTMLElement;
-  /** Денежные доходы (выручка) и расходы: две колонки, под ними прибыль. */
-  private readonly incomeRows: HTMLElement;
-  private readonly expenseRows: HTMLElement;
+  /**
+   * Денежная таблица: одна колонка сверху вниз по порядку применения —
+   * доход, расходы, EBT, налог на прибыль, чистая прибыль.
+   */
+  private readonly invoice: HTMLElement;
+  private readonly ebtNode: HTMLElement;
   private readonly profitValue: HTMLElement;
   private readonly balanceNode: HTMLElement;
   private readonly influenceValue: HTMLElement;
@@ -42,13 +47,12 @@ export class Hud {
     this.influenceValue = el('strong', { class: 'topbar__influence-value' }, '');
     this.influenceFill = el('i', { class: 'topbar__influence-fill' });
 
-    this.tax = el('span', { class: 'hud__chip' }, '');
     this.oilFill = el('i', { class: 'hud__oil-fill' });
     this.oilBar = el('div', { class: 'hud__oilbar' }, [this.oilFill]);
 
-    const row = (key: string, label: string, cls = ''): Row => {
+    const row = (key: string, label: string, cls = '', rowCls = ''): Row => {
       const value = el('span', { class: `hud__row-value ${cls}` }, '');
-      const root = el('div', { class: 'hud__row' }, [
+      const root = el('div', { class: `hud__row ${rowCls}`.trim() }, [
         el('span', { class: 'hud__row-label' }, label),
         value,
       ]);
@@ -57,8 +61,8 @@ export class Hud {
       return entry;
     };
 
-    this.incomeRows = el('div', { class: 'hud__col hud__col--income' });
-    this.expenseRows = el('div', { class: 'hud__col hud__col--expense' });
+    this.invoice = el('div', { class: 'hud__invoice' });
+    this.ebtNode = el('span', { class: 'hud__row-value hud__row-value--ebt' }, '');
     this.profitValue = el('span', { class: 'hud__profit-value' }, '');
 
     const group = (key: string, title: string, body: HTMLElement[], extra = ''): HTMLElement =>
@@ -113,21 +117,17 @@ export class Hud {
 
         el('div', { class: 'hud__rows' }, [
           row('perTap', texts.get('hud.perTap'), 'hud__row-value--oil').root,
-          row('autoDrill', texts.get('hud.autoDrill'), 'hud__row-value--crew').root,
+        ]),
+        // Автодобыча — отдельной строкой на всю ширину колонки: короткий
+        // вердикт «команда в сборе / не собрана» важнее соседства с тапом.
+        el('div', { class: 'hud__rows hud__rows--single' }, [
+          row('autoDrill', '', 'hud__row-value--crew hud__row-value--wide').root,
         ]),
       ]),
 
-      // --- денежная статистика: доходы слева, расходы справа, прибыль снизу ---
-      group('money', texts.get('hud.groupMoney'), [
-        el('div', { class: 'hud__invoice' }, [
-          this.incomeRows,
-          this.expenseRows,
-        ]),
-        el('div', { class: 'hud__profit' }, [
-          el('span', { class: 'hud__profit-label' }, texts.get('hud.profit')),
-          this.profitValue,
-        ]),
-      ]),
+      // --- денежная статистика: строго в порядке применения ---
+      // доход → расходы → EBT → налог на прибыль → чистая прибыль.
+      group('money', texts.get('hud.groupMoney'), [this.invoice]),
 
       // --- собственность: стоимость активов, объекты, резервуары, скважины ---
       group('property', texts.get('hud.groupProperty'), [
@@ -143,20 +143,26 @@ export class Hud {
         ]),
       ]),
 
-      el('div', { class: 'hud__chips' }, [this.tax]),
     ]);
 
-    // Доходы и расходы — это разные колонки одной таблицы.
-    // Доходы — слева, расходы — справа; прибыль под ними = разница.
-    this.incomeRows.append(
-      el('span', { class: 'hud__col-title' }, texts.get('hud.income')),
-      row('gross', texts.get('hud.gross'), 'hud__row-value--plus').root,
-    );
-    this.expenseRows.append(
-      el('span', { class: 'hud__col-title' }, texts.get('hud.expensesTitle')),
-      row('taxPaid', texts.get('hud.taxRate'), 'hud__row-value--minus').root,
-      row('salaries', texts.get('hud.salaries'), 'hud__row-value--minus').root,
-      row('officials', texts.get('hud.officials'), 'hud__row-value--minus').root,
+    // Таблица счёта: каждая строка — шаг расчёта, суммы справа по краю.
+    // Расходы раскрыты двумя статьями, но в EBT идут одной суммой.
+    this.invoice.append(
+      row('gross', texts.get('hud.income'), 'hud__row-value--plus').root,
+      // «Расходы» — итог по статьям, чтобы арифметика читалась построчно:
+      // доход − расходы = EBT.
+      row('expenses', texts.get('hud.expensesTitle'), 'hud__row-value--minus').root,
+      row('salaries', texts.get('hud.salaries'), 'hud__row-value--minus', 'hud__row--sub').root,
+      row('officials', texts.get('hud.officials'), 'hud__row-value--minus', 'hud__row--sub').root,
+      el('div', { class: 'hud__row hud__row--total' }, [
+        el('span', { class: 'hud__row-label' }, texts.get('hud.ebt')),
+        this.ebtNode,
+      ]),
+      row('taxPaid', texts.get('hud.taxPaid'), 'hud__row-value--minus').root,
+      el('div', { class: 'hud__profit' }, [
+        el('span', { class: 'hud__profit-label' }, texts.get('hud.profit')),
+        this.profitValue,
+      ]),
     );
   }
 
@@ -228,9 +234,23 @@ export class Hud {
       value: formatMoney(derived.grossPerSecond, this.currency),
       s: perSecond.replace('/', ''),
     }));
-    // Налог — ставкой в процентах (просил заказчик), а рядом расшифровка
-    // деньгами в чипе под панелью: «Налог: 28 % · −₦23/с».
-    set('taxPaid', formatPercent(derived.taxRate));
+    // EBT — прибыль до налога: доход минус расходы. Из неё считается налог,
+    // поэтому в таблице она стоит отдельной строкой перед налогом.
+    const ebtText = units('moneyRate', {
+      value: formatMoney(derived.ebtPerSecond, this.currency),
+      s: perSecond.replace('/', ''),
+    });
+    if (this.ebtNode.textContent !== ebtText) this.ebtNode.textContent = ebtText;
+    // «Налог на прибыль 2%» слева и сумма справа: ставка и деньги в одной
+    // строке, как просил заказчик.
+    set('taxPaid', units('minusRate', {
+      value: formatMoney(derived.taxPaidPerSecond, this.currency),
+      s: perSecond.replace('/', ''),
+    }));
+    const taxLabel = this.texts.get('hud.taxPaid', { rate: formatPercent(derived.taxRate) });
+    const taxRow = this.rows.get('taxPaid');
+    const taxLabelNode = taxRow?.root.querySelector('.hud__row-label');
+    if (taxLabelNode && taxLabelNode.textContent !== taxLabel) taxLabelNode.textContent = taxLabel;
     // Внутренняя цена сырья — рядом с мировой (см. блок цен выше).
     set('domesticPrice', units('pricePerTon', {
       price: formatMoney(derived.domesticPricePerTon, this.currency),
@@ -256,9 +276,14 @@ export class Hud {
     set('assetsExportPipe', String(derived.assetCounts.exportPipe));
     set('assetsRefineryPipe', String(derived.assetCounts.refineryPipe));
     set('perTap', units('tonnesValue', { value: formatNumber(derived.tapValue), tonnes }));
+    // Автодобыча — одной фразой на всю ширину: подпись и статус слиты.
     set('autoDrill', derived.autoDrill
       ? this.texts.get('hud.autoDrillOn')
       : this.texts.get('hud.autoDrillOff'));
+    set('expenses', units('minusRate', {
+      value: formatMoney(derived.expensesPerSecond, this.currency),
+      s: perSecond.replace('/', ''),
+    }));
     set('salaries', units('minusRate', {
       value: formatMoney(derived.salaries, this.currency),
       s: perSecond.replace('/', ''),
@@ -267,11 +292,6 @@ export class Hud {
       value: formatMoney(derived.officials, this.currency),
       s: perSecond.replace('/', ''),
     }));
-    this.tax.textContent = this.texts.get('hud.taxSummary', {
-      rate: formatPercent(derived.taxRate),
-      money: formatMoney(derived.taxPaidPerSecond, this.currency),
-      s: perSecond.replace('/', ''),
-    });
     set('capacity', units('tonnesValue', {
       value: formatNumber(derived.oilCapacity),
       tonnes,

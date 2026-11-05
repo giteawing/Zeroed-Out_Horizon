@@ -562,7 +562,12 @@ export interface DerivedStats {
   grossPerSecond: number;
   netPerSecond: number;
   expensesPerSecond: number;
-  /** Сколько уходит на налог, ₦/с (для таблицы «доходы − расходы = прибыль»). */
+  /**
+   * EBT (earnings before tax) — доход минус расходы, ₦/с. База для налога:
+   * чистая прибыль = EBT − налог на прибыль.
+   */
+  ebtPerSecond: number;
+  /** Налог на прибыль, ₦/с — считается с EBT, ₦/с. */
   taxPaidPerSecond: number;
   taxRate: number;
   costCutPercent: number;

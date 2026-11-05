@@ -52,10 +52,11 @@ export class Rules {
   }
 
   /** Параграф: заголовок и строки. Тексты — только из texts.json. */
-  private section(titleKey: string, lines: string[]): HTMLElement {
+  private section(titleKey: string, lines: Array<string | HTMLElement>): HTMLElement {
     return el('section', { class: 'rules__section' }, [
       el('h3', { class: 'rules__title' }, this.texts.get(titleKey)),
-      el('ul', { class: 'rules__list' }, lines.map((line) => el('li', {}, line))),
+      el('ul', { class: 'rules__list' }, lines.map((line) =>
+        typeof line === 'string' ? el('li', {}, line) : el('li', { class: 'rules__item--formula' }, line))),
     ]);
   }
 
@@ -172,6 +173,9 @@ export class Rules {
           officials: formatMoney(config.expenses.baseOfficials, this.currency),
           share: formatPercent(config.expenses.salariesPerGross, 1),
         }),
+        t('rules.ebtText', {}),
+        // Формула — отдельным пунктом с рамкой: её ищут глазами.
+        el('p', { class: 'rules__formula' }, t('rules.formula', {})),
         t('rules.profitText', {}),
       ]),
 
