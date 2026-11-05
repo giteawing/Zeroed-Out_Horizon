@@ -34,7 +34,10 @@
     "autoDrillOff": "Автодобыча: нужны пять сотрудников",
     "channelContract": "Контракты",
     "channelExport": "Экспорт",
-    "channelRefine": "Переработка"
+    "channelRefine": "Переработка",
+    "dailyRate": "Добыча в сутки",
+    "wellsCount": "Скважины",
+    "taxRelief": "Послабления"
   },
   "tabs": {
     "political": "Политика",
@@ -75,7 +78,11 @@
     "buyFail": "Не хватает нефтефаников",
     "buyFailCooldown": "Ещё не готово",
     "buyFailLocked": "Пока закрыто",
-    "buyFailOil": "В резервуарах нет нефти — продавать нечего"
+    "buyFailOil": "В резервуарах нет нефти — продавать нечего",
+    "effectWellHint": "Дебит выпадает случайно при бурении",
+    "effectWellLast": "Последняя скважина: {kind}, {value} т/сут",
+    "effectTaxLaw": "Налог ниже: закон о вычете",
+    "wellDrilled": "Новая скважина: {kind}, {value} т/сут"
   },
   "panel": {
     "shop": "Магазин",
@@ -361,7 +368,7 @@
     "launder": "{name} — {money} мимо налогов",
     "achievement": "Достижение: {name}",
     "more": "Ещё {n}",
-    "drill": "Добыча: {tonnes} {unit}"
+    "drill": "Пробурена скважина: {tonnes} т/сут"
   },
   "upgrades": {
     "t_well": "Пробурить скважину",
@@ -518,6 +525,13 @@
     "tonnesRate": "{value} {tonnes}/{s}",
     "moneyRate": "{value}/{s}",
     "minusRate": "−{value}/{s}",
-    "pricePerTon": "{price}/{tonnes}"
+    "pricePerTon": "{price}/{tonnes}",
+    "tonnesPerDay": "{value} {tonnes}/сут"
+  },
+  "wells": {
+    "title": "Скважины",
+    "ordinary": "обычная",
+    "good": "хорошая",
+    "unique": "уникальная"
   }
 }

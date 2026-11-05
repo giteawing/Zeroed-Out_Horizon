@@ -198,6 +198,18 @@ export class Shop {
         return t('effectPerTap', { value: formatMoney(e.value ?? 0, this.currency) });
       case 'passive':
         return t('effectPassive', { value: formatMoney(e.value ?? 0, this.currency) });
+      case 'well': {
+        // Показываем последнюю пробуренную скважину и расклад по классам.
+        const wells = this.game.state.wells;
+        const last = wells[wells.length - 1];
+        if (last) {
+          return this.texts.get('shop.effectWellLast', {
+            value: formatNumber(last.dailyTonnes),
+            kind: this.texts.get(`wells.${last.kind}`),
+          });
+        }
+        return this.texts.get('shop.effectWellHint');
+      }
       case 'multiplier':
         return t('effectMultiplier', {
           value: formatPercent(Math.pow(e.factor ?? 1, Math.max(1, level)) - 1, 1),

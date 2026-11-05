@@ -8,6 +8,7 @@
 import { el } from './dom';
 import type { Texts } from './texts';
 import { formatMoney, formatNumber, formatPercent, interpolate } from '../core/format';
+import { wellsDailyTonnes } from '../core/economy';
 import type { DerivedStats, GameState } from '../core/types';
 
 interface Row {
@@ -91,6 +92,8 @@ export class Hud {
 
       el('div', { class: 'hud__rows' }, [
         row('oilRate', texts.get('hud.oilRate'), 'hud__row-value--oil').root,
+        row('dailyRate', texts.get('hud.dailyRate'), 'hud__row-value--oil').root,
+        row('wellsCount', texts.get('hud.wellsCount')).root,
         row('sellRate', texts.get('hud.sellRate'), 'hud__row-value--sell').root,
         row('pricePerTon', texts.get('hud.pricePerTon'), 'hud__row-value--price').root,
         row('gross', texts.get('hud.gross'), 'hud__row-value--plus').root,
@@ -159,6 +162,9 @@ export class Hud {
       capacity: formatNumber(derived.oilCapacity),
       tonnes,
     }));
+    const daily = wellsDailyTonnes(state);
+    set('dailyRate', units('tonnesPerDay', { value: formatNumber(daily), tonnes }));
+    set('wellsCount', String(state.wells.length));
     set('oilRate', units('tonnesRate', {
       value: formatNumber(derived.oilPerSecond),
       tonnes,

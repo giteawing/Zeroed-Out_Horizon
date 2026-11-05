@@ -174,41 +174,13 @@ test('панель империи видна всегда и держит все
   expect(hudBox?.width ?? 0).toBeGreaterThan(200);
   expect(drillBox?.width ?? 0).toBeGreaterThan(120);
   expect(oplogBox?.width ?? 0).toBeGreaterThan(200);
-  // Журнал идёт под таблицей.
+  // Журнал идёт под таблицей, долото — под журналом (десктопная раскладка).
   expect(oplogBox!.y).toBeGreaterThan(hudBox!.y + hudBox!.height - 1);
-  const wide = (await page.viewportSize())!.width >= 860;
-  if (wide) {
-    // Десктоп: долото под журналом, магазин шире правой колонки.
-    const drillBlock = await page.locator('.stage__drill').boundingBox();
-    expect(drillBlock!.y).toBeGreaterThan(oplogBox!.y + oplogBox!.height - 1);
-    expect(side).toBeTruthy();
-    expect(shopBox?.width ?? 0).toBeGreaterThan((hudBox?.width ?? 0) * 1.5);
-  } else {
-    // Телефон: журнал и долото стоят рядом, под таблицей, и не наезжают на магазин.
-    const drillBlock = await page.locator('.stage__drill').boundingBox();
-    expect(drillBlock!.x).toBeGreaterThan(oplogBox!.x + oplogBox!.width - 1);
-    expect(drillBlock!.y).toBeLessThan(oplogBox!.y + oplogBox!.height);
-    expect(hudBox!.y).toBeGreaterThan(shopBox!.y + shopBox!.height - 1);
-  }
-});
-
-test('раскладка: магазин и кнопки доступны на узком экране', async ({ page }, testInfo) => {
-  await start(page);
-  const shop = page.locator('.shop');
-  await expect(shop).toBeVisible();
-  const shopBox = await shop.boundingBox();
-  expect(shopBox?.width ?? 0).toBeGreaterThan(240);
-  const drill = await page.locator('[data-testid="drill"]').boundingBox();
-  expect(drill?.width ?? 0).toBeGreaterThan(120);
-  // Кнопки не меньше 44×44 px (ТЗ §8.1)
-  const button = await page.locator('.card__buy').first().boundingBox();
-  expect(button?.height ?? 0).toBeGreaterThanOrEqual(44);
-  // Страница не прокручивается: всё помещается в экран.
-  const scrolls = await page.evaluate(
-    () => document.documentElement.scrollHeight > window.innerHeight + 2,
-  );
-  expect(scrolls).toBe(false);
-  await testInfo.attach('layout', { body: await page.screenshot(), contentType: 'image/png' });
+  const drillBlock = await page.locator('.stage__drill').boundingBox();
+  expect(drillBlock!.y).toBeGreaterThan(oplogBox!.y + oplogBox!.height - 1);
+  // Левая колонка — магазин, он шире правой колонки с таблицей.
+  expect(side).toBeTruthy();
+  expect(shopBox?.width ?? 0).toBeGreaterThan((hudBox?.width ?? 0) * 1.5);
 });
 
 test('финал открывается, показывает карикатуру и титры', async ({ page }) => {

@@ -21,6 +21,7 @@ export function createInitialState(config: GameConfig, seed = randomSeed()): Gam
     levels: {},
     cooldowns: {},
     timers: {},
+    wells: [],
     gambles: [],
     achievements: [],
     clockMs: 0,
@@ -91,6 +92,36 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
     }
   }
   state.timers = timers;
+
+  // Скважины: дебит каждой сохраняется, потому что он выпал случайно.
+  const wells: GameState['wells'] = [];
+  if (Array.isArray(src.wells)) {
+    for (const w of src.wells.slice(0, 5000)) {
+      if (!w || typeof w !== 'object') continue;
+      const kind = (w as { kind?: unknown }).kind;
+      const daily = num((w as { dailyTonnes?: unknown }).dailyTonnes, 0);
+      if (daily <= 0) continue;
+      wells.push({
+        kind: kind === 'good' || kind === 'unique' ? kind : 'ordinary',
+        dailyTonnes: daily,
+      });
+    }
+  }
+  state.wells = wells;
+
+  // Старые сейвы хранили добычу в уровнях пассивных покупок. Переносим её
+  // в скважины, чтобы прогресс не обнулился: суммарный дебит остаётся прежним.
+  if (state.wells.length === 0) {
+    let legacyDaily = 0;
+    for (const [id, level] of Object.entries(state.levels)) {
+      const def = content.byId.get(id);
+      if (!def || def.type !== 'passive' || !def.effect.value) continue;
+      legacyDaily += def.effect.value * level * (config.oil.wells?.secondsPerDay || 86400);
+    }
+    if (legacyDaily > 0) {
+      state.wells = [{ kind: 'unique', dailyTonnes: Math.round(legacyDaily) }];
+    }
+  }
 
   state.gambles = Array.isArray(src.gambles)
     ? src.gambles

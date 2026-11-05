@@ -12,7 +12,9 @@
   },
   "tax": {
     "baseRate": 0.28,
-    "minRate": 0.02
+    "minRate": 0.02,
+    "influenceDrop": 0.0006,
+    "influenceForZero": 430
   },
   "expenses": {
     "baseSalaries": 0.4,
@@ -37,16 +39,21 @@
     "channels": {
       "contract": {
         "priceFactor": 0.35,
-        "baseRate": 0,
-        "unlimited": true
+        "baseRate": 5000,
+        "unlimited": true,
+        "minLotTonnes": 1000,
+        "maxLotTonnes": 25000,
+        "lotSeconds": 6
       },
       "export": {
         "priceFactor": 1,
-        "baseRate": 0
+        "baseRate": 12,
+        "minLotTonnes": 5000,
+        "maxLotTonnes": 60000
       },
       "refine": {
         "priceFactor": 2.6,
-        "baseRate": 0
+        "baseRate": 6
       }
     },
     "exportBurstSeconds": 8,
@@ -60,7 +67,33 @@
       ],
       "bonus": 1
     },
-    "spillLoss": 0.25
+    "spillLoss": 0.25,
+    "wells": {
+      "secondsPerDay": 20,
+      "classes": [
+        {
+          "key": "ordinary",
+          "chance": 0.7,
+          "minDailyTonnes": 8,
+          "maxDailyTonnes": 10,
+          "step": 1
+        },
+        {
+          "key": "good",
+          "chance": 0.25,
+          "minDailyTonnes": 50,
+          "maxDailyTonnes": 70,
+          "step": 5
+        },
+        {
+          "key": "unique",
+          "chance": 0.05,
+          "minDailyTonnes": 200,
+          "maxDailyTonnes": 5000,
+          "step": 50
+        }
+      ]
+    }
   },
   "influence": {
     "perGroup": {
@@ -75,7 +108,7 @@
     "cap": 400
   },
   "autosaveSeconds": 10,
-  "winCost": 80000000000.0,
+  "winCost": 65000000000,
   "winRequirements": [],
   "achievementsTickSeconds": 1,
   "particles": {

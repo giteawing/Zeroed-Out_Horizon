@@ -5,15 +5,13 @@
       "tab": "technical",
       "group": "infrastructure",
       "name": "Пробурить скважину",
-      "description": "Фонтанный способ: нефть сама идёт в резервуары.",
+      "description": "Дебит выпадает случайно: обычная скважина — 8–10 т/сут, хорошая — около 60, уникальная — сотни и тысячи.",
       "icon": "well",
-      "type": "passive",
+      "type": "well",
       "baseCost": 73,
       "maxLevel": 45,
-      "effect": {
-        "value": 0.1
-      },
-      "costGrowth": 1.34
+      "costGrowth": 1.34,
+      "effect": {}
     },
     {
       "id": "t_refinery",
@@ -366,13 +364,11 @@
       "type": "passive",
       "baseCost": 1701945636,
       "maxLevel": 45,
-      "effect": {
-        "value": 8
-      },
       "unlockAt": {
         "balance": 2000000
       },
-      "costGrowth": 1.12
+      "costGrowth": 1.12,
+      "effect": {}
     },
     {
       "id": "t_carat",
@@ -615,13 +611,11 @@
       "type": "passive",
       "baseCost": 99,
       "maxLevel": 45,
-      "effect": {
-        "value": 0.1
-      },
       "unlockAt": {
         "balance": 200
       },
-      "costGrowth": 1.34
+      "costGrowth": 1.34,
+      "effect": {}
     },
     {
       "id": "t_gti",
@@ -633,13 +627,11 @@
       "type": "passive",
       "baseCost": 226,
       "maxLevel": 45,
-      "effect": {
-        "value": 6
-      },
       "unlockAt": {
         "upgrade": "s_geonav",
         "level": 2
-      }
+      },
+      "effect": {}
     },
     {
       "id": "s_brigade",
@@ -651,14 +643,11 @@
       "type": "passive",
       "baseCost": 401,
       "maxLevel": 45,
-      "effect": {
-        "value": 0.1,
-        "salaryAdd": 0.4
-      },
       "unlockAt": {
         "balance": 3000
       },
-      "costGrowth": 1.34
+      "costGrowth": 1.34,
+      "effect": {}
     },
     {
       "id": "t_technolog",
@@ -739,13 +728,10 @@
       "type": "passive",
       "baseCost": 10072152,
       "maxLevel": 45,
-      "effect": {
-        "value": 5000,
-        "taxAdd": 0.008
-      },
       "unlockAt": {
         "balance": 300000
-      }
+      },
+      "effect": {}
     },
     {
       "id": "t_krs",
@@ -1036,14 +1022,12 @@
       "tab": "political",
       "group": "conquest",
       "name": "Отжать месторождение у конкурентов",
-      "description": "Скважины соседа переходят под ваше оперативное управление.",
+      "description": "Там уже стоят их скважины. Сколько даст каждая — как повезёт: от 8 т/сут до тысяч.",
       "icon": "field",
-      "type": "passive",
+      "type": "well",
       "baseCost": 36667,
       "maxLevel": 45,
-      "effect": {
-        "value": 0.64
-      },
+      "effect": {},
       "unlockAt": {
         "balance": 18000
       },
@@ -1087,6 +1071,23 @@
       },
       "unlockAt": {
         "balance": 80000
+      }
+    },
+    {
+      "id": "p_taxbreak",
+      "tab": "political",
+      "group": "taxes",
+      "name": "Пропихнуть закон о налоговом вычете для ресурсодобывающих олигархов",
+      "description": "Депутаты долго думали, но вычет прошёл. Почти для всех, кто бурит.",
+      "icon": "papers",
+      "type": "taxCut",
+      "baseCost": 520000,
+      "maxLevel": 6,
+      "effect": {
+        "percent": 3
+      },
+      "unlockAt": {
+        "balance": 120000
       }
     },
     {
@@ -1886,7 +1887,7 @@
       "description": "Полный контроль над всей империей. Качает всё: нефть, бюджет, горизонт и соседей.",
       "icon": "win-pump",
       "type": "win",
-      "baseCost": 80000000000.0,
+      "baseCost": 65000000000,
       "maxLevel": 1,
       "win": true,
       "tag": "strict",
@@ -1938,10 +1939,8 @@
       "type": "passive",
       "baseCost": 420,
       "maxLevel": 45,
-      "effect": {
-        "value": 0.1
-      },
-      "costGrowth": 1.34
+      "costGrowth": 1.34,
+      "effect": {}
     },
     {
       "id": "s_operator",
@@ -1953,10 +1952,8 @@
       "type": "passive",
       "baseCost": 1900,
       "maxLevel": 45,
-      "effect": {
-        "value": 0.1
-      },
-      "costGrowth": 1.34
+      "costGrowth": 1.34,
+      "effect": {}
     },
     {
       "id": "s_engineer",
@@ -1968,11 +1965,8 @@
       "type": "passive",
       "baseCost": 22000,
       "maxLevel": 45,
-      "effect": {
-        "value": 0.12,
-        "costCut": 0.01
-      },
-      "costGrowth": 1.34
+      "costGrowth": 1.34,
+      "effect": {}
     },
     {
       "id": "c_local",
@@ -2409,14 +2403,12 @@
       "tab": "political",
       "group": "conquest",
       "name": "Устроить реприватизацию месторождения со скважинами конкурента",
-      "description": "Скважины конкурента внезапно оказываются стратегически важными для страны.",
+      "description": "Скважины достаются вместе с лицензией. Дебит случайный, как в жизни.",
       "icon": "reprivat",
-      "type": "passive",
+      "type": "well",
       "baseCost": 260000000,
       "maxLevel": 10,
-      "effect": {
-        "value": 6
-      },
+      "effect": {},
       "conquest": true,
       "unlockAt": {
         "balance": 30000000000,

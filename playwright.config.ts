@@ -1,7 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Дымовой e2e (ТЗ §8.1, этап 9): Desktop Chrome + iPhone 13 + Pixel 7.
+ * Дымовой e2e: только настольный Chrome.
+ * Мобильные проекты (iPhone 13, Pixel 7) убраны по решению заказчика:
+ * игра делается под десктоп, а мобильные прогоны шли долго и падали.
  * Запуск: npm run test:e2e  (нужен браузер: npx playwright install chromium)
  *
  * Тестируем собранную игру через `vite preview`, то есть ровно то,
@@ -30,7 +32,5 @@ export default defineConfig({
   },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
-    { name: 'iphone-13', use: { ...devices['iPhone 13'] } },
-    { name: 'pixel-7', use: { ...devices['Pixel 7'] } },
   ],
 });

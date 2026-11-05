@@ -75,11 +75,17 @@ describe('тап', () => {
       game.content.config.oil.channels[channel].unlimited = false;
       game.content.config.oil.channels[channel].baseRate = 0;
     }
+    const soldBefore = state.totalSold;
+    // Конфиг поменяли напрямую — сбрасываем кеш производных.
+    game.invalidate();
     game.update(1000);
     expect(state.oil).toBeGreaterThan(0);
-    expect(state.totalSold).toBe(0);
+    // Сбыта нет: за этот тик не продано ни тонны.
+    expect(state.totalSold).toBe(soldBefore);
     // Восстанавливаем конфиг для остальных тестов.
     content.config.oil.channels.contract.unlimited = true;
+    content.config.oil.channels.contract.baseRate = 40;
+    game.invalidate();
   });
 
   it('растёт от технических улучшений', () => {

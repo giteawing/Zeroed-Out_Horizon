@@ -17,7 +17,7 @@ import type {
 
 const TABS = new Set(['political', 'technical', 'sales', 'luxury', 'goals']);
 const TYPES = new Set([
-  'perTap', 'passive', 'multiplier', 'taxCut', 'costCut', 'periodic',
+  'perTap', 'well', 'passive', 'multiplier', 'taxCut', 'costCut', 'periodic',
   'oneShot', 'gamble', 'priceBoost', 'luxury', 'autoTap', 'sell', 'storage', 'win',
 ]);
 
