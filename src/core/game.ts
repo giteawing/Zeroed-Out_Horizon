@@ -58,7 +58,8 @@ export interface BuyCheck {
 const BUFF_TAX_DURATION_MS = 25_000;
 
 /** Покупки, которые бурят новую скважину со случайным дебитом. */
-const WELL_UPGRADE_IDS = new Set(['t_well', 'p_field', 'p_reprivatize']);
+/** Покупки, которые бурят ОДНУ скважину-лотерею. */
+const WELL_UPGRADE_IDS = new Set(['t_well', 'p_reprivatize']);
 
 /** Покупка-действие (событие с перезарядкой) или обычная прокачка. */
 export function isRepeatable(def: UpgradeDef): boolean {
@@ -354,6 +355,10 @@ export class Game {
       // стоимость всегда в 5–10 раз больше, чем заплачено за активацию.
       const prize = this.applyReprivatization(cost);
       payouts.push({ id: def.id, amount: prize.dailyTonnes });
+    } else if (def.type === 'field') {
+      // Отжатое месторождение — это сразу 5–50 скважин (границы в конфиге).
+      const prize = this.applyReprivatization(cost, def.id);
+      payouts.push({ id: def.id, amount: prize.dailyTonnes });
     } else if (WELL_UPGRADE_IDS.has(def.id) && !repeatable) {
       const drilled = this.drillWell();
       payouts.push({ id: def.id, amount: drilled.dailyTonnes });
@@ -361,7 +366,7 @@ export class Game {
 
     // Реприватизация пишет свою строку с числом скважин и стоимостью активов,
     // поэтому общая запись «Отжато: …» для неё не нужна — иначе в журнале дубль.
-    if (def.id !== 'p_reprivatize') {
+    if (def.id !== 'p_reprivatize' && def.type !== 'field') {
       this.pushLog({
         kind: def.conquest ? 'conquest' : 'bought',
         upgradeId: def.id,
@@ -380,7 +385,7 @@ export class Game {
    * Сами скважины добавляются в состояние обычным путём, поэтому добыча,
    * панель и сохранения работают без спецкода.
    */
-  applyReprivatization(paid: number): ReprivatizationPrize {
+  applyReprivatization(paid: number, upgradeId = 'p_reprivatize'): ReprivatizationPrize {
     const derived = this.derived();
     const price = derived.exportPricePerTon || derived.oilPricePerTon;
     const prize = reprivatizationPrize(this.config, paid, price, () => this.rng.next());
@@ -394,7 +399,7 @@ export class Game {
     }
     this.pushLog({
       kind: 'conquest',
-      upgradeId: 'p_reprivatize',
+      upgradeId,
       tonnes: prize.dailyTonnes,
       money: prize.marketValue,
       count: prize.wells,

@@ -313,18 +313,26 @@ export function reprivatizationPrize(
   const factor = REPRIVAT_PRIZE_MIN + rand() * (REPRIVAT_PRIZE_MAX - REPRIVAT_PRIZE_MIN);
   const budget = Math.max(0, paid) * factor;
   const perTonne = wellPricePerDailyTonne(config, pricePerTon);
-  // Сколько тонн в сутки «умещается» в бюджет и сколько это скважин.
+  /*
+   * Сколько скважин достаётся покупателю.
+   *
+   * Требование заказчика: за одно отжатие приходит СЛУЧАЙНОЕ число скважин
+   * от 5 до 50 — «месторождение», а не одна дырка в земле. Дебит при этом
+   * всё равно считается от бюджета: дорогие скважины реже, дешёвые чаще,
+   * иначе 50 скважин по тысяче тонн ломали бы баланс.
+   */
+  const countMin = Math.max(1, Math.round(config.oil.conquestWells?.min ?? 5));
+  const countMax = Math.max(countMin, Math.round(config.oil.conquestWells?.max ?? 50));
+  const count = countMin + Math.round(rand() * (countMax - countMin));
+  // Сколько тонн в сутки «умещается» в бюджет: делим на всё месторождение.
   const totalTonnes = budget / perTonne;
-  // Скважины разной мощности: от обычной до очень крупной,
-  // но всегда целое число, и всегда хотя бы одна.
-  // От 2 до 7 скважин: «месторождение», а не одна дырка в земле.
-  const count = Math.max(2, Math.round(2 + rand() * 5));
   const weights: number[] = [];
   for (let i = 0; i < count; i++) weights.push(0.5 + rand());
   const weightSum = weights.reduce((a, b) => a + b, 0);
   let dailyTonnes = 0;
   for (const weight of weights) {
     const share = (weight / weightSum) * totalTonnes;
+    // Даже самая мелкая скважина месторождения что-то качает.
     dailyTonnes += Math.max(1, Math.round(share));
   }
   return {

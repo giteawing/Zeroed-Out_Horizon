@@ -126,12 +126,14 @@ export class Hud {
             row('produced', texts.get('hud.production'), 'hud__row-value--oil').root,
             row('crudeDomestic', texts.get('hud.saleDomestic'), 'hud__row-value--sell').root,
             row('crudeExport', texts.get('hud.saleExport'), 'hud__row-value--sell').root,
+            // Три способа доставки — подпункты экспорта: отступ слева и
+            // вертикальная связка показывают, что они входят в строку выше.
             row('exportPipeline', texts.get('hud.exportPipeline'),
-              'hud__row-value--sell hud__row--sub').root,
+              'hud__row-value--sell hud__row-value--under', 'hud__row--under').root,
             row('exportRail', texts.get('hud.exportRail'),
-              'hud__row-value--sell hud__row--sub').root,
+              'hud__row-value--sell hud__row-value--under', 'hud__row--under').root,
             row('exportTanker', texts.get('hud.exportTanker'),
-              'hud__row-value--sell hud__row--sub').root,
+              'hud__row-value--sell hud__row-value--under', 'hud__row--under').root,
             row('crudeRefine', texts.get('hud.toRefine'), 'hud__row-value--sell').root,
             // Сколько добычи легло в резервуары и ждёт отправки.
             row('crudeStored', texts.get('hud.stored'), 'hud__row-value--stored').root,
