@@ -190,7 +190,11 @@ test('панель империи видна всегда и держит все
   const drillBox = await page.locator('[data-testid="drill"]').boundingBox();
   const oplogBox = await page.locator('[data-testid="oplog"]').boundingBox();
   expect(hudBox?.width ?? 0).toBeGreaterThan(200);
-  expect(drillBox?.width ?? 0).toBeGreaterThan(120);
+  // Долото намеренно невысокое: на 800 px экрана это 13vh ≈ 104 px.
+  // Проверяем, что оно не схлопнулось в точку и осталось квадратным.
+  expect(drillBox?.width ?? 0).toBeGreaterThan(90);
+  expect(drillBox?.width ?? 0).toBeLessThanOrEqual(200);
+  expect(Math.abs((drillBox?.width ?? 0) - (drillBox?.height ?? 0))).toBeLessThan(2);
   expect(oplogBox?.width ?? 0).toBeGreaterThan(200);
   // Журнал идёт под таблицей, долото — под журналом (десктопная раскладка).
   expect(oplogBox!.y).toBeGreaterThan(hudBox!.y + hudBox!.height - 1);
