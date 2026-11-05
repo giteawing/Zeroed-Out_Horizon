@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  allocateBatch,
+  oilFlowsOf,
   affordableLevels,
   computeDerived,
   costFor,
@@ -317,5 +319,66 @@ describe('регрессии экономики: выручка по факти�
     // Дорогие каналы забирают первыми, остаток уходит в контракты.
     expect(d.salesByChannel.refine).toBeLessThanOrEqual(d.channels.refine.rate + 1e-9);
     expect(d.salesByChannel.export).toBeLessThanOrEqual(d.channels.export.rate + 1e-9);
+  });
+});
+
+describe('товарная модель: сырая нефть → нефтепродукты', () => {
+  const capacities = {
+    domestic: 100,
+    export: 80,
+    refine: 50,
+    productDomestic: 100,
+    productExport: 100,
+  };
+
+  it('потоки сходятся: добыча = внутренний + экспорт + переработка', () => {
+    const flows = oilFlowsOf(config, capacities, 300);
+    expect(flows.domestic + flows.export + flows.refined + flows.backlog).toBeCloseTo(300, 6);
+    // Мощности не превышены ни на тонну.
+    expect(flows.domestic).toBeLessThanOrEqual(capacities.domestic);
+    expect(flows.export).toBeLessThanOrEqual(capacities.export);
+    expect(flows.refined).toBeLessThanOrEqual(capacities.refine);
+  });
+
+  it('переработка даёт нефтепродукты с учётом выхода', () => {
+    const flows = oilFlowsOf(config, capacities, 300);
+    expect(flows.productsProduced).toBeCloseTo(flows.refined * config.oil.refineryYield, 6);
+    expect(flows.productsDomestic + flows.productsExport).toBeLessThanOrEqual(
+      flows.productsProduced + 1e-9,
+    );
+  });
+
+  it('мощности сбыта растут от построенных объектов', () => {
+    const state = createInitialState(config, 61);
+    // Добыча заведомо больше внутреннего рынка — иначе экспорту нечего брать.
+    state.wells = [{ kind: 'unique', dailyTonnes: 50000 }];
+    const before = computeDerived(config, content.upgrades, state, [], content);
+    expect(before.flows.export).toBe(0); // без труб везти нечем
+    state.levels = { t_azs: 3, t_pipeline: 2 };
+    const after = computeDerived(config, content.upgrades, state, [], content);
+    // АЗС расширяют внутренний рынок, трубы — экспорт.
+    expect(after.capacities.domestic).toBeGreaterThan(before.capacities.domestic);
+    expect(after.capacities.export).toBeGreaterThan(before.capacities.export);
+    // Экспорт забирает всё, что не взял внутренний рынок (раньше его не было).
+    expect(after.capacities.export).toBeGreaterThan(before.capacities.export);
+    expect(after.flows.export).toBeGreaterThan(before.flows.export);
+  });
+
+  it('партия раскладывается по мощностям без потерь', () => {
+    const plan = allocateBatch(config, capacities, 500, 1);
+    expect(plan.domestic + plan.export + plan.refined + plan.rest).toBeCloseTo(500, 6);
+    expect(plan.rest).toBeGreaterThan(0); // мощностей не хватило — осталось в резервуарах
+    const small = allocateBatch(config, capacities, 50, 1);
+    expect(small.rest).toBe(0);
+    expect(small.domestic).toBeCloseTo(50, 6);
+  });
+
+  it('мировая цена двигается во времени и тянет за собой внутреннюю', () => {
+    const state = createInitialState(config, 62);
+    const low = computeDerived(config, content.upgrades, state, [], content);
+    state.worldPrice = config.worldPrice.max;
+    const high = computeDerived(config, content.upgrades, state, [], content);
+    expect(high.oilPricePerTon).toBeGreaterThan(low.oilPricePerTon);
+    expect(high.domesticPricePerTon).toBeGreaterThan(low.domesticPricePerTon);
   });
 });

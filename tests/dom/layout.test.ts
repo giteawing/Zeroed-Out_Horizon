@@ -100,7 +100,6 @@ describe('раскладка', () => {
       'Доход в секунду',
       'Налог',
       'Активы',
-      'Цена тонны',
       'Нефтезаводы (НПЗ)',
       'Нефтебазы',
       'АЗС',
@@ -121,11 +120,12 @@ describe('раскладка', () => {
     // Кошелёк переехал в шапку к иконкам меню.
     expect(document.querySelector('.topbar__coins')).not.toBeNull();
     expect(hud?.querySelector('.topbar__coins')).toBeNull();
-    // «Добыча» в тоннах в секунду убрана: остался только суточный дебит.
-    expect(labels).toContain('Добыча в сутки');
-    expect(labels).not.toContain('Добыча');
-    // «Влияние» — отдельный блок со шкалой.
-    expect(hud?.querySelector('.hud__influence')?.textContent).toContain('Влияние');
+    // Товарная статистика: сырая нефть и нефтепродукты отдельными блоками.
+    expect(labels).toContain('производство');
+    expect(labels).toContain('продажа вн. рынок');
+    expect(labels).toContain('экспорт');
+    // Влияние переехало в шапку — в панели его больше нет.
+    expect(document.querySelector('.topbar__influence')).not.toBeNull();
     // Магазин не вложен в панель.
     expect(hud?.querySelector('.shop')).toBeNull();
   });

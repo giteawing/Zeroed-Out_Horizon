@@ -12,6 +12,8 @@ export function createInitialState(config: GameConfig, seed = randomSeed()): Gam
     version: SAVE_VERSION,
     coins: config.startCoins,
     oil: config.oil.startOil,
+    products: 0,
+    shipTimerMs: 0,
     totalEarned: config.startCoins,
     totalTaps: 0,
     totalSold: 0,
@@ -48,6 +50,8 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
 
   state.coins = Math.max(0, num(src.coins, base.coins));
   state.oil = Math.max(0, num((src as { oil?: number }).oil, base.oil));
+  state.products = Math.max(0, num(src.products, 0));
+  state.shipTimerMs = Math.max(0, num(src.shipTimerMs, 0));
   state.totalSold = Math.max(0, num((src as { totalSold?: number }).totalSold, 0));
   state.totalEarned = Math.max(state.coins, num(src.totalEarned, base.totalEarned));
   state.totalTaps = Math.max(0, num(src.totalTaps, 0));

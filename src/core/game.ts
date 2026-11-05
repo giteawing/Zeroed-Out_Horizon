@@ -3,7 +3,7 @@
  * Не знает про DOM: UI подписывается на события и читает состояние.
  */
 import {
-  CHANNELS,
+  allocateBatch,
   affordableLevels,
   bankScaleOf,
   reprivatizationPrize,
@@ -14,14 +14,12 @@ import {
   isWinReady,
   levelOf,
   stagedNameOf,
-  sellOil,
   tapReward,
   unlockBlocker,
   winCostOf,
   type TaxBuff,
 } from './economy';
 import type {
-  Channel,
   Content,
   DerivedStats,
   GameEvent,
@@ -154,12 +152,12 @@ export class Game {
   }
 
   /**
-   * Долить нефть в резервуары. Лишнее не сгорает: оно сразу уходит
-   * «на разлив» через безлимитные контракты (это и есть переполнение).
+   * Долить нефть в резервуары.
    *
-   * Раньше излишек просто исчезал. При сутках в одну секунду скважины
-   * качают десятки тысяч тонн в секунду, резервуары мгновенно полны —
-   * и почти вся добыча испарялась, а доход стоял на месте.
+   * Нефть копится `shipDays` суток, поэтому резервуары должны вмещать
+   * пятисуточную добычу — иначе она упирается в стенку и рост останавливается.
+   * Когда место всё же кончается, партию отправляют досрочно (tickShipping),
+   * но ничего не «сгорает»: терять добычу нельзя.
    */
   private addOil(tonnes: number): number {
     if (tonnes <= 0) return 0;
@@ -169,26 +167,24 @@ export class Game {
     this.state.oil += added;
     const spilled = tonnes - added;
     if (spilled > 1e-9) {
-      this.dumpOil(spilled);
+      // Резервуары полны: лишнее уходит на внутренний рынок сразу, по его
+      // цене. Сжигать добычу нельзя, но и копить её больше некуда —
+      // поэтому расширять резервуары выгодно: экспорт и НПЗ дороже.
+      const derived = this.derived();
+      // Продавать «в никуда» нечему: если внутреннего рынка нет вовсе,
+      // нефть просто ждёт в полных резервуарах.
+      if (derived.channels.contract.rate > 0) {
+        this.state.totalSold += spilled;
+        this.grantCoins(
+          spilled * derived.channels.contract.price * (1 - derived.taxRate),
+        );
+      }
       this.emit({ type: 'oilFull' });
     }
     return added;
   }
 
   /** Продать нефть, которая не влезла в резервуары, по цене «на разлив». */
-  private dumpOil(tonnes: number): void {
-    if (tonnes <= 0) return;
-    const derived = this.derived();
-    const channels = CHANNELS.filter((c) => this.config.oil.channels[c].unlimited);
-    // Если безлимитного канала нет (игрок продал всё?), излишку некуда идти.
-    const channel = channels[0];
-    if (!channel) return;
-    const price = derived.channels[channel].price || derived.oilPricePerTon;
-    const money = tonnes * price;
-    this.state.totalSold += tonnes;
-    if (money > 0) this.grantCoins(money * (1 - derived.taxRate));
-  }
-
   private grantCoins(amount: number): void {
     if (amount <= 0) return;
     this.state.coins += amount;
@@ -559,8 +555,9 @@ export class Game {
     // 1. Добыча: персонал качает нефть в резервуары.
     if (derived.oilPerSecond > 0) this.addOil(derived.oilPerSecond * dtSeconds);
 
-    // 2. Сбыт: нефть из резервуаров превращается в деньги.
-    const gross = this.tickSales(this.derived(), dtSeconds);
+    // 2. Отправка партии: раз в `shipDays` суток накопленная нефть уезжает
+    //    на внутренний рынок, экспорт и переработку, а продукты — на продажу.
+    const gross = this.tickShipping(derived, dtSeconds);
 
     // 3. Налог и расходы считаются от ФАКТИЧЕСКИ проданного. Иначе пустые
     //    резервуары всё равно приносили бы деньги, а безлимитные контракты
@@ -586,51 +583,70 @@ export class Game {
   }
 
   /**
-   * Продажа нефти за интервал: сначала НПЗ, потом экспорт, потом контракты.
-   * Возвращает, сколько денег принёс интервал (для журнала и событий).
+   * Отправка нефти на сбыт.
+   *
+   * Правило заказчика: нефть копится в резервуарах `shipDays` суток (5 суток
+   * = 5 реальных секунд) и только потом уезжает. Партия распределяется по
+   * мощностям из `derived.flows` — тем же, что видны в таблице:
+   *   внутренний рынок → экспорт сырья → переработка (остаток).
+   * Переработка даёт нефтепродукты, они продаются внутри и на экспорт.
+   *
+   * Если резервуары переполнены, лишнее продаётся сразу по внутренней цене:
+   * терять добычу нельзя. Поэтому расширять резервуары выгодно — экспорт
+   * и переработка приносят больше.
    */
-  private tickSales(derived: DerivedStats, dtSeconds: number): number {
-    if (this.state.oil <= 0) {
-      this.salesAccum = 0;
-      return 0;
-    }
-    const unlimited = CHANNELS.filter((c) => this.config.oil.channels[c].unlimited);
-    const result = sellOil(derived, this.state.oil, dtSeconds, unlimited);
-    if (result.sold <= 0) return 0;
-    this.state.oil = result.oil;
-    this.state.totalSold += result.sold;
-    this.salesAccum += result.sold;
-    // Журнал не спамим: пишем одну сводную строку примерно раз в 3 секунды.
-    if (this.state.clockMs - this.lastSaleLogMs >= 3000) {
+  private tickShipping(derived: DerivedStats, dtSeconds: number): number {
+    const dayMs = Math.max(0.001, this.config.oil.wells.secondsPerDay) * 1000;
+    const periodMs = Math.max(dayMs, this.config.oil.shipDays * dayMs);
+    this.state.shipTimerMs += dtSeconds * 1000;
+
+    const batch = this.state.oil;
+    if (batch <= 0) return 0;
+
+    const full = batch >= derived.oilCapacity - 1e-9;
+    if (this.state.shipTimerMs < periodMs && !full) return 0;
+    this.state.shipTimerMs = 0;
+
+    // Партия больше, чем «одна секунда потоков», — в `shipBatch` разбиваем
+    // её по секциям, чтобы ни один канал не получил больше своей мощности.
+    return this.shipBatch(batch, derived, periodMs / 1000);
+  }
+
+  /** Распределить партию по каналам и превратить её в деньги. */
+  private shipBatch(batch: number, derived: DerivedStats, seconds = 1): number {
+    // Раскладываем ПАРТИЮ по мощностям, а не по уже посчитанным потокам:
+    // тапы дают нефть рывками, и она обязана найти сбыт.
+    const plan = allocateBatch(this.config, derived.capacities, batch, seconds);
+
+    const money =
+      plan.domestic * derived.channels.contract.price +
+      plan.export * derived.channels.export.price +
+      plan.productsDomestic * derived.productPriceDomestic +
+      plan.productsExport * derived.productPriceExport;
+
+    const soldCrude = plan.domestic + plan.export + plan.refined;
+    this.state.oil = Math.max(0, batch - soldCrude);
+    this.state.totalSold += soldCrude;
+    this.salesAccum += soldCrude;
+    // Что не ушло с партией (нет мощностей) остаётся на нефтебазах.
+    this.state.products = Math.max(
+      0,
+      this.state.products + plan.products - plan.productsDomestic - plan.productsExport,
+    );
+
+    if (soldCrude > 0 && this.state.clockMs - this.lastSaleLogMs >= 3000) {
       this.lastSaleLogMs = this.state.clockMs;
       this.pushLog({
         kind: 'sold',
-        tonnes: result.sold,
-        price: result.sold > 0 ? result.gross / result.sold : derived.oilPricePerTon,
-        money: result.gross,
-        channel: this.dominantChannel(result.byChannel),
-      });
-      this.emit({
-        type: 'sold',
-        channel: this.dominantChannel(result.byChannel),
-        tonnes: result.sold,
-        money: result.gross,
+        tonnes: soldCrude,
+        price: money / soldCrude,
+        money,
+        channel: plan.export >= plan.domestic && plan.export >= plan.refined
+          ? 'export'
+          : plan.refined >= plan.domestic ? 'refine' : 'contract',
       });
     }
-    return result.gross;
-  }
-
-  /** Какой канал продал больше всего нефти за интервал. */
-  private dominantChannel(byChannel: Record<Channel, number>): Channel {
-    let best: Channel = 'contract';
-    let bestTonnes = -1;
-    for (const channel of CHANNELS) {
-      if (byChannel[channel] > bestTonnes) {
-        bestTonnes = byChannel[channel];
-        best = channel;
-      }
-    }
-    return best;
+    return money;
   }
 
   /** Фактический доход в секунду: сглаженное среднее по начислениям. */
@@ -702,18 +718,34 @@ export class Game {
     }
   }
 
+  /**
+   * Колебания мировой цены.
+   *
+   * Раньше цена фактически стояла: цель выбиралась только по истечении
+   * периода, а к ней шло крайне медленное сглаживание от размера кадра.
+   * Теперь цена — непрерывная волна от игровых часов: две синусоиды разных
+   * периодов дают живой график без «механического» вида, а разброс всегда
+   * укладывается в границы из конфига.
+   */
   private tickWorldPrice(dtMs: number): void {
     const wp = this.config.worldPrice;
     this.worldTimerMs += dtMs;
-    if (this.worldTimerMs >= Math.max(2000, wp.periodSeconds * 1000)) {
-      this.worldTimerMs = 0;
-      this.worldTarget = wp.min + this.rng.next() * (wp.max - wp.min);
-    }
+    void this.worldTarget;
+
+    const middle = (wp.min + wp.max) / 2;
+    const amplitude = (wp.max - wp.min) / 2;
+    const seconds = this.state.clockMs / 1000;
+    const period = Math.max(3, wp.periodSeconds);
+    // Фаза зависит от сида: у каждой партии свой «характер» рынка.
+    const phase = (this.state.rngSeed % 360) * (Math.PI / 180);
+    const wave =
+      Math.sin((seconds / period) * Math.PI * 2 + phase) * 0.8 +
+      Math.sin((seconds / (period * 2.7)) * Math.PI * 2 + phase * 0.6) * 0.2;
     const before = this.state.worldPrice;
-    const step = Math.min(1, dtMs / 1000) * wp.smoothing;
-    const next = Math.min(wp.max, Math.max(wp.min, before + (this.worldTarget - before) * step));
+    const next = Math.min(wp.max, Math.max(wp.min, middle + amplitude * wave));
     this.state.worldPrice = next;
-    if (Math.abs(next - before) > 0.05) this.emit({ type: 'worldPrice', price: next });
+    // Событие — только на заметное движение, чтобы не дёргать интерфейс.
+    if (Math.abs(next - before) > 0.004) this.emit({ type: 'worldPrice', price: next });
   }
 
   // ------------------------------------------------------------ достижения

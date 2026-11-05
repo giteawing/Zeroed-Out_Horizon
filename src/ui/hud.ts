@@ -1,15 +1,14 @@
 /**
- * Панель империи — правый столбец: товарная статистика, денежная
- * (доходы слева, расходы справа, под ними прибыль), собственность,
- * влияние и прогресс до «Упыря-Абсолюта».
+ * Панель империи — правый столбец: товарная статистика (цены, сырая нефть,
+ * нефтепродукты), денежная (доходы слева, расходы справа, под ними прибыль)
+ * и собственность.
  *
- * Деньги (кошелёк) живут в шапке рядом с иконками меню — так в правом
- * столбце остаётся место на цифры.
+ * Деньги и влияние живут в шапке — там же, где нефтефаники: правый столбец
+ * отдан цифрам, которые меняются каждую секунду.
  */
 import { el } from './dom';
 import type { Texts } from './texts';
 import { formatMoney, formatNumber, formatPercent } from '../core/format';
-import { wellsDailyTonnes } from '../core/economy';
 import type { DerivedStats, GameConfig, GameState } from '../core/types';
 
 interface Row {
@@ -24,20 +23,13 @@ export class Hud {
   private readonly tax: HTMLElement;
   private readonly oilBar: HTMLElement;
   private readonly oilFill: HTMLElement;
-  private readonly channels: Record<'contract' | 'export' | 'refine', HTMLElement> = {
-    contract: el('span', { class: 'sale__value' }, ''),
-    export: el('span', { class: 'sale__value' }, ''),
-    refine: el('span', { class: 'sale__value' }, ''),
-  };
-  private readonly influenceFill: HTMLElement;
-  private readonly influenceValue: HTMLElement;
-  private readonly progressFill: HTMLElement;
-  private readonly progressValue: HTMLElement;
   /** Денежные доходы (выручка) и расходы: две колонки, под ними прибыль. */
   private readonly incomeRows: HTMLElement;
   private readonly expenseRows: HTMLElement;
   private readonly profitValue: HTMLElement;
   private readonly balanceNode: HTMLElement;
+  private readonly influenceValue: HTMLElement;
+  private readonly influenceFill: HTMLElement;
   private lastCoins = '';
 
   constructor(
@@ -45,16 +37,14 @@ export class Hud {
     private readonly currency: string,
     private readonly config: GameConfig,
   ) {
-    // Кошелёк живёт в шапке, но обновляется тем же hud.update() — см. баланс().
+    // Кошелёк и влияние живут в шапке, но обновляются тем же hud.update().
     this.balanceNode = el('strong', { class: 'topbar__coins', 'data-testid': 'balance' }, '');
+    this.influenceValue = el('strong', { class: 'topbar__influence-value' }, '');
+    this.influenceFill = el('i', { class: 'topbar__influence-fill' });
 
     this.tax = el('span', { class: 'hud__chip' }, '');
     this.oilFill = el('i', { class: 'hud__oil-fill' });
     this.oilBar = el('div', { class: 'hud__oilbar' }, [this.oilFill]);
-    this.influenceFill = el('i', { class: 'hud__influence-fill' });
-    this.influenceValue = el('span', { class: 'hud__influence-value' }, '');
-    this.progressFill = el('i', { class: 'hud__progress-fill' });
-    this.progressValue = el('span', { class: 'hud__progress-value' }, '');
 
     const row = (key: string, label: string, cls = ''): Row => {
       const value = el('span', { class: `hud__row-value ${cls}` }, '');
@@ -67,15 +57,6 @@ export class Hud {
       return entry;
     };
 
-    const salesRow = (
-      key: 'contract' | 'export' | 'refine',
-      label: string,
-    ): HTMLElement =>
-      el('div', { class: 'sale', 'data-channel': key }, [
-        el('span', { class: 'sale__label' }, label),
-        this.channels[key],
-      ]);
-
     this.incomeRows = el('div', { class: 'hud__col hud__col--income' });
     this.expenseRows = el('div', { class: 'hud__col hud__col--expense' });
     this.profitValue = el('span', { class: 'hud__profit-value' }, '');
@@ -87,8 +68,20 @@ export class Hud {
       ]);
 
     this.root = el('section', { class: 'hud', 'data-testid': 'hud' }, [
-      // --- товарная статистика: нефть, дебит, сбыт, цены ---
+      // --- товарная статистика: цены, сырая нефть, нефтепродукты ---
       group('goods', texts.get('hud.groupGoods'), [
+        // Мировая и внутренняя цена — в одной строке, как просил заказчик.
+        el('div', { class: 'hud__prices' }, [
+          el('div', { class: 'hud__price' }, [
+            el('span', { class: 'hud__price-label' }, texts.get('hud.worldPrice')),
+            row('worldPrice', '', 'hud__row-value--price').value,
+          ]),
+          el('div', { class: 'hud__price' }, [
+            el('span', { class: 'hud__price-label' }, texts.get('hud.domesticPrice')),
+            row('domesticPrice', '', 'hud__row-value--price').value,
+          ]),
+        ]),
+
         el('div', { class: 'hud__oil' }, [
           el('div', { class: 'hud__oil-head' }, [
             el('span', { class: 'hud__label' }, texts.get('hud.oil')),
@@ -96,19 +89,31 @@ export class Hud {
           ]),
           this.oilBar,
         ]),
-        el('div', { class: 'hud__rows' }, [
-          row('dailyRate', texts.get('hud.dailyRate'), 'hud__row-value--oil').root,
-          // Бригада молча удваивает пассив: без строки игрок не понимает, откуда рост.
-          row('autoDrill', texts.get('hud.autoDrill'), 'hud__row-value--crew').root,
-          row('perTap', texts.get('hud.perTap'), 'hud__row-value--oil').root,
-          // Мировая цена — строкой (без полосы в шапке), рядом цены продажи.
-          row('worldPrice', texts.get('hud.worldPrice'), 'hud__row-value--price').root,
-          row('pricePerTon', texts.get('hud.pricePerTon'), 'hud__row-value--price').root,
+
+        // Сырая нефть: добыча и куда она уходит.
+        el('div', { class: 'hud__section' }, [
+          el('span', { class: 'hud__section-title' }, texts.get('hud.crudeOil')),
+          el('div', { class: 'hud__rows hud__rows--single' }, [
+            row('produced', texts.get('hud.production'), 'hud__row-value--oil').root,
+            row('crudeDomestic', texts.get('hud.saleDomestic'), 'hud__row-value--sell').root,
+            row('crudeExport', texts.get('hud.saleExport'), 'hud__row-value--sell').root,
+            row('crudeRefine', texts.get('hud.toRefine'), 'hud__row-value--sell').root,
+          ]),
         ]),
-        el('div', { class: 'hud__sales' }, [
-          salesRow('refine', texts.get('sales.refine')),
-          salesRow('export', texts.get('sales.export')),
-          salesRow('contract', texts.get('sales.contract')),
+
+        // Нефтепродукты: сколько дают НПЗ и куда уходят.
+        el('div', { class: 'hud__section' }, [
+          el('span', { class: 'hud__section-title' }, texts.get('hud.products')),
+          el('div', { class: 'hud__rows hud__rows--single' }, [
+            row('productsOut', texts.get('hud.production'), 'hud__row-value--oil').root,
+            row('productsDomestic', texts.get('hud.saleDomestic'), 'hud__row-value--sell').root,
+            row('productsExport', texts.get('hud.saleExport'), 'hud__row-value--sell').root,
+          ]),
+        ]),
+
+        el('div', { class: 'hud__rows' }, [
+          row('perTap', texts.get('hud.perTap'), 'hud__row-value--oil').root,
+          row('autoDrill', texts.get('hud.autoDrill'), 'hud__row-value--crew').root,
         ]),
       ]),
 
@@ -138,31 +143,6 @@ export class Hud {
         ]),
       ]),
 
-      group('influence', '', [
-        el('div', { class: 'hud__influence' }, [
-          el('div', { class: 'hud__row' }, [
-            el('span', { class: 'hud__row-label' }, texts.get('hud.influence')),
-            this.influenceValue,
-          ]),
-          el('div', { class: 'hud__influence-track' }, [this.influenceFill]),
-        ]),
-      ]),
-
-      group('progress', '', [
-        el('div', { class: 'hud__progress' }, [
-          el('div', { class: 'hud__progress-head' }, [
-            el('span', { class: 'hud__progress-label' }, texts.get('hud.progress')),
-            this.progressValue,
-          ]),
-          el('div', {
-            class: 'hud__progress-track',
-            role: 'progressbar',
-            'aria-valuemin': 0,
-            'aria-valuemax': 100,
-          }, [this.progressFill]),
-        ]),
-      ]),
-
       el('div', { class: 'hud__chips' }, [this.tax]),
     ]);
 
@@ -185,7 +165,12 @@ export class Hud {
     return this.balanceNode;
   }
 
-  update(state: GameState, derived: DerivedStats, winCost: number): void {
+  /** Значение влияния и шкала: заказчик просил вынести их в шапку. */
+  get influence(): { value: HTMLElement; fill: HTMLElement } {
+    return { value: this.influenceValue, fill: this.influenceFill };
+  }
+
+  update(state: GameState, derived: DerivedStats): void {
     const money = formatMoney(state.coins, this.currency);
     if (money !== this.lastCoins) {
       this.balanceNode.textContent = money;
@@ -201,30 +186,54 @@ export class Hud {
 
     const units = (key: string, params: Record<string, string | number>) =>
       this.texts.get(`units.${key}`, params);
-    const tonnes = this.texts.get('units.tonnes');
+    const tonnes_ = this.texts.get('units.tonnes');
     const perSecond = this.texts.get('units.perSecond');
+    const tonnes = tonnes_;
 
     set('oil', units('oilInTank', {
       oil: formatNumber(state.oil),
       capacity: formatNumber(derived.oilCapacity),
       tonnes,
     }));
-    const daily = wellsDailyTonnes(state, this.config);
-    set('dailyRate', units('tonnesPerDay', { value: formatNumber(daily), tonnes }));
     set('wellsCount', String(state.wells.length));
+    // --- сырая нефть и нефтепродукты: всё в тоннах в секунду ---
+    const flows = derived.flows;
+    const rate = (value: number) => units('tonnesRate', {
+      value: formatNumber(value),
+      tonnes,
+      s: perSecond.replace('/', ''),
+    });
+    /**
+     * Строка сбыта в понятном виде: «сколько × по какой цене = сколько денег».
+     * Заказчик просил именно так: «экспорт 500 т/с × ₦4,44/т = ₦2220/с».
+     */
+    const sale = (tonnes: number, pricePerTon: number): string =>
+      this.texts.get('units.saleLine', {
+        tonnes: formatNumber(tonnes),
+        unit: tonnes_,
+        price: formatMoney(pricePerTon, this.currency),
+        money: formatMoney(tonnes * pricePerTon, this.currency),
+        s: perSecond.replace('/', ''),
+      });
+
+    set('produced', rate(flows.produced));
+    set('crudeDomestic', sale(flows.domestic, derived.channels.contract.price));
+    set('crudeExport', sale(flows.export, derived.channels.export.price));
+    // Переработка не продаёт сырьё, а превращает его в продукты.
+    set('crudeRefine', rate(flows.refined));
+    set('productsOut', rate(flows.productsProduced));
+    set('productsDomestic', sale(flows.productsDomestic, derived.productPriceDomestic));
+    set('productsExport', sale(flows.productsExport, derived.productPriceExport));
     set('gross', units('moneyRate', {
       value: formatMoney(derived.grossPerSecond, this.currency),
       s: perSecond.replace('/', ''),
     }));
-    // Налог показываем деньгами, а не процентом: прибыль = доходы − расходы.
-    set('taxPaid', units('minusRate', {
-      value: formatMoney(derived.taxPaidPerSecond, this.currency),
-      s: perSecond.replace('/', ''),
-    }));
-    // Разные цены: внутренняя (контракты) и экспортная — обычно выше.
-    set('pricePerTon', units('pricesPerTon', {
-      domestic: formatMoney(derived.domesticPricePerTon, this.currency),
-      export: formatMoney(derived.exportPricePerTon, this.currency),
+    // Налог — ставкой в процентах (просил заказчик), а рядом расшифровка
+    // деньгами в чипе под панелью: «Налог: 28 % · −₦23/с».
+    set('taxPaid', formatPercent(derived.taxRate));
+    // Внутренняя цена сырья — рядом с мировой (см. блок цен выше).
+    set('domesticPrice', units('pricePerTon', {
+      price: formatMoney(derived.domesticPricePerTon, this.currency),
       tonnes,
     }));
     const profitText = units('moneyRate', {
@@ -233,6 +242,13 @@ export class Hud {
     });
     if (this.profitValue.textContent !== profitText) this.profitValue.textContent = profitText;
     this.profitValue.dataset.negative = derived.profitPerSecond <= 0 ? '1' : '0';
+    // Влияние — в шапке: значение и шкала до потолка из конфига.
+    const influenceText = String(derived.influence);
+    if (this.influenceValue.textContent !== influenceText) {
+      this.influenceValue.textContent = influenceText;
+    }
+    const share = Math.min(1, derived.influence / Math.max(1, this.config.influence.cap));
+    this.influenceFill.style.width = `${(share * 100).toFixed(1)}%`;
     set('assets', formatMoney(derived.assetsValue, this.currency));
     set('assetsRefinery', String(derived.assetCounts.refinery));
     set('assetsDepot', String(derived.assetCounts.depot));
@@ -251,7 +267,11 @@ export class Hud {
       value: formatMoney(derived.officials, this.currency),
       s: perSecond.replace('/', ''),
     }));
-    this.tax.textContent = `${this.texts.get('hud.taxRate')}: ${formatPercent(derived.taxRate)}`;
+    this.tax.textContent = this.texts.get('hud.taxSummary', {
+      rate: formatPercent(derived.taxRate),
+      money: formatMoney(derived.taxPaidPerSecond, this.currency),
+      s: perSecond.replace('/', ''),
+    });
     set('capacity', units('tonnesValue', {
       value: formatNumber(derived.oilCapacity),
       tonnes,
@@ -261,45 +281,10 @@ export class Hud {
     this.oilFill.style.width = `${(fill * 100).toFixed(1)}%`;
     this.oilFill.dataset.level = fill > 0.97 ? 'full' : fill > 0.75 ? 'high' : 'ok';
 
-    /*
-     * Каналы показываем тем, что через них РЕАЛЬНО продаётся.
-     *
-     * Раньше выводилась пропускная способность: у безлимитных контрактов она
-     * огромная и ни о чём не говорит, а игрок читал «Контракты 5000 т/с»,
-     * хотя продавалось 9 т/с.
-     */
-    for (const key of ['contract', 'export', 'refine'] as const) {
-      const channel = derived.channels[key];
-      const node = this.channels[key];
-      const text = channel.rate > 0
-        ? units('tonnesRate', {
-            value: formatNumber(derived.salesByChannel[key]),
-            tonnes,
-            s: perSecond.replace('/', ''),
-          })
-        : this.texts.get('sales.locked');
-      if (node.textContent !== text) node.textContent = text;
-      node.dataset.active = channel.rate > 0 ? '1' : '0';
-    }
-
-    // Мировая цена в нефтефаниках за тонну: полосы больше нет, только строка.
+    // Мировая цена в нефтефаниках за тонну — рядом с внутренней.
     set('worldPrice', units('pricePerTon', {
       price: formatMoney(derived.oilPricePerTon, this.currency),
       tonnes,
     }));
-    const influenceShare = Math.min(1, derived.influence / 400);
-    this.influenceFill.style.width = `${(influenceShare * 100).toFixed(1)}%`;
-    const influenceText = String(derived.influence);
-    if (this.influenceValue.textContent !== influenceText) {
-      this.influenceValue.textContent = influenceText;
-    }
-
-    const progress = Math.min(1, winCost > 0 ? state.coins / winCost : 0);
-    this.progressFill.style.width = `${(progress * 100).toFixed(2)}%`;
-    this.progressValue.textContent = formatPercent(progress, 1);
-    this.progressFill.parentElement?.setAttribute(
-      'aria-valuenow',
-      String(Math.round(progress * 100)),
-    );
   }
 }

@@ -33,6 +33,8 @@ import { NewsFeed } from './ui/news';
 import { Finale } from './ui/finale';
 import { StartScreen } from './ui/start';
 import { Settings } from './ui/settings';
+import { Menu } from './ui/menu';
+import { Rules } from './ui/rules';
 import { DevMenu } from './ui/dev';
 import { Wealth } from './ui/wealth';
 import { OperationLog } from './ui/log';
@@ -63,6 +65,7 @@ function boot(): void {
 
   // ------------------------------------------------------------------ разметка
   const hud = new Hud(texts, currency, config);
+  const rules = new Rules(content, texts, currency, () => rules.hide());
   const news = new NewsFeed(texts, uiRng);
   const finale = new Finale(content, texts, currency, {
     onRestart: () => restart(),
@@ -144,59 +147,69 @@ function boot(): void {
     }, 2600);
   };
 
-  const topBar = el('div', { class: 'topbar' }, [
-    el('div', { class: 'topbar__brand' }, [
-      el('img', { src: image('logo.svg'), alt: texts.data.meta.title, width: 132, height: 66 }),
-    ]),
-    // Кошелёк в шапке: раньше здесь было пусто, а сумма занимала место в панели.
-    el('div', { class: 'topbar__wallet' }, [
-      el('span', { class: 'topbar__wallet-label' }, texts.get('hud.balance')),
-      hud.balance,
-    ]),
-    el('div', { class: 'topbar__actions' }, [
-      button('sound', () => {
+  /**
+   * Меню шапки: одна иконка вместо пяти кнопок.
+   *
+   * Внутри — то же, что раньше висело в шапке (звук, роскошь, статистика,
+   * настройки, инженерное меню), плюс новые «Правила игры» с описанием
+   * экономики. Место в шапке дорогое: там теперь живут деньги и влияние.
+   */
+  const menuButton = el('button', {
+    class: 'iconbtn iconbtn--menu',
+    type: 'button',
+    'aria-label': texts.get('menu.title'),
+    'aria-haspopup': 'menu',
+    'aria-expanded': 'false',
+  }, [el('span', { class: 'iconbtn__icon', 'aria-hidden': 'true' }, '☰')]);
+
+  const menu = new Menu(texts, [
+    { id: 'rules', icon: '📖', label: texts.get('menu.rules'), onSelect: () => rules.open() },
+    {
+      id: 'sound',
+      icon: '🔊',
+      label: texts.get('menu.sound'),
+      onSelect: () => {
         const next = !game.state.soundOn;
         sound.setEnabled(next);
         game.setSound(next);
         settings.setSound(next);
         if (next) sound.unlock();
         save();
-        updateSoundButton();
-      }),
-      button('wealth', () => wealth.open()),
-      button('stats', () => finale.visible ? undefined : toggleStats()),
-      button('dev', () => dev.open(state.coins)),
-      button('settings', () => settings.open()),
-    ]),
+      },
+      isOn: () => game.state.soundOn,
+    },
+    { id: 'wealth', icon: '💎', label: texts.get('panel.wealth'), onSelect: () => wealth.open() },
+    {
+      id: 'stats',
+      icon: '📊',
+      label: texts.get('panel.stats'),
+      onSelect: () => toggleStats(),
+    },
+    { id: 'dev', icon: '🛠', label: texts.get('panel.dev'), onSelect: () => dev.open(state.coins) },
+    { id: 'settings', icon: '⚙️', label: texts.get('panel.settings'), onSelect: () => settings.open() },
   ]);
+  menuButton.addEventListener('click', () => menu.toggle(menuButton));
 
-  function button(
-    kind: 'sound' | 'wealth' | 'stats' | 'settings' | 'dev',
-    handler: () => void,
-  ): HTMLButtonElement {
-    const node = el('button', {
-      class: `iconbtn iconbtn--${kind}`,
-      type: 'button',
-      'aria-label': texts.get(`panel.${kind === 'sound' ? 'settings' : kind}`),
-      'data-kind': kind,
-    });
-    node.append(el('span', { class: 'iconbtn__icon', 'aria-hidden': 'true' }, iconText(kind)));
-    node.addEventListener('click', handler);
-    return node;
-  }
-
-  function iconText(kind: 'sound' | 'wealth' | 'stats' | 'settings' | 'dev'): string {
-    // Иконки — обычные юникод-символы: файлов не нужно, масштабируется без потерь.
-    return { sound: '🔊', wealth: '💎', stats: '📊', settings: '⚙️', dev: '🛠' }[kind];
-  }
-
-  function updateSoundButton(): void {
-    const node = topBar.querySelector<HTMLButtonElement>('.iconbtn--sound');
-    if (!node) return;
-    const icon = node.querySelector('.iconbtn__icon');
-    if (icon) icon.textContent = game.state.soundOn ? '🔊' : '🔇';
-    node.setAttribute('aria-pressed', String(game.state.soundOn));
-  }
+  const topBar = el('div', { class: 'topbar' }, [
+    el('div', { class: 'topbar__brand' }, [
+      el('img', { src: image('logo.svg'), alt: texts.data.meta.title, width: 132, height: 66 }),
+    ]),
+    // Кошелёк и влияние — рядом, в одной «витрине» шапки.
+    el('div', { class: 'topbar__wallet' }, [
+      el('div', { class: 'topbar__stat' }, [
+        el('span', { class: 'topbar__wallet-label' }, texts.get('hud.balance')),
+        hud.balance,
+      ]),
+      el('div', { class: 'topbar__stat topbar__stat--influence' }, [
+        el('span', { class: 'topbar__wallet-label' }, texts.get('hud.influence')),
+        el('div', { class: 'topbar__influence' }, [
+          hud.influence.value,
+          el('div', { class: 'topbar__influence-track' }, [hud.influence.fill]),
+        ]),
+      ]),
+    ]),
+    el('div', { class: 'topbar__actions' }, [menuButton]),
+  ]);
 
   const stage = el('main', { class: 'stage' }, [
     // Левый, широкий столбец — только магазин со вкладками (он же прокручивается).
@@ -215,11 +228,12 @@ function boot(): void {
   app.append(
     el('div', { class: 'screen' }, [topBar, stage, newsBar]),
     settings.root,
+    rules.root,
     dev.root,
     wealth.root,
     finale.root,
+    menu.root,
   );
-  updateSoundButton();
   settings.setSound(game.state.soundOn);
   settings.setParticles(game.state.particlesOn);
   effects.setEnabled(game.state.particlesOn);
@@ -278,7 +292,6 @@ function boot(): void {
     (game as unknown as { rng: Rng }).rng = new Rng(next.rngSeed);
     (game as unknown as { derivedCache: unknown }).derivedCache = null;
     shop.setTab(shop.activeTab);
-    updateSoundButton();
     refreshUi(true);
   }
 
@@ -470,7 +483,7 @@ function boot(): void {
   let lastWinShown = false;
   function refreshUi(forceShop: boolean): void {
     const derived = game.derived();
-    hud.update(game.state, derived, derived.winCost);
+    hud.update(game.state, derived);
     oplog.update(game.state.log);
     shop.update();
     void forceShop;
