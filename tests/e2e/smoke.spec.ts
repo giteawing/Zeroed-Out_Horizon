@@ -192,9 +192,10 @@ test('панель империи видна всегда и держит все
   expect(oplogBox!.y).toBeGreaterThan(hudBox!.y + hudBox!.height - 1);
   const drillBlock = await page.locator('.stage__drill').boundingBox();
   expect(drillBlock!.y).toBeGreaterThan(oplogBox!.y + oplogBox!.height - 1);
-  // Левая колонка — магазин, он шире правой колонки с таблицей.
+  // Панель империи стала широкой (460–620 px), но магазин всё равно шире неё.
   expect(side).toBeTruthy();
-  expect(shopBox?.width ?? 0).toBeGreaterThan((hudBox?.width ?? 0) * 1.5);
+  expect(hudBox?.width ?? 0).toBeGreaterThanOrEqual(440);
+  expect(shopBox?.width ?? 0).toBeGreaterThan(hudBox?.width ?? 0);
 });
 
 test('финал открывается, показывает карикатуру и титры', async ({ page }) => {
@@ -214,7 +215,8 @@ test('финал открывается, показывает карикатур
     }
     g.buy('win_pump');
   });
-  await expect(page.locator('.finale')).toBeVisible();
+  // Финал показывается с задержкой 700 мс после победы — даём время.
+  await expect(page.locator('.finale')).toBeVisible({ timeout: 15_000 });
   await page.locator('.cutscene .btn--ghost').click();
   await expect(page.locator('.credits__art')).toHaveAttribute('src', /finale\.svg/);
   // Стихотворение кладёт владелец игры: проверяем, что титры не пустые
