@@ -18,6 +18,7 @@
  */
 import type {
   AssetKind,
+  ExportMode,
   Channel,
   ChannelRate,
   Content,
@@ -28,6 +29,16 @@ import type {
   ReprivatizationPrize,
   UpgradeDef,
 } from './types';
+
+/**
+ * Способ доставки экспортной постройки: `effect.exportMode` из контента.
+ *
+ * Данные, а не догадки по названию: переименование карточки не должно
+ * менять экономику. Если поле не задано — считаем морским экспортом.
+ */
+export function exportModeOf(def: UpgradeDef): ExportMode {
+  return def.effect.exportMode ?? 'tanker';
+}
 
 export interface TaxBuff {
   id: string;
@@ -134,7 +145,25 @@ export function oilCapacityOf(config: GameConfig, content: Content | null, state
   let capacity = config.oil.baseCapacity;
   if (content) {
     for (const def of content.upgrades) {
-      if (def.type !== 'storage') continue;
+      // Нефтебазы хранят нефтепродукты, а не сырую нефть: у них storage='products'.
+      if (def.type !== 'storage' || def.storage === 'products') continue;
+      const level = levelOf(state, def.id);
+      if (level > 0) capacity += (def.effect.value ?? 0) * level;
+    }
+  }
+  return capacity;
+}
+
+/** Ёмкость хранилищ нефтепродуктов: её задают нефтебазы. */
+export function productCapacityOf(
+  config: GameConfig,
+  content: Content | null,
+  state: GameState,
+): number {
+  let capacity = config.product.baseStorage;
+  if (content) {
+    for (const def of content.upgrades) {
+      if (def.type !== 'storage' || def.storage !== 'products') continue;
       const level = levelOf(state, def.id);
       if (level > 0) capacity += (def.effect.value ?? 0) * level;
     }
@@ -355,6 +384,15 @@ export function computeDerived(
 
   const rateFlat: Record<Channel, number> = { contract: 0, export: 0, refine: 0 };
   const priceBonus: Record<Channel, number> = { contract: 0, export: 0, refine: 0 };
+  /*
+   * Мощность экспорта по видам транспорта. Заказчик хотел видеть, сколько
+   * нефти уходит поездами, сколько танкерами, а сколько — по трубопроводу:
+   * это не украшение, а разные постройки, и каждая должна быть видна.
+   *   pipeline — трубопроводы (t_pipeline, «Чёрная змея», труба по дну);
+   *   rail     — цистерны и поезда (x_cistern);
+   *   tanker   — терминалы, танкеры и флот (t_terminal, x_tanker, x_fleet).
+   */
+  const exportRateByMode: Record<ExportMode, number> = { pipeline: 0, rail: 0, tanker: 0 };
 
   for (const def of upgrades) {
     const level = levelOf(state, def.id);
@@ -393,6 +431,10 @@ export function computeDerived(
       case 'sell': {
         const channel = e.channel ?? 'contract';
         if (e.value) rateFlat[channel] += e.value * level;
+        // Экспортные постройки дополнительно разносятся по способу доставки.
+        if (channel === 'export' && e.value) {
+          exportRateByMode[exportModeOf(def)] += e.value * level;
+        }
         if (e.percent) priceBonus[channel] += (e.percent / 100) * level;
         if (e.costCut) costCutFraction += e.costCut * level;
         break;
@@ -473,19 +515,26 @@ export function computeDerived(
    *
    * Добыча идёт в резервуары и копится там `shipDays` суток (по требованию
    * заказчика — 5 суток), после чего партия распределяется так:
-   *   1) внутренний рынок  — берёт сколько может (канал безлимитный);
-   *   2) экспорт сырья     — только если есть трубы/терминалы;
-   *   3) переработка (НПЗ) — забирает всё, что осталось, но не больше мощности.
+   *   1) экспорт сырья     — дороже всего, забирает первым (трубы, поезда,
+   *                          танкеры); если есть трубопровод, нефть уходит
+   *                          по нему сразу и в резервуарах не лежит;
+   *   2) переработка (НПЗ) — забирает остаток, но не больше своей мощности;
+   *   3) внутренний рынок  — берёт всё, что осталось, по низкой цене.
    * Из переработки выходят нефтепродукты (`refineryYield`), которые
    * продаются внутри и на экспорт по своим, более высоким ценам.
    *
-   * Так таблица сходится: добыча = внутренний + экспорт + переработка,
+   * Порядок именно такой: раньше первым стоял дешёвый внутренний рынок, он
+   * съедал всю добычу, и экспортные постройки показывали «0 т/с» — они не
+   * получали ни тонны, хотя игрок за них заплатил.
+   *
+   * Так таблица сходится: добыча = экспорт + переработка + внутренний рынок,
    * переработка = продукты внутри + продукты на экспорт.
    */
   const producedPerSecond = oilPerSecond + tapValue * autoTaps;
   const product = config.product;
   const capacities = {
-    // Внутренний рынок сырья: контракты и тресты.
+    // Внутренний рынок сырья: контракты и тресты. Он забирает ОСТАТОК —
+    // экспорт дороже, поэтому трубы и танкеры должны получать нефть первыми.
     domestic: channels.contract.rate,
     // Экспорт: трубы и терминалы делят мощность между сырьём и продуктами.
     export: channels.export.rate * product.transportSplit.crude,
@@ -501,7 +550,42 @@ export function computeDerived(
    * внутренний рынок берёт всё, что ему дают, — поэтому overflow (backlog)
    * в норме нулевой.
    */
-  const flows = oilFlowsOf(config, capacities, producedPerSecond);
+  /*
+   * Экспорт отдаёт нефть по видам транспорта, а не одной кучей: так панель
+   * показывает, сколько ушло по трубе, сколько поездами и сколько танкерами.
+   * Доли считаются от общей мощности экспорта, чтобы труба, отмеченная
+   * признаком bypassTanks, не потерялась при округлениях.
+   */
+  const pipelineShare = channels.export.rate > 0
+    ? exportRateByMode.pipeline / channels.export.rate
+    : 0;
+  const hasPipeline = exportRateByMode.pipeline > 0;
+  /*
+   * Мощности по видам транспорта для панели. Общая мощность экспорта может
+   * расти от терминалов (exportMultiplier), а сумма видов должна сойтись с
+   * ней: поэтому масштабируем доли, а не берём «сырые» числа.
+   */
+  const rawModes = Math.max(1e-9,
+    exportRateByMode.pipeline + exportRateByMode.rail + exportRateByMode.tanker);
+  const modeScale = channels.export.rate / rawModes;
+  const exportCapacityByMode: Record<ExportMode, number> = {
+    pipeline: exportRateByMode.pipeline * modeScale,
+    rail: exportRateByMode.rail * modeScale,
+    tanker: exportRateByMode.tanker * modeScale,
+  };
+  // Нефтебазы хранят нефтепродукты: ёмкость считается отдельно от резервуаров.
+  const productStorage = content
+    ? productCapacityOf(config, content, state)
+    : config.product.baseStorage;
+  const flows = oilFlowsOf(config, capacities, producedPerSecond, {
+    pipeline: pipelineShare,
+    productStorage,
+    modeShares: {
+      pipeline: exportCapacityByMode.pipeline,
+      rail: exportCapacityByMode.rail,
+      tanker: exportCapacityByMode.tanker,
+    },
+  });
   const productPriceDomestic = oilPricePerTon * product.domesticPriceFactor;
   const productPriceExport = oilPricePerTon * product.exportPriceFactor;
   const grossPerSecond =
@@ -575,6 +659,9 @@ export function computeDerived(
       refine: flows.refined,
     },
     flows,
+    exportCapacityByMode,
+    hasPipeline,
+    productCapacity: productStorage,
     capacities,
     productPriceDomestic,
     productPriceExport,
@@ -719,19 +806,36 @@ export function oilFlowsOf(
     productExport: number;
   },
   produced: number,
+  /** Доля экспорта, идущая по трубопроводу, и ёмкость нефтебаз. */
+  options: {
+    pipeline?: number;
+    productStorage?: number;
+    modeShares?: Record<ExportMode, number>;
+  } = {},
 ): OilFlows {
   const total = Math.max(0, produced);
   const safe = (value: number): number =>
     Number.isFinite(value) ? Math.max(0, value) : Number.MAX_SAFE_INTEGER;
 
-  const domestic = Math.min(total, safe(capacities.domestic));
-  let rest = total - domestic;
-
-  const exportTonnes = Math.min(rest, safe(capacities.export));
-  rest -= exportTonnes;
+  /*
+   * Порядок: экспорт → переработка → внутренний рынок.
+   *
+   * Экспорт дороже внутреннего рынка, поэтому он забирает нефть первым;
+   * внутренний рынок безлимитный и берёт то, что осталось. Раньше порядок
+   * был обратный, и безлимитный внутренний рынок съедал всю добычу —
+   * экспортные постройки не получали ни тонны и показывали «0 т/с».
+   */
+  const exportTonnes = Math.min(total, safe(capacities.export));
+  let rest = total - exportTonnes;
 
   const refined = Math.min(rest, safe(capacities.refine));
   rest -= refined;
+
+  const domestic = Math.min(rest, safe(capacities.domestic));
+  rest -= domestic;
+  // Остаток — это не «пропащая» нефть, а та, что легла в резервуары.
+  const stored = rest;
+  rest = 0;
 
   const productsProduced = refined * config.oil.refineryYield;
   const productsDomestic = Math.min(productsProduced, safe(capacities.productDomestic));
@@ -740,20 +844,43 @@ export function oilFlowsOf(
     safe(capacities.productExport),
   );
 
+  /*
+   * Разбивка экспорта по видам транспорта. Доли берём из фактических
+   * мощностей построек (труба, поезда, танкеры), поэтому сумма всегда равна
+   * exportTonnes, а строки в панели сходятся с общим экспортом.
+   */
+  const shares = options.modeShares;
+  const shareSum = shares
+    ? Math.max(1e-9, shares.pipeline + shares.rail + shares.tanker)
+    : 0;
+  const exportByMode: Record<ExportMode, number> = shares && shareSum > 1
+    ? {
+      pipeline: exportTonnes * (shares.pipeline / shareSum),
+      rail: exportTonnes * (shares.rail / shareSum),
+      tanker: exportTonnes * (shares.tanker / shareSum),
+    }
+    : {
+      pipeline: exportTonnes * Math.max(0, Math.min(1, options.pipeline ?? 0)),
+      rail: 0,
+      tanker: 0,
+    };
+
   return {
     produced: total,
     domestic,
     export: exportTonnes,
+    exportByMode,
+    stored,
     refined,
     productsProduced,
     productsDomestic,
     productsExport,
     // Остаток остаётся в резервуарах: его видно игроку, он не «сгорает».
-    backlog: rest,
+    backlog: stored,
     refineCapacity: safe(capacities.refine),
     domesticCapacity: safe(capacities.domestic),
     exportCapacity: safe(capacities.export),
-    productCapacity: Math.max(0, config.product.baseStorage),
+    productCapacity: Math.max(0, options.productStorage ?? config.product.baseStorage),
   };
 }
 
@@ -789,12 +916,14 @@ export function allocateBatch(
   const limit = (value: number): number =>
     Number.isFinite(value) ? Math.max(0, value) * span : Number.MAX_SAFE_INTEGER;
 
-  const domestic = Math.min(batch, limit(capacities.domestic));
-  let left = batch - domestic;
-  const exported = Math.min(left, limit(capacities.export));
-  left -= exported;
+  // Тот же порядок, что и в таблице: экспорт → переработка → внутренний рынок.
+  // Иначе экран показывал бы одну раскладку, а деньги считались по другой.
+  const exported = Math.min(batch, limit(capacities.export));
+  let left = batch - exported;
   const refined = Math.min(left, limit(capacities.refine));
   left -= refined;
+  const domestic = Math.min(left, limit(capacities.domestic));
+  left -= domestic;
 
   const products = refined * config.oil.refineryYield;
   const productsDomestic = Math.min(products, Math.max(0, capacities.productDomestic));

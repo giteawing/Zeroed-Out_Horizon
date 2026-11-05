@@ -296,6 +296,23 @@ describe('экономика во времени', () => {
     expect(diff / Math.max(1, s1.coins)).toBeLessThan(0.2);
   });
 
+  it('трубопровод продаёт нефть сразу, минуя резервуары', () => {
+    const { game, state } = setup();
+    for (const id of config.oil.autoDrill.requires) state.levels[id] = 1;
+    state.wells = [{ kind: 'good', dailyTonnes: 60 }];
+    state.levels['t_pipeline'] = 2;
+    state.coins = 0;
+    state.oil = 0;
+    game.update(1000);
+    const derived = game.derived();
+    // Добыча ушла в трубу: в резервуарах пусто, деньги пришли сразу.
+    expect(derived.hasPipeline).toBe(true);
+    expect(state.oil).toBeLessThan(derived.oilPerSecond);
+    expect(state.coins).toBeGreaterThan(0);
+    // И та же нефть не продаётся второй раз из резервуаров.
+    expect(state.oil).toBeCloseTo(0, 6);
+  });
+
   it('мировая цена нефти остаётся в коридоре 0.7–1.3', () => {
     const { game, state } = setup();
     for (let i = 0; i < 600; i++) game.update(1000);

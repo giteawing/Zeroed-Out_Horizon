@@ -127,6 +127,7 @@ export class Rules {
           unit: tonnes,
         }),
         t('rules.storageOverflow', {}),
+        t('rules.pipelineText', {}),
       ]),
 
       this.section('rules.channelsTitle', [

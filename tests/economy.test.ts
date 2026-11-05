@@ -368,9 +368,66 @@ describe('товарная модель: сырая нефть → нефтеп�
     const plan = allocateBatch(config, capacities, 500, 1);
     expect(plan.domestic + plan.export + plan.refined + plan.rest).toBeCloseTo(500, 6);
     expect(plan.rest).toBeGreaterThan(0); // мощностей не хватило — осталось в резервуарах
+    // Малая партия уходит в самые дорогие каналы: экспорт (80), потом НПЗ (50),
+    // и только остаток — на дешёвый внутренний рынок.
     const small = allocateBatch(config, capacities, 50, 1);
     expect(small.rest).toBe(0);
-    expect(small.domestic).toBeCloseTo(50, 6);
+    expect(small.export).toBeCloseTo(50, 6);
+    expect(small.domestic).toBe(0);
+    // А когда экспорт и НПЗ заняты, внутренний рынок забирает остаток.
+    const rest = allocateBatch(config, capacities, 200, 1);
+    expect(rest.export).toBeCloseTo(80, 6);
+    expect(rest.refined).toBeCloseTo(50, 6);
+    expect(rest.domestic).toBeCloseTo(70, 6);
+  });
+
+  it('экспорт забирает нефть первым и делится по видам транспорта', () => {
+    // Заказчик купил экспортные карточки, а в панели стояло «0 т/с»:
+    // безлимитный внутренний рынок съедал всю добычу раньше экспорта.
+    const state = createInitialState(config, 64);
+    state.wells = [{ kind: 'good', dailyTonnes: 60 }];
+    state.levels = { t_pipeline: 2, x_cistern: 2, x_tanker: 2 };
+    const d = computeDerived(config, content.upgrades, state, [], content);
+
+    expect(d.capacities.export).toBeGreaterThan(0);
+    // Вся добыча уходит в экспорт: он дороже, а внутренний рынок — остаток.
+    expect(d.flows.export).toBeCloseTo(d.flows.produced, 6);
+    expect(d.flows.domestic).toBe(0);
+    // Разбивка по транспорту сходится с общим экспортом.
+    const byMode = d.flows.exportByMode;
+    expect(byMode.pipeline + byMode.rail + byMode.tanker).toBeCloseTo(d.flows.export, 6);
+    expect(byMode.pipeline).toBeGreaterThan(0); // труба есть
+    expect(byMode.rail).toBeGreaterThan(0); // цистерны есть
+    expect(byMode.tanker).toBeGreaterThan(0); // танкеры есть
+    expect(d.hasPipeline).toBe(true);
+  });
+
+  it('без трубопровода нефть копится в резервуарах, с трубой — сразу продаётся', () => {
+    const state = createInitialState(config, 65);
+    state.wells = [{ kind: 'good', dailyTonnes: 60 }];
+    // Экспорт есть (цистерны), но трубы нет: партия ждёт отправки.
+    state.levels = { x_cistern: 2 };
+    const noPipe = computeDerived(config, content.upgrades, state, [], content);
+    expect(noPipe.hasPipeline).toBe(false);
+    expect(noPipe.exportCapacityByMode.pipeline).toBe(0);
+
+    state.levels['t_pipeline'] = 1;
+    const withPipe = computeDerived(config, content.upgrades, state, [], content);
+    expect(withPipe.hasPipeline).toBe(true);
+    expect(withPipe.exportCapacityByMode.pipeline).toBeGreaterThan(0);
+  });
+
+  it('нефтебаза хранит нефтепродукты, а не сырую нефть', () => {
+    const state = createInitialState(config, 66);
+    state.levels = { t_tank: 2 };
+    const before = computeDerived(config, content.upgrades, state, [], content);
+    state.levels['t_depot'] = 3;
+    const after = computeDerived(config, content.upgrades, state, [], content);
+    // Ёмкость под сырую нефть не изменилась...
+    expect(after.oilCapacity).toBe(before.oilCapacity);
+    // ...а ёмкость нефтебаз под продукты выросла.
+    expect(after.productCapacity).toBeGreaterThan(before.productCapacity);
+    expect(after.flows.productCapacity).toBe(after.productCapacity);
   });
 
   it('цена канала в панели — та же, что в расчёте денег', () => {

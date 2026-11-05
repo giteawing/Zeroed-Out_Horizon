@@ -42,6 +42,7 @@
       "description": "Резервуарный парк. Больше ёмкость — больше нефти можно накопить и продать в удачный момент.",
       "icon": "depot",
       "type": "storage",
+      "storage": "products",
       "baseCost": 40000000,
       "maxLevel": 29,
       "effect": {
@@ -86,7 +87,8 @@
       "maxLevel": 45,
       "effect": {
         "channel": "export",
-        "value": 16200
+        "value": 16200,
+        "exportMode": "pipeline"
       },
       "unlockAt": {
         "balance": 15000
@@ -107,7 +109,8 @@
       "effect": {
         "channel": "export",
         "value": 43200,
-        "exportBonus": 0.15
+        "exportBonus": 0.15,
+        "exportMode": "tanker"
       },
       "unlockAt": {
         "balance": 80000
@@ -1941,7 +1944,7 @@
       "description": "Полный контроль над всей империей. Качает всё: нефть, бюджет, горизонт и соседей.",
       "icon": "win-pump",
       "type": "win",
-      "baseCost": 5800000000,
+      "baseCost": 25000000000,
       "maxLevel": 1,
       "win": true,
       "tag": "strict",
@@ -1952,13 +1955,13 @@
       "tab": "technical",
       "group": "infrastructure",
       "name": "Прицепить цистерну",
-      "description": "Старая цистерна на телеге: немного, зато сразу.",
+      "description": "Старая цистерна на телеге. Ёмкость сразу заметная: место под нефть кончается быстро.",
       "icon": "depot",
       "type": "storage",
       "baseCost": 320,
       "maxLevel": 20,
       "effect": {
-        "value": 150
+        "value": 2000
       },
       "unlockAt": {
         "balance": 900
@@ -1969,14 +1972,14 @@
       "id": "t_tank",
       "tab": "technical",
       "group": "infrastructure",
-      "name": "Поставить резервуар на 5 тысяч тонн",
-      "description": "Клёпаный резервуар. Нефть больше не льётся через край.",
+      "name": "Поставить клёпаный резервуар",
+      "description": "Клёпаный резервуар на двадцать тысяч тонн. Нефть больше не льётся через край.",
       "icon": "depot",
       "type": "storage",
       "baseCost": 24000,
       "maxLevel": 24,
       "effect": {
-        "value": 2500
+        "value": 20000
       },
       "unlockAt": {
         "balance": 60000
@@ -2135,7 +2138,8 @@
       "effect": {
         "channel": "export",
         "value": 1440,
-        "percent": 8
+        "percent": 8,
+        "exportMode": "rail"
       },
       "unlockAt": {
         "balance": 90000
@@ -2155,7 +2159,8 @@
       "effect": {
         "channel": "export",
         "value": 4800,
-        "percent": 10
+        "percent": 10,
+        "exportMode": "tanker"
       },
       "unlockAt": {
         "balance": 5000000
@@ -2175,7 +2180,8 @@
       "effect": {
         "channel": "export",
         "value": 14400,
-        "percent": 14
+        "percent": 14,
+        "exportMode": "pipeline"
       },
       "unlockAt": {
         "balance": 20000000
@@ -2195,7 +2201,8 @@
       "effect": {
         "channel": "export",
         "value": 43200,
-        "percent": 18
+        "percent": 18,
+        "exportMode": "tanker"
       },
       "unlockAt": {
         "balance": 600000000
@@ -2215,7 +2222,8 @@
       "effect": {
         "channel": "export",
         "value": 124800,
-        "percent": 22
+        "percent": 22,
+        "exportMode": "tanker"
       },
       "unlockAt": {
         "balance": 12000000000

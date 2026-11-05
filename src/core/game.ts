@@ -152,6 +152,28 @@ export class Game {
   }
 
   /**
+   * Продать нефть напрямую через трубопровод, минуя резервуары.
+   *
+   * Труба — это не «ещё один канал в общем сбыте», а прямое подключение к
+   * экспорту: пока в ней есть свободная мощность, нефть уходит сразу, и
+   * резервуары для неё не нужны. Возвращает, сколько тонн ушло по трубе,
+   * чтобы остаток лёг в резервуары.
+   */
+  private directExport(derived: DerivedStats, tonnes: number, dtSeconds: number): number {
+    if (!derived.hasPipeline || tonnes <= 0) return 0;
+    const price = derived.channels.export.price;
+    if (!(price > 0)) return 0;
+    const room = derived.exportCapacityByMode.pipeline * dtSeconds;
+    const viaPipe = Math.min(tonnes, room);
+    if (viaPipe <= 0) return 0;
+    this.state.totalSold += viaPipe;
+    this.salesAccum += viaPipe;
+    // Деньги сразу: налог и расходы спишутся в общем порядке в конце шага.
+    this.grantCoins(viaPipe * price);
+    return viaPipe;
+  }
+
+  /**
    * Долить нефть в резервуары.
    *
    * Нефть копится `shipDays` суток, поэтому резервуары должны вмещать
@@ -542,6 +564,9 @@ export class Game {
     }
   }
 
+  /** Сколько тонн труба уже забрала с прошлой отправки партии. */
+  private pipeSinceShip = 0;
+
   private step(dtMs: number): void {
     this.state.playtimeMs += dtMs;
     if (this.state.won) return;
@@ -552,8 +577,16 @@ export class Game {
     const dtSeconds = dtMs / 1000;
     const derived = this.derived();
 
-    // 1. Добыча: персонал качает нефть в резервуары.
-    if (derived.oilPerSecond > 0) this.addOil(derived.oilPerSecond * dtSeconds);
+    // 1. Добыча. Если есть трубопровод, он забирает нефть сразу и она уходит
+    //    на экспорт, минуя резервуары: качать в бак, из которого труба тут же
+    //    вычерпывает, бессмысленно. В резервуары попадает только то, что
+    //    труба не унесла.
+    if (derived.oilPerSecond > 0) {
+      const pumped = derived.oilPerSecond * dtSeconds;
+      const viaPipe = this.directExport(derived, pumped, dtSeconds);
+      this.pipeSinceShip += viaPipe;
+      this.addOil(pumped - viaPipe);
+    }
 
     // 2. Отправка партии: раз в `shipDays` суток накопленная нефть уезжает
     //    на внутренний рынок, экспорт и переработку, а продукты — на продажу.
@@ -611,9 +644,26 @@ export class Game {
     if (this.state.shipTimerMs < periodMs && !full) return 0;
     this.state.shipTimerMs = 0;
 
+    /*
+     * Труба уже продала часть нефти напрямую, пока партия копилась. Её
+     * мощность за этот период уже использована, поэтому партии остаётся
+     * только то, что труба не успела унести. Иначе один и тот же
+     * трубопровод продавал бы нефть дважды: сразу и ещё раз из резервуаров.
+     */
+    const periodSeconds = periodMs / 1000;
+    // Мощность экспорта, которую труба уже израсходовала за этот период,
+    // пересчитываем в тонны в секунду — в таком виде её ждёт allocateBatch.
+    const pipeUsedPerSecond = this.pipeSinceShip / Math.max(1e-9, periodSeconds);
+    const exportCapacity = Math.max(0, derived.capacities.export - pipeUsedPerSecond);
+    this.pipeSinceShip = 0;
+
     // Партия больше, чем «одна секунда потоков», — в `shipBatch` разбиваем
     // её по секциям, чтобы ни один канал не получил больше своей мощности.
-    return this.shipBatch(batch, derived, periodMs / 1000);
+    return this.shipBatch(
+      batch,
+      { ...derived, capacities: { ...derived.capacities, export: exportCapacity } },
+      periodSeconds,
+    );
   }
 
   /** Распределить партию по каналам и превратить её в деньги. */
@@ -633,10 +683,11 @@ export class Game {
     this.state.totalSold += soldCrude;
     this.salesAccum += soldCrude;
     // Что не ушло с партией (нет мощностей) остаётся на нефтебазах.
-    this.state.products = Math.max(
-      0,
-      this.state.products + plan.products - plan.productsDomestic - plan.productsExport,
-    );
+    // Нефтепродукты лежат на нефтебазах; сверх ёмкости — продаются сразу
+    // внутри страны, как и переполнение резервуаров с сырьём.
+    const productsNow = this.state.products - plan.productsDomestic - plan.productsExport + plan.products;
+    const productRoom = this.derived().productCapacity;
+    this.state.products = Math.max(0, Math.min(productsNow, productRoom));
 
     if (soldCrude > 0 && this.state.clockMs - this.lastSaleLogMs >= 3000) {
       this.lastSaleLogMs = this.state.clockMs;
