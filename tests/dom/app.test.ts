@@ -26,11 +26,34 @@ const flush = async (): Promise<void> => {
   await new Promise((resolve) => setTimeout(resolve, 0));
 };
 
-/** Дождаться пары кадров: интерфейс обновляется в requestAnimationFrame. */
-const nextFrame = async (): Promise<void> => {
-  // happy-dom прокручивает requestAnimationFrame не чаще ~4 раз в секунду,
-  // поэтому ждём с запасом — так тест не зависит от частоты кадров.
-  await new Promise((resolve) => setTimeout(resolve, 320));
+/**
+ * Дождаться условия, а не «магической» паузы.
+ *
+ * Интерфейс обновляется в requestAnimationFrame, а happy-dom прокручивает
+ * кадры неравномерно: на загруженном CI фиксированные 320 мс иногда не
+ * хватали, и тест мигал. Ждём появления элемента столько, сколько нужно,
+ * с честным таймаутом.
+ */
+const waitFor = async (
+  condition: () => boolean,
+  timeoutMs = 5000,
+): Promise<void> => {
+  const started = Date.now();
+  while (!condition()) {
+    if (Date.now() - started > timeoutMs) {
+      throw new Error('условие не выполнилось за отведённое время');
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+};
+
+/** Дождаться, пока запрос кадра реально обновит интерфейс. */
+const nextFrame = async (condition?: () => boolean): Promise<void> => {
+  if (condition) {
+    await waitFor(condition);
+    return;
+  }
+  await new Promise((resolve) => setTimeout(resolve, 120));
 };
 
 let game: import('../../src/core/game').Game;
@@ -61,7 +84,7 @@ describe('стартовый экран', () => {
     await flush();
     // Экран уезжает с анимацией, поэтому сначала проверяем класс, потом удаление.
     expect(document.querySelector('.start')?.classList.contains('start--hidden')).toBe(true);
-    await new Promise((resolve) => setTimeout(resolve, 480));
+    await waitFor(() => document.querySelector('.start') === null);
     expect(document.querySelector('.start')).toBeNull();
     expect(document.querySelector('.hud')).not.toBeNull();
     expect(document.querySelector('.shop')).not.toBeNull();
@@ -150,11 +173,12 @@ describe('HUD', () => {
       stage?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 9 }));
     }
     await flush();
-    // Ждём кадр, чтобы интерфейс перерисовался.
-    await nextFrame();
-    // После тапов в панели появляется значение нефти в тоннах.
-    const values = [...document.querySelectorAll('.hud__row-value')].map((n) => n.textContent ?? '');
-    expect(values.some((v) => v.includes('т'))).toBe(true);
+    // Ждём, пока интерфейс перерисуется после тапов, а не фиксированный кадр.
+    await waitFor(() => {
+      const values = [...document.querySelectorAll('.hud__row-value')]
+        .map((n) => n.textContent ?? '');
+      return values.some((v) => v.includes('т') && /[1-9]/.test(v));
+    });
   });
 });
 
@@ -187,7 +211,7 @@ describe('магазин', () => {
     // Дадим денег и перерисуем карточки.
     game.state.coins = 1e6;
     game.state.totalEarned = 1e6;
-    await nextFrame();
+    await waitFor(() => document.querySelector('.card__buy:not([disabled])') !== null);
     const buy = document.querySelector<HTMLButtonElement>('.card__buy:not([disabled])');
     expect(buy).not.toBeNull();
     const purchasesBefore = game.state.totalPurchases;
@@ -253,7 +277,7 @@ describe('мировая цена, магазин и инженерное мен
     );
     technical?.click();
     game.state.coins = 0;
-    await nextFrame();
+    await waitFor(() => document.querySelectorAll('.card--locked').length > 0);
     const locked = [...document.querySelectorAll<HTMLElement>('.card--locked')];
     expect(locked.length).toBeGreaterThan(0);
     // Карточка не спрятана: она есть в списке и содержит условие разблокировки.
@@ -289,9 +313,9 @@ describe('мировая цена, магазин и инженерное мен
     await flush();
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     game.state.coins = 0;
-    await nextFrame();
-    const locked = [...document.querySelectorAll<HTMLElement>('.card--locked')];
     // Требования по накопленному заработку сняты — закрытых карточек не осталось.
+    await waitFor(() => document.querySelectorAll('.card--locked').length === 0);
+    const locked = [...document.querySelectorAll<HTMLElement>('.card--locked')];
     expect(locked.length).toBe(0);
   });
 });
@@ -310,7 +334,7 @@ describe('финал', () => {
     game.state.totalEarned = game.config.winCost * 2;
     expect(game.buy('win_pump').ok).toBe(true);
     await flush();
-    await new Promise((resolve) => setTimeout(resolve, 900));
+    await waitFor(() => document.querySelector('.finale')?.hasAttribute('hidden') === false);
     const finale = document.querySelector('.finale');
     expect(finale?.hasAttribute('hidden')).toBe(false);
     const skip = document.querySelector<HTMLButtonElement>('.cutscene .btn--ghost');
@@ -358,6 +382,11 @@ describe('этап 5: банк, реприватизация, активы и к
       (tab) => tab.textContent === 'Политика',
     );
     political?.click();
+    // Вкладка перерисовывается в следующем кадре — ждём нужную карточку.
+    await waitFor(() =>
+      [...document.querySelectorAll('.shop .card__name')]
+        .some((n) => n.textContent?.includes('масштабов деятельности банка')),
+    );
     const names = [...document.querySelectorAll('.shop .card__name')].map((n) => n.textContent);
     expect(names).toContain('Увеличение масштабов деятельности банка');
     expect(names).toContain('Заставить всех сотрудников компании получать зарплату через банк');

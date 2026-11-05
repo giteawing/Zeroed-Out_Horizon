@@ -29,7 +29,12 @@ beforeAll(async () => {
   HTMLCanvasElement.prototype.getContext = (() => null) as never;
   await import('../../src/main');
   document.dispatchEvent(new Event('DOMContentLoaded'));
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  // Ждём, пока приложение построит сцену: пустой кадр на CI иногда не успевал.
+  const started = Date.now();
+  while (!document.querySelector('.stage')) {
+    if (Date.now() - started > 5000) throw new Error('сцена не построилась');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
 });
 
 describe('раскладка', () => {
