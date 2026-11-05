@@ -562,8 +562,12 @@ export class Game {
     // 3. Налог и расходы считаются от ФАКТИЧЕСКИ проданного. Иначе пустые
     //    резервуары всё равно приносили бы деньги, а безлимитные контракты
     //    обнуляли бы «теоретический» доход.
-    const expenses = this.derived().expensesPerSecond * dtSeconds;
-    const net = Math.max(0, gross * (1 - this.derived().taxRate) - expenses);
+    //    Порядок как в панели: доход − расходы = EBT, налог берётся с EBT.
+    const current = this.derived();
+    // `gross` — это уже деньги за шаг (партия), а расходы — за секунду.
+    const expenses = current.expensesPerSecond * dtSeconds;
+    const ebt = Math.max(0, gross - expenses);
+    const net = ebt * (1 - current.taxRate);
     if (net > 0) this.grantCoins(net);
     this.trackRevenue(net, dtSeconds);
 

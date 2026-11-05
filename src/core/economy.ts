@@ -6,13 +6,15 @@
  * Базовая модель (нефтяная):
  *   добыча  : тап даёт тонны нефти, персонал даёт тонны в секунду;
  *   сбыт    : нефть из резервуаров продаётся через контракты, экспорт и НПЗ;
- *   деньги  : ₦ = проданные тонны · цена тонны · (1 − налог) − расходы.
+ *   деньги  : доход = проданные тонны · цена тонны;
+ *             EBT = доход − расходы;  чистая прибыль = EBT − налог с EBT.
  *
  * Формулы:
  *   tapTonnes  = (oil.tapTonnes + Σ perTap·level) · Π(множители)          [т]
  *   oilPrice   = oil.basePricePerTon · worldPrice · Π(priceBoost)          [₦/т]
  *   канал      = rate··(1 + бонусы) · price · priceFactor                 [₦/с]
- *   net/s      = max(0, gross·(1 − taxRate) − salaries − officials)
+ *   ebt/s      = max(0, gross − salaries − officials)
+ *   net/s      = max(0, ebt·(1 − taxRate))
  */
 import type {
   AssetKind,
@@ -542,7 +544,11 @@ export function computeDerived(
   const capped = rawExpenses > expenseCap && expenseCap > 0;
   const expensesPerSecond = capped ? expenseCap : rawExpenses;
   const expenseScale = rawExpenses > 0 ? expensesPerSecond / rawExpenses : 1;
-  const netPerSecond = Math.max(0, grossPerSecond * (1 - taxRate) - expensesPerSecond);
+  // Налог берётся с прибыли до налогообложения (EBT), а не с выручки:
+  // сначала из дохода вычитаются расходы, и только потом ставка.
+  const ebtPerSecond = Math.max(0, grossPerSecond - expensesPerSecond);
+  const taxPerSecond = ebtPerSecond * taxRate;
+  const netPerSecond = Math.max(0, ebtPerSecond - taxPerSecond);
   const winCost = winCostOf(config, upgrades);
   const capacity = content
     ? oilCapacityOf(config, content, state)
@@ -572,14 +578,15 @@ export function computeDerived(
     oilPricePerTon,
     domesticPricePerTon,
     exportPricePerTon,
-    // «Прибыль» = то, что реально капает на счёт: выручка минус налог и расходы.
+    // «Чистая прибыль» = то, что реально капает на счёт: EBT минус налог.
     profitPerSecond: netPerSecond,
     assetsValue,
     assetCounts,
     grossPerSecond,
     netPerSecond,
     expensesPerSecond,
-    taxPaidPerSecond: grossPerSecond * taxRate,
+    ebtPerSecond,
+    taxPaidPerSecond: taxPerSecond,
     taxRate,
     costCutPercent: Math.round((1 - cutFactor) * 100),
     multiplier: multTap * multPassive,
@@ -675,12 +682,14 @@ export function tapReward(derived: DerivedStats, rngValue: number): number {
   return Math.max(0.1, derived.tapValue * (0.9 + rngValue * 0.2));
 }
 
-/** Итоговый прирост денег за интервал с учётом правила «не ниже нуля». */
+/**
+ * Итоговый прирост денег за интервал с учётом правила «не ниже нуля».
+ *
+ * Порядок тот же, что в панели: из дохода вычитаются расходы (получаем EBT),
+ * и только с EBT берётся налог на прибыль.
+ */
 export function netForInterval(derived: DerivedStats, dtSeconds: number): number {
-  return Math.max(
-    0,
-    derived.grossPerSecond * (1 - derived.taxRate) * dtSeconds - derived.expensesPerSecond * dtSeconds,
-  );
+  return Math.max(0, derived.ebtPerSecond * (1 - derived.taxRate) * dtSeconds);
 }
 
 /**

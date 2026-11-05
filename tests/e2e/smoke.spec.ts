@@ -143,6 +143,27 @@ test('прогресс сохраняется после перезагрузк�
   expect(taps).toBeGreaterThan(0);
 });
 
+test('меню шапки закрыто, пока его не открыли', async ({ page }) => {
+  await start(page);
+  const menu = page.locator('.menu');
+  const trigger = page.locator('.iconbtn--menu');
+  // Классическая ошибка вёрстки: у .menu задан display:grid, и он перебивал
+  // атрибут hidden — меню висело раскрытым всегда.
+  await expect(menu).toBeHidden();
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  await trigger.click();
+  await expect(menu).toBeVisible();
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  // Клик мимо и Escape закрывают меню.
+  await page.locator('.stage').click({ position: { x: 10, y: 10 } });
+  await expect(menu).toBeHidden();
+  await trigger.click();
+  await expect(menu).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
 test('звук переключается в настройках', async ({ page }) => {
   await start(page);
   // Все действия шапки теперь живут в одном меню: сначала открываем его.
@@ -165,9 +186,11 @@ test('панель империи видна всегда и держит все
   for (const label of [
     'производство',
     'экспорт',
-    'Доход в секунду',
+    'Доход',
+    'Расходы',
     'Зарплаты',
     'Чиновники',
+    'EBT',
     'Резервуары',
     'Скважины',
     'Активы',
@@ -183,6 +206,13 @@ test('панель империи видна всегда и держит все
   await expect(page.locator('.topbar__influence')).toBeVisible();
   await expect(hud).toContainText('Сырая нефть');
   await expect(hud).toContainText('Нефтепродукты');
+  // Денежная таблица идёт в порядке применения и заканчивается чистой прибылью.
+  await expect(hud.locator('.hud__row-label').filter({ hasText: /^Налог на прибыль/ })).toBeVisible();
+  await expect(hud.locator('.hud__profit-label')).toHaveText('Чистая прибыль');
+  // Автодобыча — отдельной строкой на всю ширину колонки.
+  const autoDrill = hud.locator('.hud__row-value--wide');
+  await expect(autoDrill).toHaveText(/^автодобыча: команда (в сборе|не собрана)$/);
+  expect((await autoDrill.boundingBox())?.width ?? 0).toBeGreaterThan(250);
   // Правая колонка: панель, журнал и долото стоят столбиком и не закрывают магазин.
   const side = page.locator('.stage__side');
   const shopBox = await page.locator('.shop').boundingBox();

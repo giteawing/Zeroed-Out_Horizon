@@ -536,6 +536,9 @@ function boot(): void {
   void SAVE_KEY;
   void serializeState;
 
+  // Первый кадр рисуем сразу: иначе до следующего requestAnimationFrame
+  // (в скрытой вкладке и в тестах он может не прийти) панель стоит пустой.
+  refreshUi(true);
   requestAnimationFrame(frame);
 }
 

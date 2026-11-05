@@ -296,17 +296,17 @@ describe('регрессии экономики: выручка по факти�
     expect(d.netPerSecond).toBeGreaterThan(0);
   });
 
-  it('прибыль = доходы − налог − расходы, как показано в панели', () => {
+  it('чистая прибыль = EBT − налог на прибыль, как показано в панели', () => {
     const state = createInitialState(config, 42);
     state.wells = [{ kind: 'good', dailyTonnes: 60 }];
     state.levels = { t_azs: 20, s_brigade: 1, s_engineer: 1 };
     const d = computeDerived(config, content.upgrades, state, [], content);
-    const shownExpenses = d.salaries + d.officials;
-    expect(d.expensesPerSecond).toBeCloseTo(shownExpenses, 6);
-    expect(d.netPerSecond).toBeCloseTo(
-      d.grossPerSecond - d.taxPaidPerSecond - shownExpenses,
-      6,
-    );
+    // Расходы в панели — итог по статьям: зарплаты + чиновники.
+    expect(d.expensesPerSecond).toBeCloseTo(d.salaries + d.officials, 6);
+    // EBT — прибыль до налога; налог берётся именно с неё.
+    expect(d.ebtPerSecond).toBeCloseTo(d.grossPerSecond - d.expensesPerSecond, 6);
+    expect(d.taxPaidPerSecond).toBeCloseTo(d.ebtPerSecond * d.taxRate, 6);
+    expect(d.netPerSecond).toBeCloseTo(d.ebtPerSecond - d.taxPaidPerSecond, 6);
   });
 
   it('раскладка сбыта по каналам совпадает с суммой продаж', () => {

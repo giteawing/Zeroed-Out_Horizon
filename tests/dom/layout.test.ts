@@ -96,9 +96,7 @@ describe('раскладка', () => {
     const hud = document.querySelector('.hud');
     const labels = [...(hud?.querySelectorAll('.hud__row-label') ?? [])].map((n) => n.textContent);
     for (const expected of [
-      'Автодобыча',
-      'Доход в секунду',
-      'Налог',
+      'Доход',
       'Активы',
       'Нефтезаводы (НПЗ)',
       'Нефтебазы',
@@ -112,11 +110,20 @@ describe('раскладка', () => {
     ]) {
       expect(labels).toContain(expected);
     }
-    // Прибыль стоит отдельной строкой под таблицей доходов и расходов.
+    // Денежная таблица идёт в порядке применения: доход → расходы → EBT →
+    // налог на прибыль → чистая прибыль.
     const money = hud?.querySelector('[data-group="money"]');
-    expect(money?.querySelector('.hud__invoice')?.textContent).toContain('Доходы');
-    expect(money?.querySelector('.hud__invoice')?.textContent).toContain('Расходы');
-    expect(money?.querySelector('.hud__profit')?.textContent).toContain('Прибыль');
+    const invoiceLabels = [...(money?.querySelectorAll('.hud__row-label, .hud__profit-label') ?? [])]
+      .map((n) => n.textContent ?? '');
+    expect(invoiceLabels[0]).toBe('Доход');
+    expect(invoiceLabels).toContain('Расходы');
+    expect(invoiceLabels).toContain('EBT');
+    expect(invoiceLabels.some((line) => line.startsWith('Налог на прибыль'))).toBe(true);
+    expect(invoiceLabels[invoiceLabels.length - 1]).toBe('Чистая прибыль');
+    // Автодобыча — отдельная строка на всю ширину, без подписи в левой колонке.
+    const autoDrill = hud?.querySelector('.hud__row-value--wide');
+    expect(autoDrill?.textContent).toMatch(/^автодобыча: команда (в сборе|не собрана)$/);
+    expect(autoDrill?.closest('.hud__row')?.querySelector('.hud__row-label')?.textContent).toBe('');
     // Кошелёк переехал в шапку к иконкам меню.
     expect(document.querySelector('.topbar__coins')).not.toBeNull();
     expect(hud?.querySelector('.topbar__coins')).toBeNull();

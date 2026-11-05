@@ -268,31 +268,45 @@ img {
 }
 
 /* Денежная таблица: доходы слева, расходы справа. */
+/*
+ * Денежная таблица идёт сверху вниз в порядке применения:
+ * доход → расходы → EBT → налог на прибыль → чистая прибыль.
+ * Левая колонка — подпись, правая — сумма по краю.
+ */
 .hud__invoice {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.hud__col {
-  display: grid;
-  align-content: start;
   gap: 2px;
   min-width: 0;
   font-size: clamp(11px, 2.7vw, 13px);
 }
 
-.hud__col-title {
-  font-size: clamp(10px, 2.4vw, 12px);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--steel);
-  padding-bottom: 2px;
+.hud__invoice .hud__row {
+  align-items: baseline;
 }
 
-.hud__col--expense {
+/* Статьи расхода — вложенные строки под итогом «Расходы». */
+.hud__invoice .hud__row--sub .hud__row-label {
   padding-left: 10px;
-  border-left: 2px solid rgba(255, 255, 255, 0.08);
+  color: var(--steel);
+  font-size: clamp(10px, 2.4vw, 12px);
+}
+
+.hud__invoice .hud__row--sub .hud__row-value {
+  opacity: 0.85;
+  font-weight: 600;
+}
+
+/* Итоговые строки (EBT) отделены чертой, чтобы шаги расчёта читались. */
+.hud__row--total {
+  margin-top: 3px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  font-weight: 700;
+}
+
+.hud__row-value--ebt {
+  font-variant-numeric: tabular-nums;
+  color: var(--cream);
 }
 
 /* Прибыль = доходы − расходы; стоит под таблицей и главнее всех строк. */
@@ -1301,11 +1315,14 @@ img {
   overflow-y: auto;
 }
 
+/* `hidden` обязан перебивать любой display: у .menu, .sheet и остальных
+   оверлеев он задан явно, поэтому без этого правила меню висело раскрытым. */
 .sheet[hidden],
+.menu[hidden],
 .finale[hidden],
 .stats[hidden],
 .badge[hidden] {
-  display: none;
+  display: none !important;
 }
 
 .sheet__inner {
@@ -1697,6 +1714,25 @@ img {
   color: var(--gold-light);
 }
 
+/* Формула расчёта: её ищут глазами, поэтому она выделена рамкой. */
+.rules__item--formula {
+  list-style: none;
+  margin-left: -18px;
+}
+
+.rules__formula {
+  margin: 2px 0;
+  padding: 8px 10px;
+  border: 2px dashed rgba(242, 180, 48, 0.55);
+  border-radius: var(--radius);
+  background: rgba(242, 180, 48, 0.1);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--gold-light);
+  text-align: center;
+}
+
 .rules__list {
   margin: 0;
   padding-left: 18px;
@@ -1744,6 +1780,18 @@ img {
 
 .hud__rows--single {
   grid-template-columns: minmax(0, 1fr);
+}
+
+/*
+ * Автодобыча — отдельная строка во всю ширину колонки: подписи у неё нет,
+ * весь текст «автодобыча: команда в сборе / не собрана» стоит значением.
+ */
+.hud__row-value--wide {
+  width: 100%;
+  text-align: left;
+  white-space: normal;
+  font-size: clamp(11px, 2.6vw, 13px);
+  letter-spacing: 0.02em;
 }
 
 .hud__section-title {
