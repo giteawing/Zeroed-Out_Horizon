@@ -101,7 +101,9 @@ describe('сцена с долотом', () => {
   it('тап через pointerdown добывает нефть', async () => {
     const stage = document.querySelector<HTMLElement>('[data-testid="drill"]');
     expect(stage).not.toBeNull();
-    const before = game.state.oil;
+    // Тап кладёт нефть в резервуары, но её тут же может забрать сбыт,
+    // поэтому считаем «нефть + проданное»: масштаб добычи, а не остаток.
+    const before = game.state.oil + game.state.totalSold;
     const tapsBefore = game.state.totalTaps;
     stage?.dispatchEvent(
       new PointerEvent('pointerdown', {
@@ -112,8 +114,8 @@ describe('сцена с долотом', () => {
       }),
     );
     await flush();
-    // Деньги за тап не начисляются: сначала нефть, потом продажа.
-    expect(game.state.oil).toBeGreaterThan(before);
+    // Деньги за тап не начисляются напрямую: сначала нефть, потом продажа.
+    expect(game.state.oil + game.state.totalSold).toBeGreaterThan(before);
     // Считаем прирост, а не абсолют: тест не зависит от других файлов прогона.
     expect(game.state.totalTaps).toBe(tapsBefore + 1);
   });
