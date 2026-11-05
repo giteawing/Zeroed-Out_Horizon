@@ -220,3 +220,105 @@ describe('журнал операций', () => {
     expect(restored.totalSold).toBeCloseTo(state.totalSold, 6);
   });
 });
+
+describe('налог зависит только от влияния и чиновников', () => {
+  it('без влияния налог базовый, с влиянием — только снижается', () => {
+    const { game, state } = setup();
+    const base = game.derived().taxRate;
+    expect(base).toBeCloseTo(config.tax.baseRate, 6);
+    // Накидываем политические покупки: влияние растёт, налог падает.
+    rich(state);
+    for (const id of ['p_sauna', 'p_fund', 'p_ministry']) {
+      state.levels[id] = content.byId.get(id)!.maxLevel;
+    }
+    game.invalidate();
+    const lowered = game.derived().taxRate;
+    expect(game.derived().influence).toBeGreaterThan(0);
+    expect(lowered).toBeLessThan(base);
+  });
+
+  it('налог не меняется сам по себе: один и тот же шаг даёт ту же ставку', () => {
+    const { game, state } = setup();
+    rich(state);
+    state.levels['p_senate'] = 1;
+    game.invalidate();
+    const before = game.derived().taxRate;
+    // Гоняем время: никаких «случайных» скачков ставки.
+    const rates = new Set<number>();
+    for (let i = 0; i < 30; i++) {
+      game.update(1000);
+      rates.add(Math.round(game.derived().taxRate * 1e6));
+    }
+    expect(rates.size).toBe(1);
+    expect([...rates][0]).toBe(Math.round(before * 1e6));
+  });
+
+  it('закон о налоговом вычете для олигархов есть в политике', () => {
+    const def = content.byId.get('p_taxbreak');
+    expect(def).toBeDefined();
+    expect(def!.tab).toBe('political');
+    expect(def!.name).toBe('Пропихнуть закон о налоговом вычете для ресурсодобывающих олигархов');
+    expect(def!.type).toBe('taxCut');
+  });
+});
+
+describe('скважины со случайным дебитом', () => {
+  it('бурение даёт скважину из диапазона 8–10 т/сут для обычной', () => {
+    const { game, state } = setup();
+    rich(state);
+    const before = state.wells.length;
+    expect(game.buy('t_well').ok).toBe(true);
+    expect(state.wells.length).toBe(before + 1);
+    const well = state.wells[0];
+    expect(['ordinary', 'good', 'unique']).toContain(well.kind);
+    const cls = config.oil.wells.classes.find((c) => c.key === well.kind)!;
+    expect(well.dailyTonnes).toBeGreaterThanOrEqual(cls.minDailyTonnes);
+    expect(well.dailyTonnes).toBeLessThanOrEqual(cls.maxDailyTonnes);
+  });
+
+  it('дебит выпадает случайно: скважины получаются разными', () => {
+    const { game, state } = setup();
+    rich(state);
+    for (let i = 0; i < 40; i++) game.buy('t_well');
+    const sizes = new Set(state.wells.map((w) => w.dailyTonnes));
+    expect(state.wells.length).toBe(40);
+    expect(sizes.size).toBeGreaterThan(1);
+  });
+
+  it('добыча складывается из дебитов всех скважин', () => {
+    const { game, state } = setup();
+    state.wells = [
+      { kind: 'ordinary', dailyTonnes: 8 },
+      { kind: 'good', dailyTonnes: 60 },
+      { kind: 'unique', dailyTonnes: 3000 },
+    ];
+    game.invalidate();
+    const expected = (8 + 60 + 3000) / config.oil.wells.secondsPerDay;
+    // Без бригады автодобыча не удваивает, поэтому сравниваем с базой.
+    expect(game.derived().oilPerSecond).toBeCloseTo(expected, 6);
+  });
+
+  it('«Отжать месторождение» тоже бурит скважину', () => {
+    const { game, state } = setup();
+    rich(state);
+    expect(content.byId.get('p_field')!.type).toBe('well');
+    expect(game.buy('p_field').ok).toBe(true);
+    expect(state.wells.length).toBe(1);
+  });
+
+  it('скважины сохраняются вместе с дебетом', () => {
+    const { state } = setup();
+    state.wells = [{ kind: 'unique', dailyTonnes: 1234 }];
+    const text = JSON.stringify(state);
+    const restored = JSON.parse(text) as GameState;
+    expect(restored.wells[0].dailyTonnes).toBe(1234);
+    expect(restored.wells[0].kind).toBe('unique');
+  });
+
+  it('контракты измеряются в тысячах тонн', () => {
+    const contract = config.oil.channels.contract;
+    expect(contract.baseRate).toBeGreaterThanOrEqual(1000);
+    // Одна скважина (8–10 т/сут) не должна упираться в ёмкость канала.
+    expect(contract.baseRate).toBeGreaterThan(8);
+  });
+});

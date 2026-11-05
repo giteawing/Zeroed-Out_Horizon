@@ -19,11 +19,10 @@ jobs:
         run: npm run build
       - name: Юнит- и DOM-тесты (включая тест баланса 12–25 минут)
         run: npm test -- --reporter=verbose
-      - name: Playwright-браузеры
-        # Chromium — для desktop-проекта, WebKit — для iPhone 13 и Pixel 7
-        # (в Playwright они эмулируются через WebKit, без него e2e падает).
-        run: npx playwright install --with-deps chromium webkit
-      - name: Дымовой e2e (desktop + iPhone 13 + Pixel 7)
+      - name: Playwright-браузер
+        # Поддержка телефонов убрана: e2e гоняется только в настольном Chromium.
+        run: npx playwright install --with-deps chromium
+      - name: Дымовой e2e (desktop)
         run: npm run test:e2e
       - name: Сохранить отчёты при падении
         if: failure()

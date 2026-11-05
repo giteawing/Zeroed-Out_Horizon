@@ -336,6 +336,19 @@ function boot(): void {
         );
         news.push(event.won ? 'gambleWin' : 'gambleLose');
         break;
+      case 'drilled': {
+        // Новая скважина: показываем, сколько ей досталось — это лотерея.
+        const kind = texts.get(`wells.${event.kind}`);
+        showBadge(
+          texts.get('shop.wellDrilled', {
+            kind,
+            value: formatNumber(event.dailyTonnes),
+          }),
+        );
+        drill.shake();
+        sound.event(true);
+        break;
+      }
       case 'achievement': {
         const def = content.texts.achievements.list.find((a) => a.id === event.id);
         if (def) showBadge(`${def.name}`);

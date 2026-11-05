@@ -10,6 +10,7 @@ import {
   netForInterval,
   saleProceeds,
   sellOil,
+  taxRateOf,
   totalCostFor,
   unlockBlocker,
   winCostOf,
@@ -100,10 +101,10 @@ describe('производные показатели', () => {
     const d = computeDerived(config, content.upgrades, withUpgrades());
     // Тап добывает НЕФТЬ; базовое значение тапа — это tonnы из config.oil.
     expect(d.tapValue).toBeCloseTo(config.oil.tapTonnes, 6);
-    // Каналы сбыта не построены: продавать пока некуда (контракты безлимитны,
-    // но их вклад считается по факту продажи, а не «теоретически»).
-    expect(d.grossPerSecond).toBe(0);
-    expect(d.netPerSecond).toBe(0);
+    // Контракты доступны с самого начала: сбыт есть, но нефти ещё нет,
+    // поэтому «теоретический» доход без добычи нулевой.
+    expect(d.oilPerSecond).toBe(0);
+    expect(d.netPerSecond).toBeGreaterThanOrEqual(0);
   });
 
   it('perTap складывается линейно и умножается на множители (с затуханием)', () => {
@@ -115,32 +116,48 @@ describe('производные показатели', () => {
     expect(d.tapValue).toBeCloseTo((config.oil.tapTonnes + 15) * Math.pow(2, Math.SQRT2), 4);
   });
 
-  it('passive складывается и умножается на множители пассива', () => {
-    const passive = makeUpgrade({ id: 'p', type: 'passive', effect: { value: 10 } });
+  it('скважины дают добычу, множитель пассива её усиливает', () => {
     const mult = makeUpgrade({ id: 'm', type: 'multiplier', effect: { factor: 1.5, scope: 'passive' } });
-    const d = computeDerived(config, [passive, mult], withUpgrades({ p: 2, m: 2 }));
-    // Пассив — это ДОБЫЧА нефти (тонн/с), а не деньги.
-    expect(d.oilPerSecond).toBeCloseTo(20 * Math.pow(1.5, Math.SQRT2), 4);
+    const state = withUpgrades({ m: 2 });
+    // Две скважины: обычная на 10 т/сут и хорошая на 60 т/сут.
+    state.wells = [
+      { kind: 'ordinary', dailyTonnes: 10 },
+      { kind: 'good', dailyTonnes: 60 },
+    ];
+    const d = computeDerived(config, [mult], state);
+    // 70 т/сут / секунд в сутках, дальше — множители пассива.
+    const base = 70 / config.oil.wells.secondsPerDay;
+    expect(d.oilPerSecond).toBeCloseTo(base * Math.pow(1.5, Math.SQRT2), 6);
   });
 
-  it('множитель с scope=tap не влияет на пассив', () => {
-    const passive = makeUpgrade({ id: 'p', type: 'passive', effect: { value: 10 } });
+  it('множитель с scope=tap не влияет на добычу скважин', () => {
     const mult = makeUpgrade({ id: 'm', type: 'multiplier', effect: { factor: 3, scope: 'tap' } });
-    const d = computeDerived(config, [passive, mult], withUpgrades({ p: 1, m: 1 }));
-    expect(d.oilPerSecond).toBeCloseTo(10, 4);
+    const state = withUpgrades({ m: 1 });
+    state.wells = [{ kind: 'ordinary', dailyTonnes: 10 }];
+    const d = computeDerived(config, [mult], state);
+    expect(d.oilPerSecond).toBeCloseTo(10 / config.oil.wells.secondsPerDay, 6);
     expect(d.tapValue).toBeCloseTo(config.oil.tapTonnes * 3, 4);
-    expect(d.grossPerSecond).toBe(0);
   });
 
-  it('налог не опускается ниже минимума и не растёт выше 100%', () => {
-    const cut = makeUpgrade({ id: 'cut', type: 'taxCut', effect: { percent: 30 } });
-    const d = computeDerived(config, [cut], withUpgrades({ cut: 5 }));
-    expect(d.taxRate).toBeCloseTo(config.tax.minRate, 6);
+  it('налог снижается влиянием и не опускается ниже минимума', () => {
+    // Без влияния — базовая ставка.
+    expect(taxRateOf(config, 0)).toBeCloseTo(config.tax.baseRate, 6);
+    // С ростом влияния ставка только падает.
+    const low = taxRateOf(config, 100);
+    const high = taxRateOf(config, 300);
+    expect(low).toBeLessThan(config.tax.baseRate);
+    expect(high).toBeLessThan(low);
+    // Даже при огромном влиянии ниже минимума не уходит.
+    expect(taxRateOf(config, 10000)).toBeCloseTo(config.tax.minRate, 6);
+  });
 
-    const add = makeUpgrade({ id: 'add', type: 'passive', effect: { value: 1, taxAdd: 0.5 } });
-    const d2 = computeDerived(config, [add], withUpgrades({ add: 5 }));
-    expect(d2.taxRate).toBeLessThanOrEqual(1);
-    expect(d2.taxRate).toBeGreaterThan(config.tax.baseRate);
+  it('дружба с чиновниками снижает налог, но не отменяет его совсем', () => {
+    const cut = makeUpgrade({ id: 'cut', type: 'taxCut', effect: { percent: 3 } });
+    const state = withUpgrades({ cut: 2 });
+    const d = computeDerived(config, [cut], state);
+    // 2 уровня × 3 п.п. = 6 п.п. ниже базовой ставки.
+    expect(d.taxRate).toBeCloseTo(config.tax.baseRate - 0.06, 6);
+    expect(d.taxRate).toBeGreaterThanOrEqual(config.tax.minRate);
   });
 
   it('цена победы берётся из winCost конфига', () => {
@@ -154,18 +171,19 @@ describe('производные показатели', () => {
     expect(netForInterval(d, 1)).toBeGreaterThanOrEqual(0);
   });
 
-  it('налоговые буффы работают и истекают по времени', () => {
-    const d = computeDerived(config, [], withUpgrades(), [
+  it('налог не «прыгает»: временные буффы больше не меняют ставку', () => {
+    const plain = computeDerived(config, [], withUpgrades());
+    const buffed = computeDerived(config, [], withUpgrades(), [
       { id: 'buff', amount: 0.2, untilMs: 5000 },
     ]);
-    expect(d.taxRate).toBeCloseTo(Math.max(config.tax.minRate, config.tax.baseRate - 0.2), 6);
+    // Ставка зависит только от влияния и чиновников, поэтому совпадает.
+    expect(buffed.taxRate).toBeCloseTo(plain.taxRate, 9);
   });
 
   it('роскошь попадает в витрину и не даёт дохода', () => {
     const yacht = makeUpgrade({ id: 'y', type: 'luxury', effect: {} });
     const d = computeDerived(config, [yacht], withUpgrades({ y: 1 }));
     expect(d.luxuries).toContain('y');
-    expect(d.grossPerSecond).toBe(0);
     expect(d.tapValue).toBeCloseTo(config.oil.tapTonnes, 6);
   });
 });

@@ -132,6 +132,40 @@ export function hasFullCrew(config: GameConfig, state: GameState): boolean {
 }
 
 /**
+ * Дебит всех пробуренных скважин, тонн в секунду.
+ * У каждой скважины дебит выпал случайно при бурении (см. config.oil.wells)
+ * и записан в состоянии, поэтому сумма не «дёргается» между кадрами.
+ */
+export function wellsTonnesPerSecond(config: GameConfig, state: GameState): number {
+  const wells = state.wells ?? [];
+  if (wells.length === 0) return 0;
+  const perDay = config.oil.wells?.secondsPerDay || 86400;
+  let daily = 0;
+  for (const well of wells) daily += Math.max(0, well.dailyTonnes);
+  return daily / perDay;
+}
+
+/** Суммарный суточный дебит, тонн в сутки — для панели империи. */
+export function wellsDailyTonnes(state: GameState): number {
+  return (state.wells ?? []).reduce((sum, well) => sum + Math.max(0, well.dailyTonnes), 0);
+}
+
+/**
+ * Ставка налога. Зависит ТОЛЬКО от влияния и дружбы с чиновниками,
+ * поэтому никогда не «прыгает»: чем больше влияния, тем ниже налог.
+ *   rate = max(minRate, baseRate − влияние·influenceDrop − послабления)
+ */
+export function taxRateOf(
+  config: GameConfig,
+  influence: number,
+  reliefPoints = 0,
+): number {
+  const drop = Math.max(0, influence) * config.tax.influenceDrop;
+  const rate = config.tax.baseRate - drop - reliefPoints / 100;
+  return Math.min(config.tax.baseRate, Math.max(config.tax.minRate, rate));
+}
+
+/**
  * Главная функция: считает все производные показатели империи.
  *
  * content нужен для ёмкости резервуаров и проверки автодобычи; если его нет
@@ -191,7 +225,7 @@ export function computeDerived(
         tapFlat += (e.value ?? 0) * level;
         break;
       case 'passive':
-        passiveFlat += (e.value ?? 0) * level;
+        passiveFlat += 0;
         if (e.costCut) costCutFraction += e.costCut * level;
         if (e.exportBonus) exportMultiplier += e.exportBonus * level;
         if (e.salaryAdd) salariesGrowth += e.salaryAdd * level;
@@ -242,7 +276,9 @@ export function computeDerived(
     }
   }
 
-  for (const buff of buffs) taxCutPoints += buff.amount * 100;
+  // Временные скидки (buffs) больше НЕ участвуют: налог меняется только
+  // от влияния и от дружбы с чиновниками, иначе он «случайно прыгает».
+  void buffs;
 
   // ---------------------------------------------------------------- добыча
   const tapValue = Math.max(0.1, tapFlat * multTap * config.balance.tapScale);
@@ -250,7 +286,10 @@ export function computeDerived(
   // удваивает его — это и есть «добыча без игрока».
   const crew = hasFullCrew(config, state);
   const autoDrillBonus = crew ? 1 + config.oil.autoDrill.bonus : 1;
-  const oilPerSecond = passiveFlat * multPassive * config.balance.passiveScale * autoDrillBonus;
+  const wellsPerSecond = wellsTonnesPerSecond(config, state);
+  // Скважины качают всегда; без бригады — вдвое слабее.
+  const oilPerSecond =
+    wellsPerSecond * multPassive * config.balance.passiveScale * autoDrillBonus;
 
   // ----------------------------------------------------------------- сбыт
   const oilPricePerTon =
@@ -269,9 +308,14 @@ export function computeDerived(
     if (!cfg.unlimited) grossPerSecond += boosted * price;
   }
 
+  // Влияние считается до налога: больше влияния — меньше налог.
+  const influenceTotal = Math.min(
+    config.influence.cap,
+    Math.round(influenceFromLevels),
+  );
   const taxRate = Math.min(
-    1,
-    Math.max(config.tax.minRate, config.tax.baseRate - taxCutPoints / 100 + taxAdd),
+    config.tax.baseRate,
+    taxRateOf(config, influenceTotal, taxCutPoints + taxAdd * 100),
   );
   const cutFactor = Math.max(
     config.expenses.minCutFactor,
@@ -326,7 +370,7 @@ export function computeDerived(
     salaries: salaries * expenseScale,
     officials: officials * expenseScale,
     exportMultiplier,
-    influence: Math.min(config.influence.cap, Math.round(influenceFromLevels)),
+    influence: influenceTotal,
     conquestCut: Math.min(0.75, conquestCut),
     autoDrill: crew,
     totalLevels,

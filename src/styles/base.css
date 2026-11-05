@@ -265,9 +265,10 @@ img {
 
 .hud__row-label {
   color: var(--steel);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Длинные подписи переносятся, а не превращаются в «Доход в сек…» */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.15;
 }
 
 .hud__row-value {
@@ -471,10 +472,8 @@ img {
   color: var(--cream);
   font-variant-numeric: tabular-nums;
   animation: oplog-in 0.28s ease both;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  /* Строка переносится целиком, ничего не «съедается». */
+  overflow-wrap: anywhere;
 }
 
 .oplog__item[data-kind='conquest'] { color: var(--crimson-light); }
@@ -864,13 +863,11 @@ img {
 
 .card__desc {
   margin: 0;
-  font-size: clamp(10px, 2.5vw, 12px);
-  line-height: 1.3;
+  font-size: clamp(11px, 2.5vw, 13px);
+  line-height: 1.35;
   color: var(--steel);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  /* Описание показываем целиком: сатира — часть игры. */
+  overflow-wrap: anywhere;
 }
 
 .card__meta {
@@ -968,7 +965,7 @@ img {
   padding: 0;
   display: grid;
   gap: 1px;
-  max-height: 34px; /* телефон: одна строка, десктоп расширяет ниже */
+  max-height: 84px;
   overflow: hidden;
 }
 
@@ -976,13 +973,13 @@ img {
   display: flex;
   gap: 6px;
   align-items: baseline;
-  font-size: clamp(10px, 2.5vw, 12px);
+  font-size: clamp(11px, 2.5vw, 13px);
   opacity: 0;
   transform: translateX(-8px);
   transition: opacity 0.35s ease, transform 0.35s ease;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Заголовок новости переносится, а не обрывается многоточием. */
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .news__item--in {
@@ -1007,8 +1004,7 @@ img {
 
 .news__text {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 /* ------------------------------------------------------------ стартовый экран */
@@ -1374,74 +1370,7 @@ img {
 
 /* --------------------------------------------------------------- адаптив */
 
-/*
- * Телефон: магазин сверху (левый столбец на десктопе), а под ним — правая
- * половина: таблица доходов во всю ширину, под ней журнал и долото рядом,
- * чтобы вся империя влезала в экран без прокрутки.
- */
-@media (max-width: 859px) {
-  /* Магазин и нижняя половина делят экран, чтобы правая колонка не наезжала на магазин. */
-  .stage {
-    grid-template-rows: minmax(0, 1fr) minmax(0, 54vh);
-  }
-
-  .stage__side {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 44%);
-    grid-template-rows: auto minmax(0, 1fr);
-    align-items: stretch;
-    gap: 6px;
-    max-height: 54vh;
-    overflow: hidden;
-  }
-
-  .stage__side > .hud {
-    grid-column: 1 / -1;
-  }
-
-  .stage__side > .oplog {
-    grid-column: 1;
-    grid-row: 2;
-    min-height: 0;
-  }
-
-  .stage__drill {
-    grid-column: 2;
-    grid-row: 2;
-    align-self: center;
-  }
-
-  .stage__drill > .drill {
-    width: min(100%, 200px, 20vh);
-  }
-
-  /* На телефоне таблица компактнее: строки в две колонки и мельче шрифт. */
-  .hud__rows {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: 10px;
-  }
-
-  .hud__row-label {
-    white-space: normal;
-    line-height: 1.1;
-  }
-
-  .hud__row-value {
-    text-align: right;
-  }
-
-  .hud {
-    gap: 5px;
-    padding: 8px 10px;
-  }
-
-  .hud__balance {
-    font-size: clamp(18px, 5vw, 24px);
-  }
-}
-
-/* Широкий экран: магазин слева, таблица/журнал/долото справа (ТЗ §8.1). */
-@media (min-width: 860px) {
+/* Основная раскладка (игра под десктоп): магазин слева, империя справа. */
   .screen {
     padding: calc(var(--safe-top) + 10px) 18px calc(var(--safe-bottom) + 10px);
     gap: 10px;
@@ -1479,64 +1408,12 @@ img {
   }
 
   .news__list {
-    max-height: 70px;
+    max-height: 84px;
   }
 
   .newspane {
     min-height: 74px;
   }
-}
-
-/* Очень узкие экраны: карточки компактнее, кнопка под текстом. */
-@media (max-width: 400px) {
-  .card {
-    grid-template-columns: auto 1fr;
-    grid-template-areas:
-      'art body'
-      'action action';
-    row-gap: 6px;
-  }
-
-  .card__art {
-    grid-area: art;
-  }
-
-  .card__body {
-    grid-area: body;
-  }
-
-  .card__action {
-    grid-area: action;
-  }
-
-  .card__buy {
-    width: 100%;
-  }
-
-  .hud__stats {
-    gap: 8px;
-  }
-}
-
-/* Телефон в горизонтальной ориентации: магазин становится уже, сцена — шире. */
-@media (max-height: 520px) and (orientation: landscape) {
-  .stage {
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 42%);
-    grid-template-rows: minmax(0, 1fr);
-  }
-
-  .newspane {
-    display: none;
-  }
-
-  .drill {
-    width: min(100%, 300px);
-  }
-
-  .oplog {
-    display: none;
-  }
-}
 
 @media (prefers-reduced-motion: reduce) {
   *,

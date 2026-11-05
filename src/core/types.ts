@@ -11,6 +11,7 @@ export type Tab = 'political' | 'technical' | 'sales' | 'luxury' | 'goals';
 
 export type UpgradeType =
   | 'perTap'
+  | 'well'
   | 'passive'
   | 'multiplier'
   | 'taxCut'
@@ -35,8 +36,11 @@ export interface ChannelConfig {
   baseRate: number;
   /** Канал берёт любой объём (контракты «на разлив»): ёмкость не ограничена. */
   unlimited?: boolean;
-  /** Сколько тонн списывать за секунду с базового сбыта при покупках-событиях. */
-  name?: string;
+  /** Средний размер одной сделки, тонн (тысячи тонн, а не штуки). */
+  minLotTonnes?: number;
+  maxLotTonnes?: number;
+  /** За сколько секунд канал оборачивает одну сделку. */
+  lotSeconds?: number;
 }
 
 export interface OilConfig {
@@ -56,6 +60,36 @@ export interface OilConfig {
   autoDrill: { requires: string[]; bonus: number };
   /** Сколько тонн «сгорает» при переполнении резервуаров (доля потерь в секунду). */
   spillLoss: number;
+  /**
+   * Пробуренные скважины. Каждая даёт случайный дебит из своего диапазона,
+   * поэтому покупка «Пробурить скважину» — это лотерея: обычная, хорошая
+   * или уникальная скважина.
+   */
+  wells: WellConfig;
+}
+
+/** Один класс скважин: шанс выпадения и суточный дебит. */
+export interface WellClassConfig {
+  key: 'ordinary' | 'good' | 'unique';
+  /** Вероятность, что выпадет именно этот класс, 0..1. */
+  chance: number;
+  /** Минимальный и максимальный дебит, тонн в СУТКИ. */
+  minDailyTonnes: number;
+  maxDailyTonnes: number;
+  /** Шаг округления дебита, тонн в сутки. */
+  step: number;
+}
+
+export interface WellConfig {
+  /** Классы скважин, сумма вероятностей должна быть равна 1. */
+  classes: WellClassConfig[];
+  /**
+   * Сколько реальных секунд длится один игровой день.
+   * Дебит задан в тоннах в СУТКИ, а добыча идёт в реальном времени: при 20
+   * секундах партия в 16 минут — это почти полсотни игровых суток, поэтому
+   * обычная скважина (8–10 т/сут) реально качает нефть, а не 0,0001 т/с.
+   */
+  secondsPerDay: number;
 }
 
 export interface UpgradeEffect {
@@ -143,7 +177,19 @@ export interface GameConfig {
   maxBuyLevels: number;
   tickMs: number;
   offline: { capSeconds: number; efficiency: number };
-  tax: { baseRate: number; minRate: number };
+  /**
+   * Налог зависит ТОЛЬКО от влияния и дружбы с чиновниками.
+   *   rate = max(minRate, baseRate − influence·influenceDrop − послабления)
+   * Никаких случайных колебаний: налог может только снижаться.
+   */
+  tax: {
+    baseRate: number;
+    minRate: number;
+    /** На сколько снижается ставка за единицу влияния (0.00055 = 0.055 п.п.). */
+    influenceDrop: number;
+    /** Влияние, при котором налог опускается до minRate. */
+    influenceForZero: number;
+  };
   expenses: {
     baseSalaries: number;
     baseOfficials: number;
@@ -262,6 +308,14 @@ export interface LogEntry {
   textKey?: string;
 }
 
+/** Пробуренная скважина: класс и её суточный дебит. */
+export interface Well {
+  /** Класс скважины: обычная, хорошая или уникальная. */
+  kind: 'ordinary' | 'good' | 'unique';
+  /** Дебит, тонн в сутки. Выпадает случайно при бурении. */
+  dailyTonnes: number;
+}
+
 /** Полный снимок прогресса, который сохраняется в localStorage. */
 export interface GameState {
   version: number;
@@ -280,6 +334,11 @@ export interface GameState {
   cooldowns: Record<string, number>;
   /** id покупки → накопленное время периодики, мс. */
   timers: Record<string, number>;
+  /**
+   * Пробуренные скважины в порядке бурения. Дебит каждой выпал случайно
+   * при покупке и больше не меняется — это «характер» месторождения.
+   */
+  wells: Well[];
   /** Гэмблы «в полёте». */
   gambles: Array<{ id: string; amount: number; factor: number; resolveAt: number }>;
   achievements: string[];
@@ -360,6 +419,7 @@ export type GameEvent =
   | { type: 'gambleStarted'; id: string; amount: number }
   | { type: 'gambleResult'; id: string; won: boolean; amount: number }
   | { type: 'worldPrice'; price: number }
+  | { type: 'drilled'; kind: 'ordinary' | 'good' | 'unique'; dailyTonnes: number }
   | { type: 'achievement'; id: string }
   | { type: 'win' }
   | { type: 'offline'; seconds: number; coins: number }

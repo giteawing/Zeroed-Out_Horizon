@@ -22,6 +22,7 @@ import type {
   Content,
   DerivedStats,
   GameEvent,
+  Well,
   GameState,
   LogEntry,
   UpgradeDef,
@@ -53,6 +54,9 @@ export interface BuyCheck {
 }
 
 const BUFF_TAX_DURATION_MS = 25_000;
+
+/** Покупки, которые бурят новую скважину со случайным дебитом. */
+const WELL_UPGRADE_IDS = new Set(['t_well', 'p_field', 'p_reprivatize']);
 
 /** Покупка-действие (событие с перезарядкой) или обычная прокачка. */
 export function isRepeatable(def: UpgradeDef): boolean {
@@ -107,7 +111,11 @@ export class Game {
     return this.derivedCache;
   }
 
-  private invalidate(): void {
+  /**
+   * Сбросить кеш производных показателей. Нужен, когда меняется не состояние,
+   * а конфиг (например, в тестах или при подмене правил на лету).
+   */
+  invalidate(): void {
     this.derivedCache = null;
   }
 
@@ -266,6 +274,14 @@ export class Game {
     this.invalidate();
 
     const payouts = this.applyImmediateEffect(def, newLevel, cost);
+
+    // «Пробурить скважину» — это лотерея: класс скважины и её суточный дебит
+    // выпадают случайно, поэтому каждая покупка даёт разную добычу.
+    if (WELL_UPGRADE_IDS.has(def.id) && !repeatable) {
+      const drilled = this.drillWell();
+      payouts.push({ id: def.id, amount: drilled.dailyTonnes });
+    }
+
     this.pushLog({
       kind: def.conquest ? 'conquest' : def.tab === 'luxury' ? 'bought' : 'bought',
       upgradeId: def.id,
@@ -275,6 +291,36 @@ export class Game {
     if (def.achievement) this.grantAchievement(def.achievement);
     this.checkAchievements();
     return { ok: true, cost, level: newLevel, payouts };
+  }
+
+  /**
+   * Бурит скважину: класс и дебит выпадают случайно по config.oil.wells.
+   * Возвращает пробуренную скважину (её же пишем в журнал).
+   */
+  drillWell(): Well {
+    const cfg = this.config.oil.wells;
+    const roll = this.rng.next();
+    let acc = 0;
+    let chosen = cfg.classes[cfg.classes.length - 1];
+    for (const cls of cfg.classes) {
+      acc += cls.chance;
+      if (roll <= acc) {
+        chosen = cls;
+        break;
+      }
+    }
+    const step = Math.max(1, chosen.step);
+    const steps = Math.floor((chosen.maxDailyTonnes - chosen.minDailyTonnes) / step);
+    const dailyTonnes = Math.max(
+      chosen.minDailyTonnes,
+      chosen.minDailyTonnes + Math.round(this.rng.next() * Math.max(0, steps)) * step,
+    );
+    const well: Well = { kind: chosen.key, dailyTonnes };
+    this.state.wells.push(well);
+    this.pushLog({ kind: 'drill', tonnes: dailyTonnes });
+    this.invalidate();
+    this.emit({ type: 'drilled', kind: well.kind, dailyTonnes });
+    return well;
   }
 
   /** Мгновенные эффекты покупки: разовая выплата, старт гэмбла, таймер периодики. */

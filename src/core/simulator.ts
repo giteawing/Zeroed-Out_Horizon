@@ -11,7 +11,7 @@ import { costFor, isUnlocked, levelOf, unlockBlocker } from './economy';
 import { isRepeatable } from './game';
 import { createInitialState } from './state';
 import { Rng } from './rng';
-import type { Content, DerivedStats, UpgradeDef } from './types';
+import type { Content, DerivedStats, GameConfig, UpgradeDef } from './types';
 
 export interface SimulatorOptions {
   /** Тапов в секунду (ТЗ: 4–6). */
@@ -182,6 +182,9 @@ export function runSimulation(content: Content, options: SimulatorOptions = {}):
  * Одна итерация покупок. Приоритет: финальная цель (если готова) →
  * лучшее соотношение «прирост дохода / цена».
  */
+/** С какой доли от цены финала бот перестаёт тратить и начинает копить. */
+const savingShare = 0.08;
+
 export function decide(game: Game, content: Content, purchased: Set<string>): boolean {
   const state = game.state;
   const derived = game.derived();
@@ -197,6 +200,9 @@ export function decide(game: Game, content: Content, purchased: Set<string>): bo
     }
     // До финала рукой подать — бот копит, а не тратит на роскошь.
     if (!blocker && state.coins >= winDef.baseCost * 0.55) return false;
+    // Живой игрок видит цель и начинает откладывать заранее, иначе деньги
+    // уходят на бесконечные улучшения и финал не наступает никогда.
+    if (!blocker && state.coins >= winDef.baseCost * savingShare) return false;
 
   }
 
@@ -237,7 +243,10 @@ export function decide(game: Game, content: Content, purchased: Set<string>): bo
     if ((state.cooldowns[def.id] ?? 0) > 0) continue;
     const cost = def.baseCost > 0 ? costFor(content.config, def, level) : 0;
     if (cost > state.coins) continue;
-    candidates.push({ def, score: estimatedGain(def, derived, cost) / Math.max(1, cost) });
+    candidates.push({
+      def,
+      score: estimatedGain(def, derived, cost, content.config) / Math.max(1, cost),
+    });
   }
 
   if (candidates.length === 0) return false;
@@ -261,7 +270,12 @@ export function decide(game: Game, content: Content, purchased: Set<string>): bo
  * а при пустых — падает ценность сбыта. Бот ведёт себя как живой игрок:
  * качает добычу, потом расширяет сбыт.
  */
-export function estimatedGain(def: UpgradeDef, derived: DerivedStats, cost: number): number {
+export function estimatedGain(
+  def: UpgradeDef,
+  derived: DerivedStats,
+  cost: number,
+  gameConfig: GameConfig,
+): number {
   const e = def.effect;
   const netFactor = 1 - derived.taxRate;
   const fill = derived.oilCapacity > 0 ? Math.min(1, derived.oil / derived.oilCapacity) : 0;
@@ -271,6 +285,17 @@ export function estimatedGain(def: UpgradeDef, derived: DerivedStats, cost: numb
     case 'perTap':
       // Тонны за тап: бот делает ~5 тапов в секунду, каждая тонна уходит по цене канала.
       return (e.value ?? 0) * 5 * 0.85 * derived.multiplier * derived.oilPricePerTon;
+    case 'well': {
+      // Скважина — лотерея: считаем по среднему дебиту всех классов.
+      // Средний дебит даёт тонны в секунду, они уходят по цене контрактов.
+      const cfg = gameConfig.oil.wells;
+      const avgDaily = cfg.classes.reduce(
+        (sum, cls) => sum + cls.chance * ((cls.minDailyTonnes + cls.maxDailyTonnes) / 2),
+        0,
+      );
+      const perSecond = avgDaily / cfg.secondsPerDay;
+      return perSecond * derived.multiplier * derived.oilPricePerTon;
+    }
     case 'storage': {
       // Ёмкость нужна, когда добыча превышает сбыт и нефть некуда девать.
       const overflow = Math.max(0, derived.oilPerSecond + derived.tapValue * 4 - derived.sellPerSecond);
