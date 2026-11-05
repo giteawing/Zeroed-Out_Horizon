@@ -117,14 +117,24 @@ export class Hud {
           this.oilBar,
         ]),
 
-        // Сырая нефть: добыча и куда она уходит.
+        // Сырая нефть: добыча и куда она уходит. Экспорт показан по видам
+        // транспорта — заказчик просил видеть, сколько уходит поездами,
+        // сколько танкерами, а сколько по трубопроводу.
         el('div', { class: 'hud__section', 'data-section': 'crude' }, [
           el('span', { class: 'hud__section-title' }, texts.get('hud.crudeOil')),
           el('div', { class: 'hud__rows hud__rows--single' }, [
             row('produced', texts.get('hud.production'), 'hud__row-value--oil').root,
             row('crudeDomestic', texts.get('hud.saleDomestic'), 'hud__row-value--sell').root,
             row('crudeExport', texts.get('hud.saleExport'), 'hud__row-value--sell').root,
+            row('exportPipeline', texts.get('hud.exportPipeline'),
+              'hud__row-value--sell hud__row--sub').root,
+            row('exportRail', texts.get('hud.exportRail'),
+              'hud__row-value--sell hud__row--sub').root,
+            row('exportTanker', texts.get('hud.exportTanker'),
+              'hud__row-value--sell hud__row--sub').root,
             row('crudeRefine', texts.get('hud.toRefine'), 'hud__row-value--sell').root,
+            // Сколько добычи легло в резервуары и ждёт отправки.
+            row('crudeStored', texts.get('hud.stored'), 'hud__row-value--stored').root,
           ]),
         ]),
 
@@ -135,6 +145,9 @@ export class Hud {
             row('productsOut', texts.get('hud.production'), 'hud__row-value--oil').root,
             row('productsDomestic', texts.get('hud.saleDomestic'), 'hud__row-value--sell').root,
             row('productsExport', texts.get('hud.saleExport'), 'hud__row-value--sell').root,
+            // Нефтебазы хранят нефтепродукты: показываем, сколько их лежит
+            // и сколько всего влезает.
+            row('productsOnHand', texts.get('hud.productStorage'), 'hud__row-value--stored').root,
           ]),
         ]),
 
@@ -255,11 +268,24 @@ export class Hud {
     set('produced', rate(flows.produced));
     set('crudeDomestic', sale(flows.domestic, derived.channels.contract.price));
     set('crudeExport', sale(flows.export, derived.channels.export.price));
+    // Экспорт по видам транспорта: поезда, танкеры, трубопровод.
+    const exportPrice = derived.channels.export.price;
+    set('exportPipeline', sale(flows.exportByMode.pipeline, exportPrice));
+    set('exportRail', sale(flows.exportByMode.rail, exportPrice));
+    set('exportTanker', sale(flows.exportByMode.tanker, exportPrice));
+    // Сколько нефти ушло в резервуары и ждёт отправки (не продано сразу).
+    set('crudeStored', rate(flows.stored));
     // Переработка не продаёт сырьё, а превращает его в продукты.
     set('crudeRefine', rate(flows.refined));
     set('productsOut', rate(flows.productsProduced));
     set('productsDomestic', sale(flows.productsDomestic, derived.productPriceDomestic));
     set('productsExport', sale(flows.productsExport, derived.productPriceExport));
+    // Запас нефтепродуктов на нефтебазах: «сколько / сколько влезает».
+    set('productsOnHand', units('oilInTank', {
+      oil: formatNumber(state.products),
+      capacity: formatNumber(derived.productCapacity),
+      tonnes,
+    }));
     set('gross', units('moneyRate', {
       value: formatMoney(derived.grossPerSecond, this.currency),
       s: perSecond.replace('/', ''),
