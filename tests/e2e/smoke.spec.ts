@@ -145,7 +145,9 @@ test('прогресс сохраняется после перезагрузк�
 
 test('звук переключается в настройках', async ({ page }) => {
   await start(page);
-  const settings = page.locator('.iconbtn--settings');
+  // Все действия шапки теперь живут в одном меню: сначала открываем его.
+  await page.locator('.iconbtn--menu').click();
+  const settings = page.locator('[data-menu="settings"]');
   await settings.click();
   const sound = page.locator('.sheet .btn--row').first();
   await expect(sound).toHaveAttribute('data-on', 'true');
@@ -161,8 +163,8 @@ test('панель империи видна всегда и держит все
   const hud = page.locator('.hud');
   await expect(hud).toBeVisible();
   for (const label of [
-    'Добыча в сутки',
-    'Цена тонны',
+    'производство',
+    'экспорт',
     'Доход в секунду',
     'Зарплаты',
     'Чиновники',
@@ -174,11 +176,13 @@ test('панель империи видна всегда и держит все
       hud.locator('.hud__row-label').filter({ hasText: label }).first(),
     ).toBeVisible();
   }
-  // Три смысловые группы панели, «Влияние» — отдельный блок со шкалой.
+  // Три смысловые группы панели; влияние переехало в шапку.
   for (const group of ['goods', 'money', 'property']) {
     await expect(hud.locator(`[data-group="${group}"]`)).toBeVisible();
   }
-  await expect(hud).toContainText('Влияние');
+  await expect(page.locator('.topbar__influence')).toBeVisible();
+  await expect(hud).toContainText('Сырая нефть');
+  await expect(hud).toContainText('Нефтепродукты');
   // Правая колонка: панель, журнал и долото стоят столбиком и не закрывают магазин.
   const side = page.locator('.stage__side');
   const shopBox = await page.locator('.shop').boundingBox();

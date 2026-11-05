@@ -137,9 +137,46 @@ img {
 .topbar__wallet {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 18px;
   margin-right: auto;
   margin-left: 14px;
+}
+
+/* Каждая «витрина» шапки: подпись сверху, значение снизу. */
+.topbar__stat {
+  display: grid;
+  gap: 2px;
+}
+
+/* Влияние: число и шкала до потолка — просили держать рядом с кошельком. */
+.topbar__influence {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar__influence-value {
+  font-family: var(--font-display);
+  font-size: clamp(16px, 3.4vw, 22px);
+  line-height: 1.1;
+  color: var(--cream);
+}
+
+.topbar__influence-track {
+  width: 92px;
+  height: 8px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.topbar__influence-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--crimson), var(--gold));
+  transition: width 0.3s ease;
 }
 
 .topbar__wallet-label {
@@ -641,8 +678,9 @@ img {
  * Долото ограничено и шириной колонки, и высотой экрана: иначе в узком
  * правом столбце оно переполняется, центр уезжает вниз и тапы промахиваются.
  */
+/* Долото намеренно небольшое: заказчик просил уменьшить высоту вдвое. */
 .stage__drill > .drill {
-  width: min(100%, 320px, 30vh);
+  width: min(100%, 220px, 16vh);
 }
 
 /* На низком экране HUD уступает место журналу и долоту. */
@@ -651,7 +689,7 @@ img {
     max-height: 42vh;
   }
   .stage__drill > .drill {
-    width: min(100%, 280px, 24vh);
+    width: min(100%, 190px, 13vh);
   }
 }
 
@@ -1571,4 +1609,147 @@ img {
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+/* ------------------------------------------------------- меню в шапке */
+
+.menu {
+  position: fixed;
+  top: calc(var(--safe-top) + 68px);
+  right: calc(var(--safe-right) + 16px);
+  z-index: 40;
+  display: grid;
+  min-width: 210px;
+  padding: 6px;
+  border: var(--stroke-w) solid var(--ink);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(47, 36, 25, 0.99), rgba(20, 16, 12, 0.99));
+  box-shadow: var(--shadow);
+}
+
+.menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--cream);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu__item:hover,
+.menu__item:focus-visible {
+  background: rgba(242, 180, 48, 0.16);
+}
+
+.menu__icon {
+  width: 20px;
+  text-align: center;
+  font-size: 15px;
+}
+
+.menu__label {
+  flex: 1;
+}
+
+.menu__state {
+  font-size: 11px;
+  color: var(--steel);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ------------------------------------------------------- правила игры */
+
+.sheet__inner--rules {
+  width: min(760px, 94vw);
+  max-height: 86vh;
+  overflow-y: auto;
+  text-align: left;
+  gap: 12px;
+}
+
+.rules__lead {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--steel);
+}
+
+.rules__section {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 2px solid rgba(255, 255, 255, 0.09);
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.rules__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--gold-light);
+}
+
+.rules__list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--cream);
+}
+
+/* ------------------------------------------- панель: цены и потоки */
+
+.hud__prices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.hud__price {
+  display: grid;
+  gap: 1px;
+  padding: 6px 8px;
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.hud__price-label {
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--steel);
+}
+
+.hud__price .hud__row-value {
+  font-size: clamp(13px, 3vw, 15px);
+  font-weight: 800;
+  color: var(--cream);
+}
+
+.hud__section {
+  display: grid;
+  gap: 3px;
+}
+
+.hud__rows--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.hud__section-title {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 800;
 }

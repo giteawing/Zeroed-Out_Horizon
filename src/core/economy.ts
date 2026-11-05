@@ -22,6 +22,7 @@ import type {
   DerivedStats,
   GameConfig,
   GameState,
+  OilFlows,
   ReprivatizationPrize,
   UpgradeDef,
 } from './types';
@@ -209,6 +210,8 @@ export function assetCountsOf(upgrades: UpgradeDef[], state: GameState): Record<
     azs: 0,
     exportPipe: 0,
     refineryPipe: 0,
+    crudeTank: 0,
+    productExport: 0,
   };
   for (const def of upgrades) {
     if (!def.assetKind) continue;
@@ -459,26 +462,46 @@ export function computeDerived(
   }
 
   /*
-   * Выручка в секунду — это ДЕНЬГИ ЗА ФАКТИЧЕСКИ ПРОДАННУЮ НЕФТЬ.
+   * Товарная модель: сырьё → нефтепродукты.
    *
-   * Раньше здесь суммировались только каналы с ограниченной пропускной
-   * способностью («безлимитный в теоретический доход не входит»). Из-за этого
-   * строка «Доход в секунду» показывала копейки, хотя вся нефть уходила
-   * в контракты и деньги капали миллионами. А расходы, налог и «расходы от
-   * выручки» считались от этой же фиктивной базы — то есть были занижены.
+   * Добыча идёт в резервуары и копится там `shipDays` суток (по требованию
+   * заказчика — 5 суток), после чего партия распределяется так:
+   *   1) внутренний рынок  — берёт сколько может (канал безлимитный);
+   *   2) экспорт сырья     — только если есть трубы/терминалы;
+   *   3) переработка (НПЗ) — забирает всё, что осталось, но не больше мощности.
+   * Из переработки выходят нефтепродукты (`refineryYield`), которые
+   * продаются внутри и на экспорт по своим, более высоким ценам.
    *
-   * Теперь считаем ровно так же, как тик: берём всю нефть, которую империя
-   * добывает за секунду (скважины + автотапы), и распределяем её по каналам
-   * через sellOil — «дорогой сначала, остаток в безлимитные».
+   * Так таблица сходится: добыча = внутренний + экспорт + переработка,
+   * переработка = продукты внутри + продукты на экспорт.
    */
-  const unlimitedChannels = CHANNELS.filter((c) => config.oil.channels[c].unlimited);
-  const tonnesPerSecond = oilPerSecond + tapValue * autoTaps;
-  // Раскладка по каналам — та же, что в тике: дорогие первыми, остаток
-  // в безлимитные контракты. Нужна и для выручки, и для панели сбыта.
-  const sales = tonnesPerSecond > 0
-    ? sellOil({ channels } as DerivedStats, tonnesPerSecond, 1, unlimitedChannels)
-    : { oil: 0, gross: 0, sold: 0, byChannel: { contract: 0, export: 0, refine: 0 } as Record<Channel, number> };
-  const grossPerSecond = sales.gross;
+  const producedPerSecond = oilPerSecond + tapValue * autoTaps;
+  const product = config.product;
+  const capacities = {
+    // Внутренний рынок сырья: контракты и тресты.
+    domestic: channels.contract.rate,
+    // Экспорт: трубы и терминалы делят мощность между сырьём и продуктами.
+    export: channels.export.rate * product.transportSplit.crude,
+    refine: channels.refine.rate,
+    // Нефтепродукты продаются через те же каналы, но по своим долям.
+    productDomestic: channels.contract.rate * product.transportSplit.productDomestic,
+    productExport: channels.export.rate * product.transportSplit.productExport,
+  };
+  /*
+   * Мощность каналов измеряется «сколько тонн в секунду они принимают»,
+   * поэтому потоки считаем по всей добыче: и пассивной, и от тапов.
+   * Потолок безлимитного рынка ставит только экспорт/переработка, а
+   * внутренний рынок берёт всё, что ему дают, — поэтому overflow (backlog)
+   * в норме нулевой.
+   */
+  const flows = oilFlowsOf(config, capacities, producedPerSecond);
+  const productPriceDomestic = oilPricePerTon * product.domesticPriceFactor;
+  const productPriceExport = oilPricePerTon * product.exportPriceFactor;
+  const grossPerSecond =
+    flows.domestic * channels.contract.price +
+    flows.export * channels.export.price +
+    flows.productsDomestic * productPriceDomestic +
+    flows.productsExport * productPriceExport;
 
   // Влияние считается до налога: больше влияния — меньше налог.
   const influenceTotal = Math.min(
@@ -534,8 +557,16 @@ export function computeDerived(
     oilPerSecond,
     // Не сумма пропускных способностей (у контрактов она бесконечна), а то,
     // сколько тонн в секунду реально находит сбыт при текущей добыче.
-    sellPerSecond: sales.sold,
-    salesByChannel: sales.byChannel,
+    sellPerSecond: flows.domestic + flows.export + flows.productsDomestic + flows.productsExport,
+    salesByChannel: {
+      contract: flows.domestic,
+      export: flows.export + flows.productsExport,
+      refine: flows.refined,
+    },
+    flows,
+    capacities,
+    productPriceDomestic,
+    productPriceExport,
     oil: state.oil,
     oilCapacity: capacity,
     oilPricePerTon,
@@ -650,6 +681,120 @@ export function netForInterval(derived: DerivedStats, dtSeconds: number): number
     0,
     derived.grossPerSecond * (1 - derived.taxRate) * dtSeconds - derived.expensesPerSecond * dtSeconds,
   );
+}
+
+/**
+ * Раскладка потоков нефти и нефтепродуктов при текущих мощностях.
+ *
+ * Порядок именно такой (и он же объяснён игроку в правилах):
+ *   1) внутренний рынок сырья — контракты берут сколько угодно, цена низкая;
+ *   2) экспорт сырья — пока есть свободная труба/терминал, цена выше;
+ *   3) переработка — НПЗ забирают остаток, но не больше своей мощности;
+ *   4) нефтепродукты — внутри и на экспорт по более высокой цене.
+ *
+ * Функция чистая: одинаковые входы дают одинаковые выходы, поэтому таблица
+ * в интерфейсе и реальное начисление денег считаются одной и той же логикой.
+ */
+export function oilFlowsOf(
+  config: GameConfig,
+  capacities: {
+    domestic: number;
+    export: number;
+    refine: number;
+    productDomestic: number;
+    productExport: number;
+  },
+  produced: number,
+): OilFlows {
+  const total = Math.max(0, produced);
+  const safe = (value: number): number =>
+    Number.isFinite(value) ? Math.max(0, value) : Number.MAX_SAFE_INTEGER;
+
+  const domestic = Math.min(total, safe(capacities.domestic));
+  let rest = total - domestic;
+
+  const exportTonnes = Math.min(rest, safe(capacities.export));
+  rest -= exportTonnes;
+
+  const refined = Math.min(rest, safe(capacities.refine));
+  rest -= refined;
+
+  const productsProduced = refined * config.oil.refineryYield;
+  const productsDomestic = Math.min(productsProduced, safe(capacities.productDomestic));
+  const productsExport = Math.min(
+    productsProduced - productsDomestic,
+    safe(capacities.productExport),
+  );
+
+  return {
+    produced: total,
+    domestic,
+    export: exportTonnes,
+    refined,
+    productsProduced,
+    productsDomestic,
+    productsExport,
+    // Остаток остаётся в резервуарах: его видно игроку, он не «сгорает».
+    backlog: rest,
+    refineCapacity: safe(capacities.refine),
+    domesticCapacity: safe(capacities.domestic),
+    exportCapacity: safe(capacities.export),
+    productCapacity: Math.max(0, config.product.baseStorage),
+  };
+}
+
+/**
+ * Разложить партию нефти по мощностям каналов.
+ *
+ * Одна и та же функция считает и таблицу в интерфейсе, и реальную отправку
+ * партии в движке, поэтому цифры на экране всегда совпадают с деньгами.
+ * `seconds` — за сколько секунд накопилась партия: за это время канал
+ * успевает принять `мощность · seconds` тонн.
+ */
+export function allocateBatch(
+  config: GameConfig,
+  capacities: {
+    domestic: number;
+    export: number;
+    refine: number;
+    productDomestic: number;
+    productExport: number;
+  },
+  batch: number,
+  seconds = 1,
+): {
+  domestic: number;
+  export: number;
+  refined: number;
+  products: number;
+  productsDomestic: number;
+  productsExport: number;
+  rest: number;
+} {
+  const span = Math.max(1e-9, seconds);
+  const limit = (value: number): number =>
+    Number.isFinite(value) ? Math.max(0, value) * span : Number.MAX_SAFE_INTEGER;
+
+  const domestic = Math.min(batch, limit(capacities.domestic));
+  let left = batch - domestic;
+  const exported = Math.min(left, limit(capacities.export));
+  left -= exported;
+  const refined = Math.min(left, limit(capacities.refine));
+  left -= refined;
+
+  const products = refined * config.oil.refineryYield;
+  const productsDomestic = Math.min(products, Math.max(0, capacities.productDomestic));
+  const productsExport = Math.min(products - productsDomestic, Math.max(0, capacities.productExport));
+
+  return {
+    domestic,
+    export: exported,
+    refined,
+    products,
+    productsDomestic,
+    productsExport,
+    rest: left,
+  };
 }
 
 /**

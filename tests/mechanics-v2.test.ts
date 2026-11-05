@@ -154,14 +154,19 @@ describe('новые покупки из заявки', () => {
 });
 
 describe('сбыт нефти', () => {
-  it('добыча без каналов копится, с контрактами — продаётся', () => {
+  it('нефть копится 5 суток, потом партия уезжает и приносит деньги', () => {
     const { game, state } = setup();
     rich(state, 1e6);
     game.buy('t_well', 5);
     state.oil = 0;
+    // Меньше срока накопления — партия ещё не отправлена.
     game.update(1000);
+    expect(state.totalSold).toBe(0);
+    expect(state.oil).toBeGreaterThan(0);
+    // Прошли пять суток — нефть ушла на внутренний рынок.
+    game.update(5000);
     expect(state.totalSold).toBeGreaterThan(0);
-    expect(state.coins).toBeGreaterThan(0);
+    expect(state.coins).toBeGreaterThan(999000);
   });
 
   it('НПЗ и экспорт поднимают цену тонны', () => {

@@ -10,7 +10,7 @@ import { clear, el } from './dom';
 import type { Texts } from './texts';
 import { formatMoney, formatNumber, formatPercent } from '../core/format';
 import { icon as iconPath } from '../core/assets';
-import type { BuyCheck, Game } from '../core/game';
+import { isRepeatable, type BuyCheck, type Game } from '../core/game';
 import type { Tab, UpgradeDef } from '../core/types';
 
 interface CardRefs {
@@ -162,7 +162,10 @@ export class Shop {
   private refreshCard(def: UpgradeDef, refs: CardRefs): void {
     const check = this.game.checkBuy(def.id);
     const level = check.level;
-    const repeatable = !!def.repeatable;
+    // Действие с перезарядкой (контрабанда, кризис, отмывание) не
+    // «прокачивается»: у него нет максимума, иначе кнопка мигала бы между
+    // «Купить» и «Максимум» после первой покупки.
+    const repeatable = isRepeatable(def);
 
     // У покупок-действий уровень не растёт — показываем уровень коротко,
     // иначе бейдж «1/1» выглядел бы как ошибка.
