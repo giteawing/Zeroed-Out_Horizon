@@ -31,6 +31,8 @@ export class Hud {
    */
   private readonly invoice: HTMLElement;
   private readonly ebtNode: HTMLElement;
+  /** Пометки под ценами: у каждой цены своя надбавка, поэтому и подпись своя. */
+  private readonly priceNotes = new Map<string, HTMLElement>();
   private readonly profitValue: HTMLElement;
   private readonly balanceNode: HTMLElement;
   private readonly influenceValue: HTMLElement;
@@ -74,15 +76,36 @@ export class Hud {
     this.root = el('section', { class: 'hud', 'data-testid': 'hud' }, [
       // --- товарная статистика: цены, сырая нефть, нефтепродукты ---
       group('goods', texts.get('hud.groupGoods'), [
-        // Мировая и внутренняя цена — в одной строке, как просил заказчик.
+        // Цены. Заказчик ловил расхождение: в строках сбыта стояло одно
+        // число, а здесь другое. Причина — надбавки от сбытовых построек
+        // (тресты, брокеры, биржа) входили в цену продажи, но не в подпись.
+        // Теперь у каждой цены есть пометка, что в неё входит, а цена в
+        // строках сбыта — ровно та же, что и здесь.
         el('div', { class: 'hud__prices' }, [
           el('div', { class: 'hud__price' }, [
             el('span', { class: 'hud__price-label' }, texts.get('hud.worldPrice')),
             row('worldPrice', '', 'hud__row-value--price').value,
+            this.note('world'),
           ]),
           el('div', { class: 'hud__price' }, [
             el('span', { class: 'hud__price-label' }, texts.get('hud.domesticPrice')),
             row('domesticPrice', '', 'hud__row-value--price').value,
+            this.note('contract'),
+          ]),
+          el('div', { class: 'hud__price' }, [
+            el('span', { class: 'hud__price-label' }, texts.get('hud.exportPrice')),
+            row('exportPrice', '', 'hud__row-value--price').value,
+            this.note('export'),
+          ]),
+          el('div', { class: 'hud__price' }, [
+            el('span', { class: 'hud__price-label' }, texts.get('hud.productPriceDomestic')),
+            row('productPriceDomestic', '', 'hud__row-value--price').value,
+            this.note('productDomestic'),
+          ]),
+          el('div', { class: 'hud__price' }, [
+            el('span', { class: 'hud__price-label' }, texts.get('hud.productPriceExport')),
+            row('productPriceExport', '', 'hud__row-value--price').value,
+            this.note('productExport'),
           ]),
         ]),
 
@@ -95,7 +118,7 @@ export class Hud {
         ]),
 
         // Сырая нефть: добыча и куда она уходит.
-        el('div', { class: 'hud__section' }, [
+        el('div', { class: 'hud__section', 'data-section': 'crude' }, [
           el('span', { class: 'hud__section-title' }, texts.get('hud.crudeOil')),
           el('div', { class: 'hud__rows hud__rows--single' }, [
             row('produced', texts.get('hud.production'), 'hud__row-value--oil').root,
@@ -106,7 +129,7 @@ export class Hud {
         ]),
 
         // Нефтепродукты: сколько дают НПЗ и куда уходят.
-        el('div', { class: 'hud__section' }, [
+        el('div', { class: 'hud__section', 'data-section': 'products' }, [
           el('span', { class: 'hud__section-title' }, texts.get('hud.products')),
           el('div', { class: 'hud__rows hud__rows--single' }, [
             row('productsOut', texts.get('hud.production'), 'hud__row-value--oil').root,
@@ -164,6 +187,13 @@ export class Hud {
         this.profitValue,
       ]),
     );
+  }
+
+  /** Мелкая пометка под ценой: что входит в число. */
+  private note(kind: string): HTMLElement {
+    const node = el('span', { class: 'hud__price-note' }, '');
+    this.priceNotes.set(kind, node);
+    return node;
   }
 
   /** Узел с суммой нефтефаников — стоит в шапке рядом с иконками меню. */
@@ -252,10 +282,46 @@ export class Hud {
     const taxLabelNode = taxRow?.root.querySelector('.hud__row-label');
     if (taxLabelNode && taxLabelNode.textContent !== taxLabel) taxLabelNode.textContent = taxLabel;
     // Внутренняя цена сырья — рядом с мировой (см. блок цен выше).
+    // Цены: мировая — базовая (без надбавок), остальные — фактические,
+    // те же, по которым считаются строки сбыта.
     set('domesticPrice', units('pricePerTon', {
       price: formatMoney(derived.domesticPricePerTon, this.currency),
       tonnes,
     }));
+    set('exportPrice', units('pricePerTon', {
+      price: formatMoney(derived.exportPricePerTon, this.currency),
+      tonnes,
+    }));
+    set('productPriceDomestic', units('pricePerTon', {
+      price: formatMoney(derived.productPriceDomestic, this.currency),
+      tonnes,
+    }));
+    set('productPriceExport', units('pricePerTon', {
+      price: formatMoney(derived.productPriceExport, this.currency),
+      tonnes,
+    }));
+    /*
+     * Пометка под ценой — это отношение к СТАРТОВОЙ цене канала
+     * (basePricePerTon · priceFactor). Так видно, сколько дают постройки и
+     * политика: «×2,35 к базовой». Мировая цена — базовая по определению.
+     */
+    const base = this.config.oil.basePricePerTon;
+    const markups: Record<string, number> = {
+      world: 1,
+      contract: derived.domesticPricePerTon / (base * this.config.oil.channels.contract.priceFactor),
+      export: derived.exportPricePerTon / (base * this.config.oil.channels.export.priceFactor),
+      productDomestic: derived.productPriceDomestic / (base * this.config.product.domesticPriceFactor),
+      productExport: derived.productPriceExport / (base * this.config.product.exportPriceFactor),
+    };
+    for (const [kind, node] of this.priceNotes) {
+      const ratio = markups[kind] ?? 1;
+      const text = kind === 'world' || ratio <= 1.005
+        ? this.texts.get('hud.priceNoteBase')
+        : this.texts.get('hud.priceNoteMarkup', {
+          markup: formatNumber(Math.round(ratio * 100) / 100),
+        });
+      if (node.textContent !== text) node.textContent = text;
+    }
     const profitText = units('moneyRate', {
       value: formatMoney(derived.profitPerSecond, this.currency),
       s: perSecond.replace('/', ''),

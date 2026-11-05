@@ -247,6 +247,50 @@ describe('магазин', () => {
   });
 });
 
+describe('витрина богатства', () => {
+  /** Открыть витрину через меню шапки. */
+  const openWealth = (): HTMLElement => {
+    document.querySelector<HTMLButtonElement>('.iconbtn--menu')?.click();
+    document.querySelector<HTMLButtonElement>('[data-menu="wealth"]')?.click();
+    return [...document.querySelectorAll<HTMLElement>('.sheet')].find(
+      (node) => node.querySelector('.wealth__grid') !== null,
+    )!;
+  };
+
+  it('закрывается кнопкой «Закрыть»', () => {
+    const sheet = openWealth();
+    expect(sheet.hasAttribute('hidden')).toBe(false);
+    const close = [...sheet.querySelectorAll<HTMLButtonElement>('.btn')].pop();
+    expect(close?.textContent).toBe('Закрыть');
+    close?.click();
+    expect(sheet.hasAttribute('hidden')).toBe(true);
+  });
+
+  it('закрывается кликом по пустому месту вокруг листа', () => {
+    const sheet = openWealth();
+    expect(sheet.hasAttribute('hidden')).toBe(false);
+    // Клик по самому листу окно не закрывает.
+    sheet.querySelector<HTMLElement>('.sheet__inner')!.dispatchEvent(
+      new Event('pointerdown', { bubbles: true }),
+    );
+    expect(sheet.hasAttribute('hidden')).toBe(false);
+    // А по затемнению — закрывает.
+    sheet.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    expect(sheet.hasAttribute('hidden')).toBe(true);
+  });
+
+  it('настройки тоже закрываются кликом по фону', () => {
+    document.querySelector<HTMLButtonElement>('.iconbtn--menu')?.click();
+    document.querySelector<HTMLButtonElement>('[data-menu="settings"]')?.click();
+    const sheet = [...document.querySelectorAll<HTMLElement>('.sheet')].find(
+      (node) => node.querySelector('.wealth__grid') === null && !node.classList.contains('dev'),
+    )!;
+    expect(sheet.hasAttribute('hidden')).toBe(false);
+    sheet.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    expect(sheet.hasAttribute('hidden')).toBe(true);
+  });
+});
+
 describe('новости и подписи', () => {
   it('лента заполняется заголовками из texts.json', () => {
     const items = document.querySelectorAll('.news__item');

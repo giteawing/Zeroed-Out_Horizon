@@ -373,6 +373,29 @@ describe('товарная модель: сырая нефть → нефтеп�
     expect(small.domestic).toBeCloseTo(50, 6);
   });
 
+  it('цена канала в панели — та же, что в расчёте денег', () => {
+    // Заказчик поймал расхождение: «внутренняя цена ₦1,37/т», а в строке
+    // сбыта — «× ₦4,13/т». Надбавки сбытовых построек входили в цену продажи,
+    // но не в подпись. Теперь подписанная цена и цена расчёта — одно число.
+    const state = createInitialState(config, 63);
+    state.wells = [{ kind: 'good', dailyTonnes: 60 }];
+    state.levels = { c_local: 5, c_broker: 4, c_bourse: 3 };
+    const d = computeDerived(config, content.upgrades, state, [], content);
+    expect(d.domesticPricePerTon).toBeCloseTo(d.channels.contract.price, 9);
+    expect(d.exportPricePerTon).toBeCloseTo(d.channels.export.price, 9);
+    // Выручка в секунду собирается из ровно этих цен и потоков.
+    expect(d.grossPerSecond).toBeCloseTo(
+      d.flows.domestic * d.domesticPricePerTon +
+        d.flows.export * d.exportPricePerTon +
+        d.flows.productsDomestic * d.productPriceDomestic +
+        d.flows.productsExport * d.productPriceExport,
+      6,
+    );
+    // Надбавки сбыта действительно поднимают цену над стартовой.
+    const basePrice = config.oil.basePricePerTon * config.oil.channels.contract.priceFactor;
+    expect(d.domesticPricePerTon).toBeGreaterThan(basePrice * 1.05);
+  });
+
   it('мировая цена двигается во времени и тянет за собой внутреннюю', () => {
     const state = createInitialState(config, 62);
     const low = computeDerived(config, content.upgrades, state, [], content);

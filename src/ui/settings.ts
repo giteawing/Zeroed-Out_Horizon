@@ -54,6 +54,10 @@ export class Settings {
         close,
       ]),
     ]);
+    // Клик по затемнению вокруг листа закрывает окно — как в остальных шторках.
+    this.root.addEventListener('pointerdown', (event) => {
+      if (event.target === this.root) this.callbacks.onClose();
+    });
     this.setSound(true);
     this.setParticles(true);
   }
