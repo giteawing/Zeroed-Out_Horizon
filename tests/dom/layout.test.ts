@@ -67,10 +67,11 @@ describe('раскладка', () => {
             ? 'drill'
             : n.className,
     );
-    // Долото может идти вместе с бейджем последним блоком.
+    // Третий блок — обёртка с долотом и бейджем достижений.
     expect(blocks[0]).toBe('hud');
     expect(blocks[1]).toBe('oplog');
-    expect(blocks.slice(2)).toContain('drill');
+    expect(blocks[2]).toBe('stage__drill');
+    expect(side?.querySelector('.stage__drill .drill')).not.toBeNull();
 
     expect(side?.querySelector('.shop')).toBeNull();
     expect(side?.querySelector('[data-testid="drill"]')).not.toBeNull();
@@ -81,7 +82,7 @@ describe('раскладка', () => {
     const side = document.querySelector('.stage__side');
     const children = [...(side?.children ?? [])];
     const oplogIndex = children.findIndex((n) => n.classList.contains('oplog'));
-    const drillIndex = children.findIndex((n) => n.classList.contains('drill'));
+    const drillIndex = children.findIndex((n) => n.classList.contains('stage__drill'));
     expect(oplogIndex).toBeGreaterThan(-1);
     expect(drillIndex).toBeGreaterThan(oplogIndex);
   });

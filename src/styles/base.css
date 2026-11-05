@@ -515,12 +515,36 @@ img {
 .stage__side {
   min-height: 0;
   min-width: 0;
-  display: grid;
-  /* Таблица и журнал берут свой минимум, долото — остаток и не схлопывается. */
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  justify-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   gap: 8px;
   overflow: hidden;
+}
+
+/* Таблица доходов и расходов: свой минимум, никогда не сжимается. */
+.stage__side > .hud {
+  flex: none;
+}
+
+/* Журнал операций: забирает свободное место и прокручивается внутри. */
+.stage__side > .oplog {
+  flex: 1 1 0;
+  min-height: 84px;
+}
+
+/* Долото: последний блок, держит свой размер и не наезжает на журнал. */
+.stage__drill {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  padding-top: 2px;
+}
+
+.stage__drill > .drill {
+  width: min(100%, 340px);
 }
 
 /* ------------------------------------------------------------------ скважина */
@@ -1345,7 +1369,66 @@ img {
 
 /* --------------------------------------------------------------- адаптив */
 
-/* Широкий экран: скважина слева, магазин справа (ТЗ §8.1). */
+/*
+ * Телефон: магазин сверху (левый столбец на десктопе), а под ним — правая
+ * половина: таблица доходов во всю ширину, под ней журнал и долото рядом,
+ * чтобы вся империя влезала в экран без прокрутки.
+ */
+@media (max-width: 859px) {
+  .stage__side {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 44%);
+    grid-template-rows: auto minmax(0, 1fr);
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .stage__side > .hud {
+    grid-column: 1 / -1;
+  }
+
+  .stage__side > .oplog {
+    grid-column: 1;
+    grid-row: 2;
+    min-height: 0;
+  }
+
+  .stage__drill {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
+  }
+
+  .stage__drill > .drill {
+    width: min(100%, 200px);
+  }
+
+  /* На телефоне таблица компактнее: строки в две колонки и мельче шрифт. */
+  .hud__rows {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 10px;
+  }
+
+  .hud__row-label {
+    white-space: normal;
+    line-height: 1.1;
+  }
+
+  .hud__row-value {
+    text-align: right;
+  }
+
+  .hud {
+    gap: 5px;
+    padding: 8px 10px;
+  }
+
+  .hud__balance {
+    font-size: clamp(18px, 5vw, 24px);
+  }
+}
+
+/* Широкий экран: магазин слева, таблица/журнал/долото справа (ТЗ §8.1). */
 @media (min-width: 860px) {
   .screen {
     padding: calc(var(--safe-top) + 10px) 18px calc(var(--safe-bottom) + 10px);
@@ -1358,10 +1441,6 @@ img {
     grid-template-rows: minmax(0, 1fr);
     align-items: stretch;
     gap: 14px;
-  }
-
-  .stage__side {
-    grid-template-rows: auto minmax(0, 1fr) auto;
   }
 
   /* Таблица доходов и расходов в узком столбце: строки идут парами. */
@@ -1385,14 +1464,6 @@ img {
 
   .shop__list {
     align-content: start;
-  }
-
-  /* В узкой правой колонке долото ограничено высотой: квадрат по меньшей стороне. */
-  .drill {
-    width: auto;
-    height: 100%;
-    max-height: 260px;
-    aspect-ratio: 1 / 1;
   }
 
   .news__list {

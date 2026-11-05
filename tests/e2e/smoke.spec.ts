@@ -24,17 +24,26 @@ async function start(page: Page): Promise<void> {
   await expect(page.locator('.start')).toHaveCount(0, { timeout: 5000 });
 }
 
-/** Тап по скважине. Игра слушает pointerdown, поэтому mouse.down() достаточно. */
+/**
+ * Тап по скважине.
+ * Игра слушает pointerdown. На телефоне (WebKit с эмуляцией тача) мышью тапать
+ * нельзя, поэтому там шлём настоящий touchscreen.tap — он порождает pointerdown.
+ */
 async function tapDrill(page: Page, times = 12): Promise<void> {
   const drill = page.locator('[data-testid="drill"]');
   const box = await drill.boundingBox();
   if (!box) throw new Error('скважина не найдена');
   const x = box.x + box.width / 2;
   const y = box.y + box.height / 2;
+  const isTouch = await page.evaluate(() => window.matchMedia('(pointer: coarse)').matches);
   for (let i = 0; i < times; i++) {
-    await page.mouse.move(x, y);
-    await page.mouse.down();
-    await page.mouse.up();
+    if (isTouch) {
+      await page.touchscreen.tap(x, y);
+    } else {
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.mouse.up();
+    }
   }
 }
 
@@ -170,7 +179,8 @@ test('панель империи видна всегда и держит все
   expect(oplogBox?.width ?? 0).toBeGreaterThan(200);
   // Журнал идёт под таблицей, долото — под журналом.
   expect(oplogBox!.y).toBeGreaterThan(hudBox!.y + hudBox!.height - 1);
-  expect(drillBox!.y).toBeGreaterThan(oplogBox!.y + oplogBox!.height - 1);
+  const drillBlock = await page.locator('.stage__drill').boundingBox();
+  expect(drillBlock!.y).toBeGreaterThan(oplogBox!.y + oplogBox!.height - 1);
   // На широком экране два столбца: магазин слева и шире правой колонки.
   const wide = (await page.viewportSize())!.width >= 860;
   if (wide) {

@@ -173,7 +173,12 @@ function boot(): void {
     // Левый, широкий столбец — только магазин со вкладками (он же прокручивается).
     el('div', { class: 'stage__main' }, [shop.root]),
     // Правый, узкий: таблица доходов и расходов, журнал операций, долото.
-    el('aside', { class: 'stage__side' }, [hud.root, oplog.root, drill.root, badge]),
+    el('aside', { class: 'stage__side' }, [
+      hud.root,
+      oplog.root,
+      // Долото вместе с бейджем достижений: бейдж всплывает над ним.
+      el('div', { class: 'stage__drill' }, [drill.root, badge]),
+    ]),
   ]);
 
   const newsBar = el('div', { class: 'newspane' }, [news.root]);
