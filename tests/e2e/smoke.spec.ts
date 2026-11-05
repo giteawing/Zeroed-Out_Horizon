@@ -174,15 +174,21 @@ test('панель империи видна всегда и держит все
   expect(hudBox?.width ?? 0).toBeGreaterThan(200);
   expect(drillBox?.width ?? 0).toBeGreaterThan(120);
   expect(oplogBox?.width ?? 0).toBeGreaterThan(200);
-  // Журнал идёт под таблицей, долото — под журналом.
+  // Журнал идёт под таблицей.
   expect(oplogBox!.y).toBeGreaterThan(hudBox!.y + hudBox!.height - 1);
-  const drillBlock = await page.locator('.stage__drill').boundingBox();
-  expect(drillBlock!.y).toBeGreaterThan(oplogBox!.y + oplogBox!.height - 1);
-  // На широком экране два столбца: магазин слева и шире правой колонки.
   const wide = (await page.viewportSize())!.width >= 860;
   if (wide) {
+    // Десктоп: долото под журналом, магазин шире правой колонки.
+    const drillBlock = await page.locator('.stage__drill').boundingBox();
+    expect(drillBlock!.y).toBeGreaterThan(oplogBox!.y + oplogBox!.height - 1);
     expect(side).toBeTruthy();
-    expect((shopBox?.width ?? 0)).toBeGreaterThan((hudBox?.width ?? 0) * 1.5);
+    expect(shopBox?.width ?? 0).toBeGreaterThan((hudBox?.width ?? 0) * 1.5);
+  } else {
+    // Телефон: журнал и долото стоят рядом, под таблицей, и не наезжают на магазин.
+    const drillBlock = await page.locator('.stage__drill').boundingBox();
+    expect(drillBlock!.x).toBeGreaterThan(oplogBox!.x + oplogBox!.width - 1);
+    expect(drillBlock!.y).toBeLessThan(oplogBox!.y + oplogBox!.height);
+    expect(hudBox!.y).toBeGreaterThan(shopBox!.y + shopBox!.height - 1);
   }
 });
 

@@ -1380,12 +1380,19 @@ img {
  * чтобы вся империя влезала в экран без прокрутки.
  */
 @media (max-width: 859px) {
+  /* Магазин и нижняя половина делят экран, чтобы правая колонка не наезжала на магазин. */
+  .stage {
+    grid-template-rows: minmax(0, 1fr) minmax(0, 54vh);
+  }
+
   .stage__side {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 44%);
     grid-template-rows: auto minmax(0, 1fr);
     align-items: stretch;
     gap: 6px;
+    max-height: 54vh;
+    overflow: hidden;
   }
 
   .stage__side > .hud {
@@ -1405,7 +1412,7 @@ img {
   }
 
   .stage__drill > .drill {
-    width: min(100%, 200px, 22vh);
+    width: min(100%, 200px, 20vh);
   }
 
   /* На телефоне таблица компактнее: строки в две колонки и мельче шрифт. */
