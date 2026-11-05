@@ -35,6 +35,9 @@ async function tapDrill(page: Page, times = 12): Promise<void> {
   if (!box) throw new Error('скважина не найдена');
   const x = box.x + box.width / 2;
   const y = box.y + box.height / 2;
+  // Долото должно попадать в экран целиком, иначе тап уходит мимо.
+  expect(box.width).toBeGreaterThan(40);
+  expect(y).toBeLessThan((await page.evaluate(() => window.innerHeight)) - 4);
   const isTouch = await page.evaluate(() => window.matchMedia('(pointer: coarse)').matches);
   for (let i = 0; i < times; i++) {
     if (isTouch) {
