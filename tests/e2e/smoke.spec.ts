@@ -60,15 +60,23 @@ test('игра запускается без ошибок в консоли', as
 test('тап добывает нефть, а не нефтефаники', async ({ page }) => {
   await start(page);
   const before = await page.evaluate(
-    () => (window as unknown as { __game: { state: { oil: number; totalTaps: number } } }).__game.state,
+    () =>
+      (window as unknown as {
+        __game: { state: { oil: number; totalTaps: number; totalSold: number } };
+      }).__game.state,
   );
   await tapDrill(page, 24);
   const after = await page.evaluate(
-    () => (window as unknown as { __game: { state: { oil: number; totalTaps: number } } }).__game.state,
+    () =>
+      (window as unknown as {
+        __game: { state: { oil: number; totalTaps: number; totalSold: number } };
+      }).__game.state,
   );
   // Каждый тап — это тап по нефти, а не начисление нефтефаников.
   expect(after.totalTaps).toBeGreaterThan(before.totalTaps + 20);
-  expect(after.oil).toBeGreaterThan(0);
+  // Контракты измеряются в тысячах тонн, поэтому добытая нефть сразу уходит
+  // на сбыт: резервуар может быть пуст, но тонны проданы.
+  expect(after.oil + after.totalSold).toBeGreaterThan(before.oil + before.totalSold);
   // Панель империи показывает ту же нефть в резервуарах: «{oil} / {capacity} т».
   await expect(page.locator('.hud__oil .hud__row-value')).toContainText('т');
 });
