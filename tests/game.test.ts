@@ -269,6 +269,29 @@ describe('периодические бонусы', () => {
   });
 });
 
+describe('нефтепродукты: производство сходится с продажей', () => {
+  it('топливо сверх рынка и склада оплачивается, а не исчезает', () => {
+    const { game, state } = setup();
+    makeRich(state, 't_refinery', 60);
+    state.wells = Array.from({ length: 40 }, () => ({ kind: 'unique' as const, dailyTonnes: 250 }));
+    state.levels = { t_refinery: 30 };
+    state.oil = 0;
+    state.products = 0;
+    game.invalidate();
+    const start = state.coins;
+    // Нефтебаз нет вовсе — значит излишек обязан уйти по внутренней цене.
+    for (let i = 0; i < 120; i++) game.update(1000);
+    const derived = game.derived();
+    expect(derived.productCapacity).toBe(0);
+    expect(derived.flows.productsSpill).toBeGreaterThan(0);
+    // Империя заработала: топливо не «испарилось» мимо кассы.
+    expect(state.coins).toBeGreaterThan(start);
+    // И на складе не осталось того, что уже продано.
+    expect(Number.isFinite(state.products)).toBe(true);
+    expect(state.products).toBeLessThanOrEqual(derived.productCapacity + 1e-6);
+  });
+});
+
 describe('экономика во времени', () => {
   it('пассивный доход тикает и не уходит в минус', () => {
     const { game, state } = setup();
