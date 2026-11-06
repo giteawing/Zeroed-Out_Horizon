@@ -113,8 +113,3 @@ export function taxRateOf(
   return Math.min(config.tax.baseRate, Math.max(config.tax.minRate, rate));
 }
 
-/**
- * Сколько объектов построено: НПЗ, нефтебазы, АЗС, трубопроводы.
- * Считается по `assetKind` покупок, поэтому новые объекты достаточно
- * пометить в upgrades.json — панель подхватит их сама.
- */
