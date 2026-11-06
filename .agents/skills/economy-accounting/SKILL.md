@@ -108,7 +108,10 @@ description: Use when touching oil production, sales channels, pipeline/shipping
 - `economy/production.ts` — добыча, ёмкости, налоговые коэффициенты и штрафы;
 - `economy/assets.ts` — стоимость имущества и реприватизация;
 - `economy/sales.ts` — расчёт распределения продаж;
-- `economy/derived.ts` — сборка эффектов, рынка и финансовых темпов;
+- `economy/derived/effects.ts` — сбор эффектов покупок;
+- `economy/derived/market.ts` — добыча, цены, мощности и валовая выручка;
+- `economy/derived/financial-rates.ts` — темпы расходов, EBT и налога;
+- `economy/derived.ts` — сборка итогового `DerivedStats`;
 - `accounting.ts` — чистая формула закрытия денежной сделки;
 - `game.ts` — изменение состояния, игровые часы и применение денег.
 
