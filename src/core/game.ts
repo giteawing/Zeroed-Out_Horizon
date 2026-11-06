@@ -30,6 +30,7 @@ import type {
   UpgradeDef,
 } from './types';
 import { Rng } from './rng';
+import { calculateSaleSettlement } from './accounting';
 
 export type BuyFailure = 'noMoney' | 'cooldown' | 'locked' | 'maxLevel' | 'won' | 'noOil';
 
@@ -695,15 +696,16 @@ export class Game {
       if (dtSeconds > 0) this.trackRevenue(0, dtSeconds);
       return { gross: 0, expenses: 0, tax: 0, net: 0 };
     }
-    const expenses = Math.max(0, this.state.expensesAccrued);
-    const ebt = Math.max(0, gross - expenses);
-    const tax = ebt * this.derived().taxRate;
-    const net = Math.max(0, ebt - tax);
+    const settlement = calculateSaleSettlement(
+      gross,
+      this.state.expensesAccrued,
+      this.derived().taxRate,
+    );
     this.pendingSalesGross = 0;
     this.state.expensesAccrued = 0;
-    if (net > 0) this.grantCoins(net);
-    if (dtSeconds > 0) this.trackRevenue(net, dtSeconds);
-    return { gross, expenses, tax, net };
+    if (settlement.net > 0) this.grantCoins(settlement.net);
+    if (dtSeconds > 0) this.trackRevenue(settlement.net, dtSeconds);
+    return settlement;
   }
 
   /**

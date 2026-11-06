@@ -77,7 +77,7 @@
 | Skill | Когда читать |
 |---|---|
 | [project-architecture](.agents/skills/project-architecture/SKILL.md) | структура, зависимости модулей, типы контента, сохранения |
-| [economy-accounting](.agents/skills/economy-accounting/SKILL.md) | добыча, продажи, налоги, расходы, каналы, отгрузка, покупки |
+| [economy-accounting](.agents/skills/economy-accounting/SKILL.md) | добыча, продажи, налоги, расходы, каналы, отгрузка, покупки; карта модулей — [docs/ECONOMY.md](docs/ECONOMY.md) |
 | [balance-tuning](.agents/skills/balance-tuning/SKILL.md) | цены, winCost, темп прохождения, симулятор и auto-balance |
 | [testing-regressions](.agents/skills/testing-regressions/SKILL.md) | тест-план, Vitest, happy-dom, Playwright, CI и регрессии |
 | [content-ui-art](.agents/skills/content-ui-art/SKILL.md) | JSON-контент, тексты, магазин, HUD, CSS, SVG и звук |
