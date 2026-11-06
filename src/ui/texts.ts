@@ -8,13 +8,16 @@ import { interpolate } from '../core/format';
 export class Texts {
   constructor(readonly data: TextsFile) {}
 
-  /** Строка по пути вида «shop.buy». Возвращает сам путь, если не нашлось. */
+  /**
+   * Строка по пути вида «shop.buy» или «spill.places.sea».
+   * Вложенность любая: локации разлива лежат на третьем уровне.
+   * Возвращает сам путь, если не нашлось.
+   */
   get(path: string, params: Record<string, string | number> = {}): string {
-    const [section, key] = path.split('.');
-    const group = (this.data as unknown as Record<string, unknown>)[section];
-    let value: unknown = group;
-    if (key !== undefined) {
-      value = group && typeof group === 'object' ? (group as Record<string, unknown>)[key] : undefined;
+    let value: unknown = this.data;
+    for (const part of path.split('.')) {
+      if (!value || typeof value !== 'object') return path;
+      value = (value as Record<string, unknown>)[part];
     }
     if (typeof value !== 'string') return path;
     return Object.keys(params).length > 0 ? interpolate(value, params) : value;

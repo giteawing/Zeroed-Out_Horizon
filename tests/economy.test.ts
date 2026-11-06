@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   allocateBatch,
+  fineFactorOf,
+  fineFor,
   oilFlowsOf,
   affordableLevels,
   computeDerived,
@@ -319,6 +321,62 @@ describe('регрессии экономики: выручка по факти�
     // Дорогие каналы забирают первыми, остаток уходит в контракты.
     expect(d.salesByChannel.refine).toBeLessThanOrEqual(d.channels.refine.rate + 1e-9);
     expect(d.salesByChannel.export).toBeLessThanOrEqual(d.channels.export.rate + 1e-9);
+  });
+});
+
+describe('штраф за разлив', () => {
+  it('считается по тоннам и виду товара', () => {
+    const crude = fineFor(config, 'crude', 1000, 0);
+    const products = fineFor(config, 'products', 1000, 0);
+    expect(crude).toBeCloseTo(1000 * config.fines.oilPerTon, 6);
+    expect(products).toBeCloseTo(1000 * config.fines.productPerTon, 6);
+    // Нефтепродукты дороже — и разлив дороже.
+    expect(products).toBeGreaterThan(crude);
+    // Ничего не разлилось — нечего и штрафовать.
+    expect(fineFor(config, 'crude', 0, 0)).toBe(0);
+  });
+
+  it('влияние снижает штраф, но не до нуля', () => {
+    const none = fineFactorOf(config, 0);
+    const some = fineFactorOf(config, 50);
+    const lots = fineFactorOf(config, 400);
+    expect(none).toBe(1);
+    expect(some).toBeLessThan(none);
+    expect(lots).toBeLessThan(some);
+    // Потолок скидки: даже при влиянии выше cap платим minFactor.
+    expect(lots).toBeCloseTo(1 - config.fines.maxRelief, 6);
+    expect(fineFactorOf(config, 100000)).toBeCloseTo(1 - config.fines.maxRelief, 6);
+  });
+
+  it('норматив штрафа входит в расходы и виден в EBT', () => {
+    const state = createInitialState(config, 71);
+    state.levels = { t_well: 20, c_local: 5 };
+    state.wells = [{ kind: 'unique', dailyTonnes: 4000 }];
+    state.spillCrudePerSecond = 500;
+    const d = computeDerived(config, content.upgrades, state, [], content);
+    expect(d.finePerSecond).toBeGreaterThan(0);
+    // Расходы = зарплаты + чиновники + штраф: таблица сходится построчно.
+    expect(d.expensesPerSecond).toBeCloseTo(d.salaries + d.officials + d.finePerSecond, 6);
+    // Штраф уменьшает EBT.
+    const clean = computeDerived(
+      config, content.upgrades, { ...state, spillCrudePerSecond: 0 }, [], content,
+    );
+    expect(d.ebtPerSecond).toBeLessThan(clean.ebtPerSecond);
+  });
+
+  it('влияние империи реально смягчает норматив', () => {
+    const state = createInitialState(config, 72);
+    state.spillProductsPerSecond = 800;
+    const poor = computeDerived(config, content.upgrades, state, [], content);
+    const rich = computeDerived(
+      config,
+      content.upgrades,
+      { ...state, levels: { pmc_vet: 10, pmc_chvk: 10, pmc_airbase: 10, pmc_army: 5 } },
+      [],
+      content,
+    );
+    expect(rich.influence).toBeGreaterThan(poor.influence);
+    expect(rich.finePerSecond).toBeLessThan(poor.finePerSecond);
   });
 });
 

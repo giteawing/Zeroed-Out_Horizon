@@ -148,6 +148,21 @@ export class Rules {
         t('rules.marketsRedirect', {}),
       ]),
 
+      // Разлив: откуда берётся штраф и как его уменьшить.
+      this.section('rules.finesTitle', [
+        t('rules.finesText', {
+          oil: formatMoney(config.fines.oilPerTon, this.currency),
+          product: formatMoney(config.fines.productPerTon, this.currency),
+        }),
+        t('rules.finesInfluence', {
+          relief: formatPercent(config.fines.influenceReliefPerPoint, 1),
+          max: formatPercent(config.fines.maxRelief, 0),
+          // Влияние, после которого скидка упирается в потолок.
+          cap: formatNumber(Math.ceil(config.fines.maxRelief / config.fines.influenceReliefPerPoint)),
+        }),
+        t('rules.finesTable', {}),
+      ]),
+
       this.section('rules.productsTitle', [
         t('rules.productsText', {
           yield: formatPercent(oil.refineryYield, 0),

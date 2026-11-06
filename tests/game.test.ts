@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { Game } from '../src/core/game';
-import { costFor } from '../src/core/economy';
+import { computeDerived, costFor } from '../src/core/economy';
 import { createInitialState } from '../src/core/state';
 import { loadContent } from '../src/core/content';
 import type { GameEvent, GameState } from '../src/core/types';
@@ -270,7 +270,7 @@ describe('периодические бонусы', () => {
 });
 
 describe('нефтепродукты: производство сходится с продажей', () => {
-  it('топливо сверх рынка и склада оплачивается, а не исчезает', () => {
+  it('излишек сверх рынка и склада разливается и штрафуется', () => {
     const { game, state } = setup();
     makeRich(state, 't_refinery', 60);
     state.wells = Array.from({ length: 40 }, () => ({ kind: 'unique' as const, dailyTonnes: 250 }));
@@ -278,15 +278,25 @@ describe('нефтепродукты: производство сходится 
     state.oil = 0;
     state.products = 0;
     game.invalidate();
-    const start = state.coins;
-    // Нефтебаз нет вовсе — значит излишек обязан уйти по внутренней цене.
+    // Нефтебаз нет вовсе — излишку некуда деваться, он выливается.
     for (let i = 0; i < 120; i++) game.update(1000);
     const derived = game.derived();
     expect(derived.productCapacity).toBe(0);
     expect(derived.flows.productsSpill).toBeGreaterThan(0);
-    // Империя заработала: топливо не «испарилось» мимо кассы.
-    expect(state.coins).toBeGreaterThan(start);
-    // И на складе не осталось того, что уже продано.
+
+    // Разлив попал в журнал, с локацией и штрафом.
+    const spill = state.log.find((e) => e.kind === 'spill' && e.spill === 'products');
+    expect(spill).toBeDefined();
+    expect(spill!.tonnes).toBeGreaterThan(0);
+    expect(spill!.money).toBeGreaterThan(0);
+    expect(spill!.place).toBeTruthy();
+
+    // Норматив штрафа виден в расходах и снижается влиянием.
+    expect(derived.finePerSecond).toBeGreaterThan(0);
+    const poor = computeDerived(config, content.upgrades, { ...state, levels: {} }, [], content);
+    expect(derived.fineFactor).toBeLessThanOrEqual(poor.fineFactor + 1e-9);
+
+    // На складе не осталось того, что уже продано.
     expect(Number.isFinite(state.products)).toBe(true);
     expect(state.products).toBeLessThanOrEqual(derived.productCapacity + 1e-6);
   });

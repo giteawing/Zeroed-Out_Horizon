@@ -167,6 +167,12 @@ describe('HUD', () => {
     expect(order.indexOf('Расходы')).toBeLessThan(order.indexOf('Зарплаты'));
     expect(order.indexOf('Чиновники')).toBeLessThan(order.indexOf('EBT'));
     expect(order.some((line) => line.startsWith('Налог на прибыль'))).toBe(true);
+    // «Норматив штрафа» — статья расходов: стоит после найма, до EBT, и
+    // подписан текущей скидкой за влияние.
+    const fineIndex = order.findIndex((line) => line.startsWith('Норматив штрафа'));
+    expect(fineIndex).toBeGreaterThan(order.indexOf('Чиновники'));
+    expect(fineIndex).toBeLessThan(order.indexOf('EBT'));
+    expect(order[fineIndex]).toContain('скидка');
     expect(order[order.length - 1]).toBe('Чистая прибыль');
     expect(order.indexOf('EBT')).toBeLessThan(order.findIndex((l) => l.startsWith('Налог на прибыль')));
     // «Доступный объём» рынков — отдельно для сырья и для нефтепродуктов.

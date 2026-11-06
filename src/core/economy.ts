@@ -145,6 +145,34 @@ const GROUPS_STAFF = new Set(['staff', 'crew']);
 const GROUPS_INFLUENCE = new Set(['grants', 'taxes', 'deals', 'conquest', 'favors', 'pmc']);
 
 /** Резервуары: базовая ёмкость плюс покупки типа storage. */
+/**
+ * Штраф за разлив: сколько платит империя за тонну, с учётом влияния.
+ *
+ * Чем больше влияния, тем мягче министерство: каждая единица снижает долю
+ * штрафа на `influenceReliefPerPoint`, но скидка упирается в `maxRelief`.
+ * Возвращает коэффициент (1 = полный штраф), чтобы и панель, и журнал, и
+ * касса считали одну и ту же цифру.
+ */
+export function fineFactorOf(config: GameConfig, influence: number): number {
+  const relief = Math.min(
+    config.fines.maxRelief,
+    Math.max(0, influence) * config.fines.influenceReliefPerPoint,
+  );
+  return 1 - relief;
+}
+
+/** Штраф за указанное количество разлитого, ₦ (с учётом влияния). */
+export function fineFor(
+  config: GameConfig,
+  kind: 'crude' | 'products',
+  tonnes: number,
+  influence: number,
+): number {
+  if (!(tonnes > 0)) return 0;
+  const rate = kind === 'crude' ? config.fines.oilPerTon : config.fines.productPerTon;
+  return tonnes * rate * fineFactorOf(config, influence);
+}
+
 export function oilCapacityOf(config: GameConfig, content: Content | null, state: GameState): number {
   let capacity = config.oil.baseCapacity;
   if (content) {
@@ -696,13 +724,44 @@ export function computeDerived(
 
   // Расходы никогда не съедают больше пятой части выручки: иначе «успешная»
   // империя с полными резервуарами показывает нулевой доход.
-  const rawExpenses = salaries + officials;
-  const expenseCap = grossPerSecond * 0.2;
-  const capped = rawExpenses > expenseCap && expenseCap > 0;
-  const expensesPerSecond = capped ? expenseCap : rawExpenses;
-  const expenseScale = rawExpenses > 0 ? expensesPerSecond / rawExpenses : 1;
+  /*
+   * Штраф за разлив. Это не «сгоревшая» нефть, а систематическая утечка:
+   * излишек сверх склада выливается, и министерство природных ресурсов
+   * выписывает счёт. В таблице расходов он стоит отдельной строкой —
+   * «норматив штрафа» — потому что зависит от влияния, а не от найма.
+   *
+   * В EBT входит как обычный расход: доход − (зарплаты + чиновники + штраф).
+   */
+  const fineFactor = fineFactorOf(config, influenceTotal);
+  /*
+   * Считаем по ФАКТИЧЕСКОМУ разливу из состояния, а не по плановому:
+   * партия уезжает раз в несколько секунд, и «плановые» потери меняются
+   * каждый кадр. Состояние сглаживает их, поэтому строка расходов не мигает,
+   * а касса списывает ровно столько же, сколько видно на экране.
+   */
+  const spillCrude = Math.max(0, state.spillCrudePerSecond);
+  const spillProducts = Math.max(0, state.spillProductsPerSecond);
+  const finePerSecond =
+    spillCrude * config.fines.oilPerTon * fineFactor +
+    spillProducts * config.fines.productPerTon * fineFactor;
+
+  /*
+   * Потолок «пятой части выручки» висит только на найме: штат и чиновники
+   * не могут съесть больше 20 % дохода. Штраф за разлив под него не
+   * подпадает — иначе он либо терялся в округлении, либо строка «Расходы»
+   * оказывалась меньше суммы своих же статей. Теперь таблица сходится
+   * построчно: расходы = зарплаты + чиновники + норматив штрафа.
+   */
+  const overhead = salaries + officials;
+  const overheadCap = grossPerSecond * 0.2;
+  const capped = overheadCap > 0 && overhead > overheadCap;
+  const cappedOverhead = capped ? overheadCap : overhead;
+  const expenseScale = overhead > 0 ? cappedOverhead / overhead : 1;
+  const expensesPerSecond = cappedOverhead + finePerSecond;
   // Налог берётся с прибыли до налогообложения (EBT), а не с выручки:
   // сначала из дохода вычитаются расходы, и только потом ставка.
+  // EBT может уйти в ноль: разлив способен съесть всю выручку — это и есть
+  // наказание за то, что склады не построены.
   const ebtPerSecond = Math.max(0, grossPerSecond - expensesPerSecond);
   const taxPerSecond = ebtPerSecond * taxRate;
   const netPerSecond = Math.max(0, ebtPerSecond - taxPerSecond);
@@ -745,6 +804,8 @@ export function computeDerived(
     grossPerSecond,
     netPerSecond,
     expensesPerSecond,
+    finePerSecond,
+    fineFactor,
     ebtPerSecond,
     taxPaidPerSecond: taxPerSecond,
     taxRate,
