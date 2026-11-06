@@ -305,10 +305,11 @@ export function assetsValueOf(
     const growth = def.costGrowth ?? config.costGrowth;
     total += costFor(config, def, 0) * ((Math.pow(growth, level) - 1) / Math.max(1e-9, growth - 1));
   }
-  // Скважины: тонна суточного дебита стоит как четверть часа продаж
-  // по базовой цене — так «уникальная» скважина действительно актив.
+  // Единая рыночная оценка дебита: та же функция используется и для
+  // реприватизации, поэтому панель и приз не оценивают одну скважину дважды
+  // по разным правилам.
   const daily = wellsDailyTonnes(state, config);
-  total += daily * config.oil.basePricePerTon * config.assets.tonnesValueSeconds;
+  total += daily * wellPricePerDailyTonne(config);
   return Math.max(0, Math.round(total));
 }
 
@@ -327,9 +328,17 @@ export function assetsValueOf(
 export const REPRIVAT_PRIZE_MIN = 5;
 export const REPRIVAT_PRIZE_MAX = 10;
 
-/** Сколько «стоит» одна тонна суточного дебита при реприватизации, ₦. */
-export function wellPricePerDailyTonne(config: GameConfig, pricePerTon: number): number {
-  return Math.max(1, pricePerTon * config.oil.wells.priceSeconds);
+/**
+ * Рыночная стоимость одной тонны суточного дебита, ₦.
+ *
+ * И панель активов, и реприватизация используют базовую цену нефти: текущая
+ * экспортная надбавка относится к каналу сбыта, а не к самой скважине.
+ * Старый необязательный аргумент сохранён для совместимости вызовов, но
+ * намеренно игнорируется.
+ */
+export function wellPricePerDailyTonne(config: GameConfig, _pricePerTon?: number): number {
+  void _pricePerTon;
+  return Math.max(1, config.oil.basePricePerTon * config.oil.wells.priceSeconds);
 }
 
 /**
@@ -620,7 +629,9 @@ export function computeDerived(
     channels.export.rate - rateByProduct.export.crude - rateByProduct.export.products);
   const capacities = {
     domestic: {
-      crude: domesticBase * split.crude + rateByProduct.contract.crude,
+      crude: config.oil.channels.contract.unlimited
+        ? Number.POSITIVE_INFINITY
+        : domesticBase * split.crude + rateByProduct.contract.crude,
       products: domesticBase * split.productDomestic + rateByProduct.contract.products,
     },
     export: {
@@ -685,10 +696,8 @@ export function computeDerived(
     flows.domestic * channels.contract.price +
     flows.export * channels.export.price +
     flows.productsDomestic * productPriceDomestic +
-    flows.productsExport * productPriceExport +
-    // Излишек сверх рынка и склада продаётся по внутренней цене — деньги
-    // за него тоже входят в выручку, иначе панель и касса разойдутся.
-    flows.productsSpill * productPriceDomestic;
+    flows.productsExport * productPriceExport;
+  // productsSpill сюда НЕ входит: это разлитый товар и штраф, а не выручка.
 
   // Влияние считается до налога: больше влияния — меньше налог.
   const influenceTotal = Math.min(
@@ -811,6 +820,8 @@ export function computeDerived(
     taxRate,
     costCutPercent: Math.round((1 - cutFactor) * 100),
     multiplier: multTap * multPassive,
+    tapMultiplier: multTap,
+    passiveMultiplier: multPassive,
     priceMultiplier,
     salaries: salaries * expenseScale,
     officials: officials * expenseScale,
@@ -822,7 +833,7 @@ export function computeDerived(
     luxuries,
     channels,
     winCost,
-    winReady: isWinReady(config, upgrades, state, state.coins),
+    winReady: isWinReady(config, upgrades, state, state.coins, influenceTotal),
     progress: Math.min(1, winCost > 0 ? state.coins / winCost : 0),
   };
 }
@@ -844,11 +855,13 @@ export function isWinReady(
   upgrades: UpgradeDef[],
   state: GameState,
   coins: number,
+  influence = 0,
 ): boolean {
   if (coins < winCostOf(config, upgrades)) return false;
   for (const req of config.winRequirements) {
     if (req.upgrade !== undefined && levelOf(state, req.upgrade) < (req.level ?? 1)) return false;
     if (req.balance !== undefined && state.totalEarned < req.balance) return false;
+    if (req.influence !== undefined && influence < req.influence) return false;
   }
   return true;
 }
@@ -968,9 +981,9 @@ export function oilFlowsOf(
 
   // Сырая нефть: рынок + переработка (НПЗ платит своей ценой за тонну).
   const crudeMarkets = [
-    { key: 'export' as const, price: prices.crudeExport, capacity: safe(capacities.export.crude) },
-    { key: 'refine' as const, price: prices.crudeExport, capacity: safe(capacities.refine) },
-    { key: 'domestic' as const, price: prices.crudeDomestic, capacity: safe(capacities.domestic.crude) },
+    { key: 'export' as const, price: prices.crudeExport, capacity: config.oil.channels.export.unlimited ? Number.POSITIVE_INFINITY : safe(capacities.export.crude) },
+    { key: 'refine' as const, price: prices.crudeExport, capacity: config.oil.channels.refine.unlimited ? Number.POSITIVE_INFINITY : safe(capacities.refine) },
+    { key: 'domestic' as const, price: prices.crudeDomestic, capacity: config.oil.channels.contract.unlimited ? Number.POSITIVE_INFINITY : safe(capacities.domestic.crude) },
   ];
   // Переработка не «покупает» сырьё по цене экспорта: её выгода — продукты,
   // поэтому в сравнении цен она участвует ценой переработки (refine.priceFactor).
@@ -1016,8 +1029,7 @@ export function oilFlowsOf(
   const productsExport = productsByMarket.export;
   /*
    * Остаток не продаётся — он лежит на нефтебазах и ждёт свободного рынка.
-   * Если места на складе нет, лишнее уходит по внутренней цене, как перелив
-   * резервуаров с сырьём: производство обязано сходиться с продажей.
+   * Если места на складе нет, лишнее разливается и штрафуется; выручки нет.
    */
   const storeRoom = Math.max(0, options.productStorage ?? config.product.baseStorage);
   const productsStored = Math.min(productRest, storeRoom);
@@ -1098,7 +1110,7 @@ export function allocateBatch(
   productsExport: number;
   rest: number;
 } {
-  const span = Math.max(1e-9, seconds);
+  const span = Math.max(0, seconds);
   const limit = (value: number): number =>
     Number.isFinite(value) ? Math.max(0, value) * span : Number.MAX_SAFE_INTEGER;
 
@@ -1110,9 +1122,9 @@ export function allocateBatch(
   const refinePrice = prices.crudeExport * (config.oil.channels.refine.priceFactor /
     Math.max(1e-9, config.oil.channels.export.priceFactor));
   const crudeMarkets = [
-    { key: 'export' as const, price: prices.crudeExport, capacity: limit(capacities.export.crude) },
-    { key: 'refine' as const, price: refinePrice, capacity: limit(capacities.refine) },
-    { key: 'domestic' as const, price: prices.crudeDomestic, capacity: limit(capacities.domestic.crude) },
+    { key: 'export' as const, price: prices.crudeExport, capacity: config.oil.channels.export.unlimited ? Number.POSITIVE_INFINITY : limit(capacities.export.crude) },
+    { key: 'refine' as const, price: refinePrice, capacity: config.oil.channels.refine.unlimited ? Number.POSITIVE_INFINITY : limit(capacities.refine) },
+    { key: 'domestic' as const, price: prices.crudeDomestic, capacity: config.oil.channels.contract.unlimited ? Number.POSITIVE_INFINITY : limit(capacities.domestic.crude) },
   ].sort((a, b) => b.price - a.price);
 
   let left = batch;

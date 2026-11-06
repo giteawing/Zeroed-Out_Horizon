@@ -115,7 +115,7 @@ describe('новые покупки из заявки', () => {
     expect(game.derived().oilPerSecond).toBeGreaterThan(dailyBefore);
     // Стоимость приза в 5–10 раз больше уплаченного (с округлением до тонн).
     const daily = prize.reduce((sum, w) => sum + w.dailyTonnes, 0);
-    const price = (game.derived().exportPricePerTon || 1) * config.oil.wells.priceSeconds;
+    const price = config.oil.basePricePerTon * config.oil.wells.priceSeconds;
     const ratio = (daily * price) / check.cost;
     expect(ratio).toBeGreaterThanOrEqual(4.5);
     expect(ratio).toBeLessThanOrEqual(10.5);
@@ -158,6 +158,10 @@ describe('сбыт нефти', () => {
     const { game, state } = setup();
     rich(state, 1e6);
     game.buy('t_well', 5);
+    // Маленький фиксированный дебит: до принудительного переполнения
+    // партия действительно ждёт все пять суток.
+    state.wells = [{ kind: 'ordinary', dailyTonnes: 8 }];
+    game.invalidate();
     state.oil = 0;
     // Меньше срока накопления — партия ещё не отправлена.
     game.update(1000);

@@ -207,7 +207,7 @@ describe('условия победы', () => {
       }
       expect(isWinReady(config, content.upgrades, state, state.coins)).toBe(true);
     }
-    state.coins = config.winCost - 1;
+    state.coins = config.winCost - Math.max(1, Math.ceil(config.winCost * 1e-6));
     expect(isWinReady(config, content.upgrades, state, state.coins)).toBe(false);
   });
 });
@@ -398,9 +398,19 @@ describe('товарная модель: сырая нефть → нефтеп�
     productDomestic: 1,
     productExport: 1,
   };
+  const limitedConfig: GameConfig = {
+    ...config,
+    oil: {
+      ...config.oil,
+      channels: {
+        ...config.oil.channels,
+        contract: { ...config.oil.channels.contract, unlimited: false },
+      },
+    },
+  };
 
   it('потоки сходятся: добыча = внутренний + экспорт + переработка', () => {
-    const flows = oilFlowsOf(config, capacities, 300, { prices: equalPrices });
+    const flows = oilFlowsOf(limitedConfig, capacities, 300, { prices: equalPrices });
     expect(flows.domestic + flows.export + flows.refined + flows.backlog).toBeCloseTo(300, 6);
     // Мощности не превышены ни на тонну.
     expect(flows.domestic).toBeLessThanOrEqual(capacities.domestic.crude);
@@ -409,7 +419,7 @@ describe('товарная модель: сырая нефть → нефтеп�
   });
 
   it('переработка даёт нефтепродукты с учётом выхода', () => {
-    const flows = oilFlowsOf(config, capacities, 300, { prices: equalPrices });
+    const flows = oilFlowsOf(limitedConfig, capacities, 300, { prices: equalPrices });
     expect(flows.productsProduced).toBeCloseTo(flows.refined * config.oil.refineryYield, 6);
     expect(flows.productsDomestic + flows.productsExport).toBeLessThanOrEqual(
       flows.productsProduced + 1e-9,
@@ -425,7 +435,8 @@ describe('товарная модель: сырая нефть → нефтеп�
     state.levels = { t_azs: 3, t_pipeline: 2 };
     const after = computeDerived(config, content.upgrades, state, [], content);
     // АЗС расширяют внутренний рынок, трубы — экспорт.
-    expect(after.capacities.domestic.crude).toBeGreaterThan(before.capacities.domestic.crude);
+    // Сами контракты безлимитны, а численная мощность продолжает расти.
+    expect(after.channels.contract.rate).toBeGreaterThan(before.channels.contract.rate);
     expect(after.capacities.export.crude).toBeGreaterThan(before.capacities.export.crude);
     // Экспорт забирает всё, что не взял внутренний рынок (раньше его не было).
     expect(after.capacities.export.crude).toBeGreaterThan(before.capacities.export.crude);
@@ -433,17 +444,17 @@ describe('товарная модель: сырая нефть → нефтеп�
   });
 
   it('партия раскладывается по мощностям без потерь', () => {
-    const plan = allocateBatch(config, capacities, 500, 1, equalPrices);
+    const plan = allocateBatch(limitedConfig, capacities, 500, 1, equalPrices);
     expect(plan.domestic + plan.export + plan.refined + plan.rest).toBeCloseTo(500, 6);
     expect(plan.rest).toBeGreaterThan(0); // мощностей не хватило — осталось в резервуарах
     // Малая партия уходит в самый дорогой канал — переработку.
-    const small = allocateBatch(config, capacities, 50, 1, equalPrices);
+    const small = allocateBatch(limitedConfig, capacities, 50, 1, equalPrices);
     expect(small.rest).toBe(0);
     expect(small.refined).toBeCloseTo(50, 6);
     expect(small.export).toBe(0);
     expect(small.domestic).toBe(0);
     // Когда НПЗ загружен, дальше идёт экспорт, а остаток — внутренний рынок.
-    const rest = allocateBatch(config, capacities, 200, 1, equalPrices);
+    const rest = allocateBatch(limitedConfig, capacities, 200, 1, equalPrices);
     expect(rest.refined).toBeCloseTo(50, 6);
     expect(rest.export).toBeCloseTo(80, 6);
     expect(rest.domestic).toBeCloseTo(70, 6);
@@ -507,13 +518,13 @@ describe('товарная модель: сырая нефть → нефтеп�
       export: { crude: 60, products: 60 },
       refine: 40,
     };
-    const expensiveExport = oilFlowsOf(config, caps, 100, {
+    const expensiveExport = oilFlowsOf(limitedConfig, caps, 100, {
       prices: { crudeDomestic: 1, crudeExport: 2, productDomestic: 1, productExport: 3 },
     });
     expect(expensiveExport.export).toBeGreaterThan(expensiveExport.domestic);
     expect(expensiveExport.productsExport).toBeGreaterThan(expensiveExport.productsDomestic);
 
-    const expensiveDomestic = oilFlowsOf(config, caps, 100, {
+    const expensiveDomestic = oilFlowsOf(limitedConfig, caps, 100, {
       prices: { crudeDomestic: 5, crudeExport: 1, productDomestic: 5, productExport: 1 },
     });
     expect(expensiveDomestic.domestic).toBeGreaterThan(expensiveDomestic.export);
@@ -538,7 +549,7 @@ describe('товарная модель: сырая нефть → нефтеп�
       { domestic: { crude: 0, products: 0 }, export: { crude: 0, products: 0 }, refine: 1000 },
     ];
     for (const caps of cases) {
-      const sold = oilFlowsOf(config, caps, 1000, {
+      const sold = oilFlowsOf(limitedConfig, caps, 1000, {
         prices: equalPrices,
         productStorage: 2000,
       });
@@ -546,7 +557,7 @@ describe('товарная модель: сырая нефть → нефтеп�
         sold.productsDomestic + sold.productsExport + sold.productsStored + sold.productsSpill,
       ).toBeCloseTo(sold.productsProduced, 6);
     }
-    // Склад переполнен: излишек не исчезает, а продаётся по внутренней цене.
+    // Склад переполнен: излишек не исчезает, а разливается и штрафуется.
     const cramped = oilFlowsOf(
       config,
       { domestic: { crude: 0, products: 0 }, export: { crude: 0, products: 0 }, refine: 1000 },
@@ -560,9 +571,9 @@ describe('товарная модель: сырая нефть → нефтеп�
   it('у рынков свои доступные объёмы для сырья и нефтепродуктов', () => {
     const state = createInitialState(config, 67);
     const base = computeDerived(config, content.upgrades, state, [], content);
-    // Стартовые контракты открыты для обоих товаров, но доли разные:
-    // нефть забирает 60% полки, продукты — 100% (доли transportSplit).
-    expect(base.capacities.domestic.crude).toBeGreaterThan(0);
+    // Стартовые контракты безлимитны для сырья; продукты ограничены своей
+    // отдельной мощностью и не становятся безлимитными вместе с нефтью.
+    expect(base.capacities.domestic.crude).toBe(Number.POSITIVE_INFINITY);
     expect(base.capacities.domestic.products).toBeGreaterThan(0);
     expect(base.capacities.export.crude).toBe(0);
 
@@ -571,7 +582,7 @@ describe('товарная модель: сырая нефть → нефтеп�
     const crudeOnly = computeDerived(config, content.upgrades, state, [], content);
     // Рынок продуктов не вырос ни на тонну — расширился только рынок сырья.
     expect(crudeOnly.capacities.domestic.products).toBeCloseTo(base.capacities.domestic.products, 6);
-    expect(crudeOnly.capacities.domestic.crude).toBeGreaterThan(base.capacities.domestic.crude);
+    expect(crudeOnly.channels.contract.rate).toBeGreaterThan(base.channels.contract.rate);
 
     // ...АЗС — оба рынка...
     state.levels = { t_azs: 2 };

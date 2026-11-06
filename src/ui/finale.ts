@@ -115,7 +115,7 @@ export class Finale {
 
   private buildStats(state: GameState): HTMLElement {
     const rows: Array<[string, string]> = [
-      [this.texts.get('stats.time'), formatDuration(state.playtimeMs)],
+      [this.texts.get('stats.time'), formatDuration(state.wonAtMs ?? state.playtimeMs)],
       [this.texts.get('stats.taps'), String(state.totalTaps)],
       [this.texts.get('stats.earned'), formatMoney(state.totalEarned, this.currency)],
       [this.texts.get('stats.luxurySpent'), formatMoney(state.luxurySpent, this.currency)],

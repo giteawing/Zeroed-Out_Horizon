@@ -23,7 +23,7 @@ interface CardRefs {
 }
 
 export interface ShopOptions {
-  onBuy: (id: string) => void;
+  onBuy: (id: string, count: number) => void;
   onError: (check: BuyCheck) => void;
 }
 
@@ -121,12 +121,13 @@ export class Shop {
     const lock = el('span', { class: 'card__lock' }, '');
 
     button.addEventListener('click', () => {
-      const check = this.game.checkBuy(def.id);
+      const count = Math.max(1, Number(button.dataset.count ?? 1));
+      const check = this.game.checkBuy(def.id, count);
       if (!check.ok) {
         this.options.onError(check);
         return;
       }
-      this.options.onBuy(def.id);
+      this.options.onBuy(def.id, count);
     });
 
     const refs: CardRefs = { root: el('article'), level, effect, cost, button, lock };
@@ -160,7 +161,7 @@ export class Shop {
 
   /** Применить текущее состояние к карточке (дешёвая операция, вызывается часто). */
   private refreshCard(def: UpgradeDef, refs: CardRefs): void {
-    const check = this.game.checkBuy(def.id);
+    let check = this.game.checkBuy(def.id);
     const level = check.level;
     // Действие с перезарядкой (контрабанда, кризис, отмывание) не
     // «прокачивается»: у него нет максимума, иначе кнопка мигала бы между
@@ -181,6 +182,13 @@ export class Shop {
 
     const maxed = !repeatable && !def.win && level >= check.maxLevel;
     const onCooldown = check.cooldownMs > 0;
+    // Подпись, цена и обработчик используют одно и то же количество.
+    // Для repeatable и финальной покупки пачек не существует.
+    const bulkCount = !repeatable && !def.win && !maxed && !onCooldown
+      ? Math.min(check.affordable, 10, this.game.config.maxBuyLevels)
+      : 1;
+    if (bulkCount > 1) check = this.game.checkBuy(def.id, bulkCount);
+    refs.button.dataset.count = String(Math.max(1, check.count));
     refs.cost.textContent = maxed
       ? this.texts.get('shop.maxLevel')
       : formatMoney(check.cost, this.currency);
@@ -289,8 +297,28 @@ export class Shop {
    * заблокированные покупки видит вся вкладка, а не только «следующие две».
    */
   private describeLock(def: UpgradeDef, check: BuyCheck): string {
-    void def;
-    if (check.unlocked) return '';
+    if (check.unlocked) {
+      // У финальной цели обязательные уровни лежат в config.winRequirements,
+      // а не в unlockAt самой карточки. Показываем первое невыполненное.
+      if (def.win) {
+        for (const req of this.game.config.winRequirements) {
+          if (req.upgrade && this.game.level(req.upgrade) < (req.level ?? 1)) {
+            const target = this.game.content.byId.get(req.upgrade);
+            return this.texts.get('shop.unlockHintUpgrade', {
+              name: target?.name ?? req.upgrade,
+              level: req.level ?? 1,
+            });
+          }
+          if (req.balance !== undefined && this.game.state.totalEarned < req.balance) {
+            return this.texts.get('shop.unlockHint', { cost: formatMoney(req.balance, this.currency) });
+          }
+          if (req.influence !== undefined && this.game.derived().influence < req.influence) {
+            return this.texts.get('shop.unlockHintInfluence', { value: req.influence });
+          }
+        }
+      }
+      return '';
+    }
     const blocker = check.blocker;
     if (!blocker) return this.texts.get('shop.locked');
     if (blocker.kind === 'balance') {
