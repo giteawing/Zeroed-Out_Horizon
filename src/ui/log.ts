@@ -77,6 +77,17 @@ export class OperationLog {
           tonnes: formatNumber(entry.tonnes ?? 0),
           unit: tonnes,
         });
+      case 'spill': {
+        // Разлив: сколько утекло, куда и во сколько обошлось.
+        // Локация берётся из texts.spill.places — падежи уже готовы.
+        const isCrude = entry.spill !== 'products';
+        return this.texts.get(isCrude ? 'log.spillCrude' : 'log.spillProducts', {
+          tonnes: formatNumber(entry.tonnes ?? 0),
+          unit: tonnes,
+          place: this.texts.get(`spill.places.${entry.place ?? 'sea'}`),
+          money: entry.money !== undefined ? formatMoney(entry.money, this.currency) : money,
+        });
+      }
       case 'bought':
         return this.texts.get('log.bought', { name, money });
       default:

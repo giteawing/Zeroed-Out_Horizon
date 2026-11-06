@@ -277,6 +277,23 @@ export interface GameConfig {
     /** Влияние, при котором налог опускается до minRate. */
     influenceForZero: number;
   };
+  /**
+   * Штрафы за разлив: излишек сверх склада не «исчезает», а выливается.
+   * Чем больше влияния, тем меньше штраф — министерство выписывает
+   * предписание, а не счёт.
+   */
+  fines: {
+    /** Штраф за тонну разлитой сырой нефти, ₦/т. */
+    oilPerTon: number;
+    /** Штраф за тонну разлитых нефтепродуктов, ₦/т. */
+    productPerTon: number;
+    /** На сколько доля штрафа падает за единицу влияния (0.003 = 0.3 %). */
+    influenceReliefPerPoint: number;
+    /** Максимальная скидка: договориться «до нуля» нельзя. */
+    maxRelief: number;
+    /** Сколько секунд «разлива» превращаются в строку расходов, с. */
+    stormSeconds: number;
+  };
   expenses: {
     baseSalaries: number;
     baseOfficials: number;
@@ -414,7 +431,7 @@ export interface Content {
 export interface LogEntry {
   /** Игровое время, мс. */
   at: number;
-  kind: 'sold' | 'bought' | 'event' | 'conquest' | 'launder' | 'drill' | 'achievement';
+  kind: 'sold' | 'bought' | 'event' | 'conquest' | 'launder' | 'drill' | 'achievement' | 'spill';
   /** id покупки, если запись про покупку. */
   upgradeId?: string;
   channel?: Channel;
@@ -425,6 +442,10 @@ export interface LogEntry {
   textKey?: string;
   /** Сколько объектов пришло одной операцией (например, скважин при реприватизации). */
   count?: number;
+  /** Что разлилось при переливе: сырая нефть или нефтепродукты. */
+  spill?: 'crude' | 'products';
+  /** Куда разлилось: ключ локации (море, тайга, река…). */
+  place?: string;
 }
 
 /** Пробуренная скважина: класс и её суточный дебит. */
@@ -455,6 +476,13 @@ export interface GameState {
   products: number;
   /** Сколько миллисекунд копится партия до отправки (5 суток = 5 секунд). */
   shipTimerMs: number;
+  /**
+   * Фактический разлив, т/с (сглаженный): сколько сырья и продуктов уходит
+   * мимо склада. По нему считается норматив штрафа в таблице расходов и
+   * списываются деньги в кассе — иначе штраф был бы только на бумаге.
+   */
+  spillCrudePerSecond: number;
+  spillProductsPerSecond: number;
   totalEarned: number;
   totalTaps: number;
   totalPurchases: number;
@@ -626,6 +654,13 @@ export interface DerivedStats {
    * чистая прибыль = EBT − налог на прибыль.
    */
   ebtPerSecond: number;
+  /**
+   * Норматив штрафа за разлив, ₦/с: сколько империя платит министерству
+   * природных ресурсов при текущем влиянии. Идёт в расходы.
+   */
+  finePerSecond: number;
+  /** Ставка штрафа с учётом влияния, доля от полной (1 = без скидки). */
+  fineFactor: number;
   /** Налог на прибыль, ₦/с — считается с EBT, ₦/с. */
   taxPaidPerSecond: number;
   taxRate: number;
@@ -657,6 +692,7 @@ export type GameEvent =
   | { type: 'periodic'; id: string; amount: number }
   | { type: 'sold'; channel: Channel; tonnes: number; money: number }
   | { type: 'oilFull' }
+  | { type: 'spill'; kind: 'crude' | 'products'; tonnes: number; fine: number; place: string }
   | { type: 'gambleStarted'; id: string; amount: number }
   | { type: 'gambleResult'; id: string; won: boolean; amount: number }
   | { type: 'worldPrice'; price: number }

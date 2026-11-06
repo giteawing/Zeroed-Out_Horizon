@@ -6,6 +6,7 @@ import {
   allocateBatch,
   affordableLevels,
   bankScaleOf,
+  fineFor,
   reprivatizationPrize,
   computeDerived,
   costFor,
@@ -34,6 +35,18 @@ import { Rng } from './rng';
 export type BuyFailure = 'noMoney' | 'cooldown' | 'locked' | 'maxLevel' | 'won' | 'noOil';
 
 const MAX_LOG = 24;
+
+/**
+ * Куда утекает излишек. Тексты берутся из `texts.spill.places` по ключу,
+ * чтобы падежи и предлоги не собирались в коде.
+ */
+const SPILL_PLACES = ['sea', 'taiga', 'river', 'tundra', 'field', 'yard'] as const;
+
+/**
+ * Постоянная времени сглаживания потока разлива, с: штраф в расходах
+ * сглаживается, чтобы строка не мигала и не зависела от размера шага.
+ */
+const SPILL_SMOOTHING_SECONDS = 2.5;
 
 export interface BuyResult {
   ok: boolean;
@@ -79,6 +92,13 @@ export class Game {
   private worldTarget = 1;
   private worldTimerMs = 0;
   private salesAccum = 0;
+  /** Разлито за текущий шаг, тонн: переводим в т/с уже после шага. */
+  private spillCrudeThisStep = 0;
+  private spillProductsThisStep = 0;
+  /** Длительность текущего шага, с — нужна срочной отгрузке. */
+  private lastDtSeconds = 1;
+  /** Деньги срочной отгрузки внутри шага: попадут в доход этого же шага. */
+  private shipMoneyThisStep = 0;
   /** Сглаженный фактический доход (то, что реально капает на счёт), ₦/с. */
   private revenueEma = 0;
   private lastSaleLogMs = 0;
@@ -184,24 +204,31 @@ export class Game {
    */
   private addOil(tonnes: number): number {
     if (tonnes <= 0) return 0;
-    const capacity = this.derived().oilCapacity;
-    const free = Math.max(0, capacity - this.state.oil);
+    let free = Math.max(0, this.derived().oilCapacity - this.state.oil);
+    /*
+     * Резервуары полны, а нефть всё качается: сначала пробуем СРОЧНУЮ
+     * отгрузку, и только если сбыта нет — разливаем. Иначе излишек тёк бы
+     * мимо свободного рынка просто потому, что таймер партии ещё не вышел.
+     */
+    if (tonnes > free + 1e-9 && this.state.oil > 0) {
+      this.shipMoneyThisStep += this.tickShipping(
+        this.derived(),
+        this.lastDtSeconds,
+        true,
+      );
+      free = Math.max(0, this.derived().oilCapacity - this.state.oil);
+    }
     const added = Math.min(free, tonnes);
     this.state.oil += added;
     const spilled = tonnes - added;
     if (spilled > 1e-9) {
-      // Резервуары полны: лишнее уходит на внутренний рынок сразу, по его
-      // цене. Сжигать добычу нельзя, но и копить её больше некуда —
-      // поэтому расширять резервуары выгодно: экспорт и НПЗ дороже.
-      const derived = this.derived();
-      // Продавать «в никуда» нечему: если внутреннего рынка нет вовсе,
-      // нефть просто ждёт в полных резервуарах.
-      if (derived.channels.contract.rate > 0) {
-        this.state.totalSold += spilled;
-        this.grantCoins(
-          spilled * derived.channels.contract.price * (1 - derived.taxRate),
-        );
-      }
+      /*
+       * Резервуары полны: лишняя нефть выливается. Раньше она «продавалась
+       * на внутреннем рынке» — то есть тонула в земле, а игрок получал
+       * деньги за разлив. Теперь министерство природных ресурсов выписывает
+       * штраф, а в журнале видно, сколько и куда утекло.
+       */
+      this.spill('crude', spilled);
       this.emit({ type: 'oilFull' });
     }
     return added;
@@ -579,7 +606,11 @@ export class Game {
     this.state.clockMs += dtMs;
     this.pruneBuffs();
 
-    const dtSeconds = dtMs / 1000;
+    const dtSeconds = Math.max(1e-3, dtMs / 1000);
+    this.lastDtSeconds = dtSeconds;
+    this.spillCrudeThisStep = 0;
+    this.spillProductsThisStep = 0;
+    this.shipMoneyThisStep = 0;
     const derived = this.derived();
 
     // 1. Добыча. Если есть трубопровод, он забирает нефть сразу и она уходит
@@ -595,7 +626,20 @@ export class Game {
 
     // 2. Отправка партии: раз в `shipDays` суток накопленная нефть уезжает
     //    на внутренний рынок, экспорт и переработку, а продукты — на продажу.
-    const gross = this.tickShipping(derived, dtSeconds);
+    // Деньги срочной отгрузки (если она случилась при переполнении) —
+    // часть дохода этого шага: без них выручка ушла бы «в никуда».
+    const gross = this.tickShipping(derived, dtSeconds) + this.shipMoneyThisStep;
+
+    /*
+     * Штраф за разлив этого шага. Расходы берём ДО сглаживания (по факту
+     * разлитого), а не из кеша: иначе в шаге, где случился разлив, штраф
+     * списался бы из ещё «пустого» среднего, и касса разошлась бы с
+     * таблицей. Сглаженное среднее остаётся для показа в панели.
+     */
+    const fineNow =
+      this.spillCrudeThisStep * this.config.fines.oilPerTon +
+      this.spillProductsThisStep * this.config.fines.productPerTon;
+    this.commitSpill(dtSeconds);
 
     // 3. Налог и расходы считаются от ФАКТИЧЕСКИ проданного. Иначе пустые
     //    резервуары всё равно приносили бы деньги, а безлимитные контракты
@@ -603,7 +647,11 @@ export class Game {
     //    Порядок как в панели: доход − расходы = EBT, налог берётся с EBT.
     const current = this.derived();
     // `gross` — это уже деньги за шаг (партия), а расходы — за секунду.
-    const expenses = current.expensesPerSecond * dtSeconds;
+    // Норматив штрафа из `expensesPerSecond` убираем и берём факт этого шага:
+    // так разлив оплачивается ровно один раз.
+    const expensesWithoutFine =
+      (current.expensesPerSecond - current.finePerSecond) * dtSeconds;
+    const expenses = expensesWithoutFine + fineNow * current.fineFactor;
     const ebt = Math.max(0, gross - expenses);
     const net = ebt * (1 - current.taxRate);
     if (net > 0) this.grantCoins(net);
@@ -637,7 +685,7 @@ export class Game {
    * терять добычу нельзя. Поэтому расширять резервуары выгодно — экспорт
    * и переработка приносят больше.
    */
-  private tickShipping(derived: DerivedStats, dtSeconds: number): number {
+  private tickShipping(derived: DerivedStats, dtSeconds: number, force = false): number {
     const dayMs = Math.max(0.001, this.config.oil.wells.secondsPerDay) * 1000;
     const periodMs = Math.max(dayMs, this.config.oil.shipDays * dayMs);
     this.state.shipTimerMs += dtSeconds * 1000;
@@ -660,7 +708,21 @@ export class Game {
     }
 
     const full = batch >= derived.oilCapacity - 1e-9;
-    if (this.state.shipTimerMs < periodMs && !full) return 0;
+    if (!force && this.state.shipTimerMs < periodMs && !full) return 0;
+
+    /*
+     * Сколько времени рынок реально копил под эту партию.
+     *
+     * Раньше всегда брался полный период (5 суток), и при срочной отгрузке
+     * (резервуары переполнены) партии «разрешалось» продать мощность за все
+     * пять секунд — хотя прошло одно мгновение. Из-за этого один большой шаг
+     * продавал втрое больше мелких, а остальное лилось в землю. Теперь
+     * берём фактически накопленное время.
+     */
+    const periodSeconds = Math.max(
+      1e-3,
+      Math.min(periodMs, this.state.shipTimerMs) / 1000,
+    );
     this.state.shipTimerMs = 0;
 
     /*
@@ -669,7 +731,6 @@ export class Game {
      * только то, что труба не успела унести. Иначе один и тот же
      * трубопровод продавал бы нефть дважды: сразу и ещё раз из резервуаров.
      */
-    const periodSeconds = periodMs / 1000;
 
     // Мощность экспорта, которую труба уже израсходовала за этот период,
     // пересчитываем в тонны в секунду — в таком виде её ждёт allocateBatch.
@@ -774,16 +835,68 @@ export class Game {
       money += take * market.price;
     }
     /*
-     * Склад: то, что не взяли рынки, лежит на нефтебазах. Места на них
-     * хватает только до ёмкости — остальное, как и перелив резервуаров с
-     * сырьём, продаётся сразу по внутренней цене. Раньше здесь стоял
-     * Math.min с ёмкостью, и всё, что сверх неё, просто исчезало.
+     * Склад: то, что не взяли рынки, лежит на нефтебазах — но только до их
+     * ёмкости. Остальное выливается: за разлив платим штраф, а не получаем
+     * выручку. Именно поэтому расширять нефтебазы выгодно.
      */
     const room = Math.max(0, derived.productCapacity);
     const leftover = Math.min(left, room);
     const spill = left - leftover;
-    money += spill * derived.productPriceDomestic;
+    if (spill > 1e-9) this.spill('products', spill);
     return { leftover, money };
+  }
+
+  /**
+   * Обновить сглаженный поток разлива после шага.
+   *
+   * Сглаживание экспоненциальное и нормировано по времени: коэффициент
+   * 1 − exp(−dt/τ) зависит от длительности шага, поэтому один большой шаг
+   * и сто маленьких дают одинаковый итог. Без нормировки штраф «дрожал»
+   * от размера шага, и доходы двух прогонов расходились.
+   */
+  private commitSpill(dtSeconds: number): void {
+    const tau = SPILL_SMOOTHING_SECONDS;
+    const alpha = 1 - Math.exp(-Math.max(0, dtSeconds) / tau);
+    const apply = (tonnes: number, key: 'spillCrudePerSecond' | 'spillProductsPerSecond') => {
+      const instant = tonnes / Math.max(1e-9, dtSeconds);
+      const next = this.state[key] + (instant - this.state[key]) * alpha;
+      this.state[key] = next < 1e-6 ? 0 : next;
+    };
+    apply(this.spillCrudeThisStep, 'spillCrudePerSecond');
+    apply(this.spillProductsThisStep, 'spillProductsPerSecond');
+    // Поток разлива входит в расходы, поэтому кеш производных устарел:
+    // без сброса строка «Норматив штрафа» висела бы на нуле.
+    this.invalidate();
+  }
+
+  /**
+   * Разлив: излишек ушёл в землю или в воду. Списываем штраф сразу и пишем
+   * строку в журнал. Сглаженный поток хранится в состоянии, чтобы строка
+   * расходов «норматив штрафа» не мигала и совпадала с кассой.
+   */
+  private spill(kind: 'crude' | 'products', tonnes: number): void {
+    if (!(tonnes > 1e-9)) return;
+    const derived = this.derived();
+    const fine = fineFor(this.config, kind, tonnes, derived.influence);
+    // Копим за шаг: в т/с переведём после, чтобы сглаживание не зависело
+    // от размера шага (иначе большой шаг и сто маленьких давали разный штраф).
+    if (kind === 'crude') this.spillCrudeThisStep += tonnes;
+    else this.spillProductsThisStep += tonnes;
+
+    /*
+     * Из кассы штраф НЕ списываем: он уже входит в расходы (finePerSecond),
+     * и касса вычитает их каждый шаг. Раньше здесь стояло ещё одно списание,
+     * и один и тот же разлив оплачивался дважды.
+     */
+    const place = this.rng.pick(SPILL_PLACES);
+    this.pushLog({
+      kind: 'spill',
+      tonnes,
+      money: fine,
+      spill: kind,
+      place,
+    });
+    this.emit({ type: 'spill', kind, tonnes, fine, place });
   }
 
   /** Фактический доход в секунду: сглаженное среднее по начислениям. */

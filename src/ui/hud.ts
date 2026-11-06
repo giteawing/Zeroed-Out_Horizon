@@ -209,9 +209,12 @@ export class Hud {
       row('gross', texts.get('hud.income'), 'hud__row-value--plus').root,
       // «Расходы» — итог по статьям, чтобы арифметика читалась построчно:
       // доход − расходы = EBT.
-      row('expenses', texts.get('hud.expensesTitle'), 'hud__row-value--minus').root,
+      row('expenses', texts.get('hud.expensesTitle'), 'hud__row-value--minus hud__row--total').root,
       row('salaries', texts.get('hud.salaries'), 'hud__row-value--minus', 'hud__row--sub').root,
       row('officials', texts.get('hud.officials'), 'hud__row-value--minus', 'hud__row--sub').root,
+      // Штраф за разлив — тоже расход: он входит в EBT наравне с наймом,
+      // но зависит от влияния, поэтому в подписи видна текущая скидка.
+      row('fine', texts.get('hud.fineTitle'), 'hud__row-value--minus', 'hud__row--sub').root,
       el('div', { class: 'hud__row hud__row--total' }, [
         el('span', { class: 'hud__row-label' }, texts.get('hud.ebt')),
         this.ebtNode,
@@ -346,6 +349,22 @@ export class Hud {
       value: formatMoney(derived.taxPaidPerSecond, this.currency),
       s: perSecond.replace('/', ''),
     }));
+    /*
+     * «Норматив штрафа»: сколько министерство природных ресурсов забирает в
+     * секунду. Подпись показывает скидку за влияние — так видно, что
+     * политика реально смягчает счёт, а расширение складов его убирает.
+     */
+    set('fine', units('minusRate', {
+      value: formatMoney(derived.finePerSecond, this.currency),
+      s: perSecond.replace('/', ''),
+    }));
+    const fineLabel = this.texts.get('hud.fineHint', {
+      relief: formatPercent(1 - derived.fineFactor, 0),
+    });
+    const fineNote = this.rows.get('fine')?.root.querySelector('.hud__row-label');
+    if (fineNote && fineNote.textContent !== `${this.texts.get('hud.fineTitle')} · ${fineLabel}`) {
+      fineNote.textContent = `${this.texts.get('hud.fineTitle')} · ${fineLabel}`;
+    }
     const taxLabel = this.texts.get('hud.taxPaid', { rate: formatPercent(derived.taxRate) });
     const taxRow = this.rows.get('taxPaid');
     const taxLabelNode = taxRow?.root.querySelector('.hud__row-label');
