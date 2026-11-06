@@ -56,6 +56,55 @@
       "assetKind": "depot"
     },
     {
+      "id": "t_productdom",
+      "tab": "technical",
+      "group": "infrastructure",
+      "name": "Построить сеть сбыта нефтепродуктов",
+      "description": "Склады, оптовые базы и заправки под бензин с мазутом. Расширяет внутренний рынок только для нефтепродуктов, нефть не трогает.",
+      "icon": "azs",
+      "type": "sell",
+      "baseCost": 90000,
+      "maxLevel": 40,
+      "effect": {
+        "channel": "contract",
+        "value": 6000,
+        "channelSplit": {
+          "crude": 0,
+          "products": 1
+        }
+      },
+      "unlockAt": {
+        "balance": 500000
+      },
+      "costGrowth": 1.19,
+      "assetKind": "azs"
+    },
+    {
+      "id": "t_productport",
+      "tab": "technical",
+      "group": "infrastructure",
+      "name": "Построить наливной терминал под нефтепродукты",
+      "description": "Отдельная эстакада для бензина и мазута: мощность для морского экспорта продуктов растёт отдельно, и труба, загруженная сырьём, уже не мешает.",
+      "icon": "terminal",
+      "type": "sell",
+      "baseCost": 7000000,
+      "maxLevel": 35,
+      "effect": {
+        "channel": "export",
+        "value": 18000,
+        "channelSplit": {
+          "crude": 0,
+          "products": 1
+        },
+        "exportMode": "tanker"
+      },
+      "unlockAt": {
+        "balance": 30000000
+      },
+      "costGrowth": 1.18,
+      "assetKind": "depot"
+    },
+    {
       "id": "t_azs",
       "tab": "technical",
       "group": "infrastructure",
@@ -67,7 +116,11 @@
       "maxLevel": 45,
       "effect": {
         "channel": "contract",
-        "value": 9000
+        "value": 9000,
+        "channelSplit": {
+          "crude": 1,
+          "products": 1
+        }
       },
       "unlockAt": {
         "balance": 4000
@@ -88,7 +141,11 @@
       "effect": {
         "channel": "export",
         "value": 16200,
-        "exportMode": "pipeline"
+        "exportMode": "pipeline",
+        "channelSplit": {
+          "crude": 1,
+          "products": 0
+        }
       },
       "unlockAt": {
         "balance": 15000
@@ -110,7 +167,11 @@
         "channel": "export",
         "value": 43200,
         "exportBonus": 0.15,
-        "exportMode": "tanker"
+        "exportMode": "tanker",
+        "channelSplit": {
+          "crude": 1,
+          "products": 1
+        }
       },
       "unlockAt": {
         "balance": 80000
@@ -129,7 +190,12 @@
       "maxLevel": 45,
       "effect": {
         "channel": "export",
-        "value": 126000
+        "value": 126000,
+        "channelSplit": {
+          "crude": 1,
+          "products": 1
+        },
+        "exportMode": "rail"
       },
       "unlockAt": {
         "balance": 400000
@@ -149,7 +215,12 @@
       "costGrowth": 1.2,
       "effect": {
         "channel": "export",
-        "value": 54000
+        "value": 54000,
+        "channelSplit": {
+          "crude": 1,
+          "products": 1
+        },
+        "exportMode": "rail"
       },
       "unlockAt": {
         "balance": 600000
@@ -168,7 +239,12 @@
       "costGrowth": 1.25,
       "effect": {
         "channel": "export",
-        "value": 21600
+        "value": 21600,
+        "channelSplit": {
+          "crude": 1,
+          "products": 0
+        },
+        "exportMode": "pipeline"
       },
       "unlockAt": {
         "balance": 90000
@@ -208,7 +284,12 @@
       "effect": {
         "channel": "export",
         "value": 72000,
-        "exportBonus": 0.02
+        "exportBonus": 0.02,
+        "channelSplit": {
+          "crude": 1,
+          "products": 0
+        },
+        "exportMode": "pipeline"
       },
       "unlockAt": {
         "balance": 200000000
@@ -229,7 +310,12 @@
       "effect": {
         "channel": "export",
         "value": 96000,
-        "exportBonus": 0.03
+        "exportBonus": 0.03,
+        "channelSplit": {
+          "crude": 0,
+          "products": 1
+        },
+        "exportMode": "tanker"
       },
       "unlockAt": {
         "balance": 400000000
@@ -1944,7 +2030,7 @@
       "description": "Полный контроль над всей империей. Качает всё: нефть, бюджет, горизонт и соседей.",
       "icon": "win-pump",
       "type": "win",
-      "baseCost": 60000000000,
+      "baseCost": 130000000000,
       "maxLevel": 1,
       "win": true,
       "tag": "strict",
@@ -2038,7 +2124,11 @@
       "effect": {
         "channel": "contract",
         "value": 2160,
-        "percent": 6
+        "percent": 6,
+        "channelSplit": {
+          "crude": 1,
+          "products": 0
+        }
       },
       "unlockAt": {
         "balance": 3000
@@ -2058,7 +2148,11 @@
       "effect": {
         "channel": "contract",
         "value": 7200,
-        "percent": 9
+        "percent": 9,
+        "channelSplit": {
+          "crude": 1,
+          "products": 0
+        }
       },
       "unlockAt": {
         "balance": 100000
@@ -2078,7 +2172,11 @@
       "effect": {
         "channel": "contract",
         "value": 25200,
-        "percent": 12
+        "percent": 12,
+        "channelSplit": {
+          "crude": 1,
+          "products": 0
+        }
       },
       "unlockAt": {
         "balance": 3000000
@@ -2098,7 +2196,11 @@
       "effect": {
         "channel": "contract",
         "value": 82800,
-        "percent": 15
+        "percent": 15,
+        "channelSplit": {
+          "crude": 1,
+          "products": 0
+        }
       },
       "unlockAt": {
         "balance": 80000000
@@ -2118,7 +2220,11 @@
       "effect": {
         "channel": "contract",
         "value": 252000,
-        "percent": 20
+        "percent": 20,
+        "channelSplit": {
+          "crude": 1,
+          "products": 0
+        }
       },
       "unlockAt": {
         "balance": 2000000000
@@ -2139,7 +2245,11 @@
         "channel": "export",
         "value": 1440,
         "percent": 8,
-        "exportMode": "rail"
+        "exportMode": "rail",
+        "channelSplit": {
+          "crude": 1,
+          "products": 0
+        }
       },
       "unlockAt": {
         "balance": 90000
@@ -2160,7 +2270,11 @@
         "channel": "export",
         "value": 4800,
         "percent": 10,
-        "exportMode": "tanker"
+        "exportMode": "tanker",
+        "channelSplit": {
+          "crude": 0,
+          "products": 1
+        }
       },
       "unlockAt": {
         "balance": 5000000
@@ -2181,7 +2295,11 @@
         "channel": "export",
         "value": 14400,
         "percent": 14,
-        "exportMode": "pipeline"
+        "exportMode": "pipeline",
+        "channelSplit": {
+          "crude": 1,
+          "products": 0
+        }
       },
       "unlockAt": {
         "balance": 20000000
@@ -2202,7 +2320,11 @@
         "channel": "export",
         "value": 43200,
         "percent": 18,
-        "exportMode": "tanker"
+        "exportMode": "tanker",
+        "channelSplit": {
+          "crude": 0,
+          "products": 1
+        }
       },
       "unlockAt": {
         "balance": 600000000
@@ -2223,7 +2345,11 @@
         "channel": "export",
         "value": 124800,
         "percent": 22,
-        "exportMode": "tanker"
+        "exportMode": "tanker",
+        "channelSplit": {
+          "crude": 0,
+          "products": 1
+        }
       },
       "unlockAt": {
         "balance": 12000000000
@@ -2322,7 +2448,12 @@
       "maxLevel": 20,
       "effect": {
         "channel": "export",
-        "value": 6240
+        "value": 6240,
+        "channelSplit": {
+          "crude": 1,
+          "products": 1
+        },
+        "exportMode": "rail"
       },
       "unlockAt": {
         "balance": 6000000
@@ -2342,7 +2473,11 @@
       "effect": {
         "channel": "contract",
         "value": 16200,
-        "percent": 6
+        "percent": 6,
+        "channelSplit": {
+          "crude": 1,
+          "products": 0
+        }
       },
       "unlockAt": {
         "balance": 40000000

@@ -169,6 +169,11 @@ describe('HUD', () => {
     expect(order.some((line) => line.startsWith('Налог на прибыль'))).toBe(true);
     expect(order[order.length - 1]).toBe('Чистая прибыль');
     expect(order.indexOf('EBT')).toBeLessThan(order.findIndex((l) => l.startsWith('Налог на прибыль')));
+    // «Доступный объём» рынков — отдельно для сырья и для нефтепродуктов.
+    // Формат: сколько принято и сколько всего рынок может принять.
+    const markets = [...document.querySelectorAll('.hud__row-value--market')];
+    expect(markets.length).toBe(4);
+    for (const node of markets) expect(node.textContent).toMatch(/^\d[\d\s,.]* \/ .*т\/с$/);
     // Способы доставки — подпункты экспорта: у них класс-связка, чтобы
     // визуально было видно, что они входят в строку «экспорт», а не стоят
     // наравне с каналами сбыта.

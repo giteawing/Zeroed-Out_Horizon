@@ -19,6 +19,7 @@
 import type {
   AssetKind,
   ExportMode,
+  Product,
   Channel,
   ChannelRate,
   Content,
@@ -48,6 +49,9 @@ export interface TaxBuff {
 }
 
 export const CHANNELS: Channel[] = ['contract', 'export', 'refine'];
+
+/** Товары, которые продаются: сырая нефть и нефтепродукты. */
+export const PRODUCTS: Product[] = ['crude', 'products'];
 
 /**
  * Название улучшения с историей: у долота/насоса/двигателя/раствора/ГРП
@@ -393,6 +397,17 @@ export function computeDerived(
   const rateFlat: Record<Channel, number> = { contract: 0, export: 0, refine: 0 };
   const priceBonus: Record<Channel, number> = { contract: 0, export: 0, refine: 0 };
   /*
+   * Мощность рынков отдельно по товарам: «доступный объём вн. рынка» и
+   * «доступный объём экспортного рынка» для сырья и для нефтепродуктов.
+   * Раньше мощность считалась одной кучей, а доли (`transportSplit`) были
+   * зашиты в конфиг — карточка не могла расширить только один рынок.
+   */
+  const rateByProduct: Record<Channel, Record<Product, number>> = {
+    contract: { crude: 0, products: 0 },
+    export: { crude: 0, products: 0 },
+    refine: { crude: 0, products: 0 },
+  };
+  /*
    * Мощность экспорта по видам транспорта. Заказчик хотел видеть, сколько
    * нефти уходит поездами, сколько танкерами, а сколько — по трубопроводу:
    * это не украшение, а разные постройки, и каждая должна быть видна.
@@ -438,7 +453,16 @@ export function computeDerived(
         break;
       case 'sell': {
         const channel = e.channel ?? 'contract';
-        if (e.value) rateFlat[channel] += e.value * level;
+        if (e.value) {
+          rateFlat[channel] += e.value * level;
+          // Доли по товарам: если карточка расширяет только свой рынок,
+          // прирост достаётся только ему, иначе — всем товарам канала.
+          const split = e.channelSplit;
+          for (const product of PRODUCTS) {
+            const share = split ? (split[product] ?? 0) : 1;
+            if (share > 0) rateByProduct[channel][product] += e.value * level * share;
+          }
+        }
         // Экспортные постройки дополнительно разносятся по способу доставки.
         if (channel === 'export' && e.value) {
           exportRateByMode[exportModeOf(def)] += e.value * level;
@@ -540,16 +564,42 @@ export function computeDerived(
    */
   const producedPerSecond = oilPerSecond + tapValue * autoTaps;
   const product = config.product;
+  /*
+   * Мощность рынков по товарам.
+   *
+   * Базовая мощность канала (contract/export) делится между сырьём и
+   * нефтепродуктами долями `transportSplit`, а прирост от построек идёт
+   * туда, куда указывает карточка (`channelSplit`). Поэтому в панели есть
+   * честные «доступные объёмы» отдельно для сырья и для продуктов, и
+   * карточка может расширить ровно один рынок.
+   */
+  const split = product.transportSplit;
+  /*
+   * База канала (то, что даёт его стартовая мощность) делится долями
+   * `transportSplit`, а прирост от построек идёт по `channelSplit` карточки.
+   * Для сырья доля 1 — стартовые контракты торгуют только нефтью; для
+   * продуктов доля 0 — без АЗС и трестов продавать продукты некому, и тогда
+   * построенные рынки работают на них полностью.
+   */
+  /*
+   * Прирост от построек приходит уже с назначенным товаром (`channelSplit`),
+   * поэтому база канала — это остаток его мощности. Иначе тонна из карточки
+   * считалась бы дважды: и в базе по доле, и в приросте.
+   */
+  const domesticBase = Math.max(0,
+    channels.contract.rate - rateByProduct.contract.crude - rateByProduct.contract.products);
+  const exportBase = Math.max(0,
+    channels.export.rate - rateByProduct.export.crude - rateByProduct.export.products);
   const capacities = {
-    // Внутренний рынок сырья: контракты и тресты. Он забирает ОСТАТОК —
-    // экспорт дороже, поэтому трубы и танкеры должны получать нефть первыми.
-    domestic: channels.contract.rate,
-    // Экспорт: трубы и терминалы делят мощность между сырьём и продуктами.
-    export: channels.export.rate * product.transportSplit.crude,
+    domestic: {
+      crude: domesticBase * split.crude + rateByProduct.contract.crude,
+      products: domesticBase * split.productDomestic + rateByProduct.contract.products,
+    },
+    export: {
+      crude: exportBase * split.crude + rateByProduct.export.crude,
+      products: exportBase * split.productExport + rateByProduct.export.products,
+    },
     refine: channels.refine.rate,
-    // Нефтепродукты продаются через те же каналы, но по своим долям.
-    productDomestic: channels.contract.rate * product.transportSplit.productDomestic,
-    productExport: channels.export.rate * product.transportSplit.productExport,
   };
   /*
    * Мощность каналов измеряется «сколько тонн в секунду они принимают»,
@@ -586,6 +636,13 @@ export function computeDerived(
     ? productCapacityOf(config, content, state)
     : config.product.baseStorage;
   const flows = oilFlowsOf(config, capacities, producedPerSecond, {
+    // Цены — чтобы поставки уходили на более выгодный рынок.
+    prices: {
+      crudeDomestic: channels.contract.price,
+      crudeExport: channels.export.price,
+      productDomestic: oilPricePerTon * product.domesticPriceFactor,
+      productExport: oilPricePerTon * product.exportPriceFactor,
+    },
     pipeline: pipelineShare,
     productStorage,
     modeShares: {
@@ -807,18 +864,23 @@ export function netForInterval(derived: DerivedStats, dtSeconds: number): number
 export function oilFlowsOf(
   config: GameConfig,
   capacities: {
-    domestic: number;
-    export: number;
+    domestic: Record<Product, number>;
+    export: Record<Product, number>;
     refine: number;
-    productDomestic: number;
-    productExport: number;
   },
   produced: number,
-  /** Доля экспорта, идущая по трубопроводу, и ёмкость нефтебаз. */
+  /** Цены и доли, от которых зависит, куда уйдёт товар. */
   options: {
     pipeline?: number;
     productStorage?: number;
     modeShares?: Record<ExportMode, number>;
+    /** Цены за тонну: по ним выбирается более выгодный рынок. */
+    prices?: {
+      crudeDomestic: number;
+      crudeExport: number;
+      productDomestic: number;
+      productExport: number;
+    };
   } = {},
 ): OilFlows {
   const total = Math.max(0, produced);
@@ -826,31 +888,68 @@ export function oilFlowsOf(
     Number.isFinite(value) ? Math.max(0, value) : Number.MAX_SAFE_INTEGER;
 
   /*
-   * Порядок: экспорт → переработка → внутренний рынок.
+   * «Поставки автоматически перераспределяются на более выгодные рынки».
    *
-   * Экспорт дороже внутреннего рынка, поэтому он забирает нефть первым;
-   * внутренний рынок безлимитный и берёт то, что осталось. Раньше порядок
-   * был обратный, и безлимитный внутренний рынок съедал всю добычу —
-   * экспортные постройки не получали ни тонны и показывали «0 т/с».
+   * Раньше порядок был жёстко зашит (экспорт → переработка → внутренний), и
+   * при падении экспортных цен игрок молча получал меньше денег. Теперь
+   * каналы сортируются по цене: где дороже — тот и забирает первым, а
+   * заполненный канал отдаёт остаток следующему.
    */
-  const exportTonnes = Math.min(total, safe(capacities.export));
-  let rest = total - exportTonnes;
+  const prices = options.prices ?? {
+    crudeDomestic: 1,
+    crudeExport: 1,
+    productDomestic: 1,
+    productExport: 1,
+  };
 
-  const refined = Math.min(rest, safe(capacities.refine));
-  rest -= refined;
+  // Сырая нефть: рынок + переработка (НПЗ платит своей ценой за тонну).
+  const crudeMarkets = [
+    { key: 'export' as const, price: prices.crudeExport, capacity: safe(capacities.export.crude) },
+    { key: 'refine' as const, price: prices.crudeExport, capacity: safe(capacities.refine) },
+    { key: 'domestic' as const, price: prices.crudeDomestic, capacity: safe(capacities.domestic.crude) },
+  ];
+  // Переработка не «покупает» сырьё по цене экспорта: её выгода — продукты,
+  // поэтому в сравнении цен она участвует ценой переработки (refine.priceFactor).
+  crudeMarkets[1].price = prices.crudeExport * (config.oil.channels.refine.priceFactor /
+    Math.max(1e-9, config.oil.channels.export.priceFactor));
+  crudeMarkets.sort((a, b) => b.price - a.price);
 
-  const domestic = Math.min(rest, safe(capacities.domestic));
-  rest -= domestic;
+  let rest = total;
+  const crudeByMarket: Record<'domestic' | 'export' | 'refine', number> = {
+    domestic: 0,
+    export: 0,
+    refine: 0,
+  };
+  for (const market of crudeMarkets) {
+    const take = Math.min(rest, market.capacity);
+    crudeByMarket[market.key] = take;
+    rest -= take;
+  }
+  const exportTonnes = crudeByMarket.export;
+  const refined = crudeByMarket.refine;
+  const domestic = crudeByMarket.domestic;
   // Остаток — это не «пропащая» нефть, а та, что легла в резервуары.
   const stored = rest;
-  rest = 0;
 
+  /*
+   * Нефтепродукты: те же два рынка, тоже по цене. Переработка здесь не
+   * участвует — продукты уже произведены.
+   */
   const productsProduced = refined * config.oil.refineryYield;
-  const productsDomestic = Math.min(productsProduced, safe(capacities.productDomestic));
-  const productsExport = Math.min(
-    productsProduced - productsDomestic,
-    safe(capacities.productExport),
-  );
+  const productMarkets = [
+    { key: 'export' as const, price: prices.productExport, capacity: safe(capacities.export.products) },
+    { key: 'domestic' as const, price: prices.productDomestic, capacity: safe(capacities.domestic.products) },
+  ].sort((a, b) => b.price - a.price);
+
+  let productRest = productsProduced;
+  const productsByMarket: Record<'domestic' | 'export', number> = { domestic: 0, export: 0 };
+  for (const market of productMarkets) {
+    const take = Math.min(productRest, market.capacity);
+    productsByMarket[market.key] = take;
+    productRest -= take;
+  }
+  const productsDomestic = productsByMarket.domestic;
+  const productsExport = productsByMarket.export;
 
   /*
    * Разбивка экспорта по видам транспорта. Доли берём из фактических
@@ -886,8 +985,8 @@ export function oilFlowsOf(
     // Остаток остаётся в резервуарах: его видно игроку, он не «сгорает».
     backlog: stored,
     refineCapacity: safe(capacities.refine),
-    domesticCapacity: safe(capacities.domestic),
-    exportCapacity: safe(capacities.export),
+    domesticCapacity: safe(capacities.domestic.crude),
+    exportCapacity: safe(capacities.export.crude),
     productCapacity: Math.max(0, options.productStorage ?? config.product.baseStorage),
   };
 }
@@ -903,14 +1002,19 @@ export function oilFlowsOf(
 export function allocateBatch(
   config: GameConfig,
   capacities: {
-    domestic: number;
-    export: number;
+    domestic: Record<Product, number>;
+    export: Record<Product, number>;
     refine: number;
-    productDomestic: number;
-    productExport: number;
   },
   batch: number,
   seconds = 1,
+  /** Цены за тонну: по ним выбирается, какой рынок выгоднее. */
+  prices: {
+    crudeDomestic: number;
+    crudeExport: number;
+    productDomestic: number;
+    productExport: number;
+  } = { crudeDomestic: 1, crudeExport: 1, productDomestic: 1, productExport: 1 },
 ): {
   domestic: number;
   export: number;
@@ -924,26 +1028,48 @@ export function allocateBatch(
   const limit = (value: number): number =>
     Number.isFinite(value) ? Math.max(0, value) * span : Number.MAX_SAFE_INTEGER;
 
-  // Тот же порядок, что и в таблице: экспорт → переработка → внутренний рынок.
-  // Иначе экран показывал бы одну раскладку, а деньги считались по другой.
-  const exported = Math.min(batch, limit(capacities.export));
-  let left = batch - exported;
-  const refined = Math.min(left, limit(capacities.refine));
-  left -= refined;
-  const domestic = Math.min(left, limit(capacities.domestic));
-  left -= domestic;
+  /*
+   * Тот же приоритет, что и в таблице: поставки идут на более выгодный рынок,
+   * а заполненный канал отдаёт остаток следующему. Порядок не зашит —
+   * считается из текущих цен, поэтому и деньги, и экран ведут себя одинаково.
+   */
+  const refinePrice = prices.crudeExport * (config.oil.channels.refine.priceFactor /
+    Math.max(1e-9, config.oil.channels.export.priceFactor));
+  const crudeMarkets = [
+    { key: 'export' as const, price: prices.crudeExport, capacity: limit(capacities.export.crude) },
+    { key: 'refine' as const, price: refinePrice, capacity: limit(capacities.refine) },
+    { key: 'domestic' as const, price: prices.crudeDomestic, capacity: limit(capacities.domestic.crude) },
+  ].sort((a, b) => b.price - a.price);
 
-  const products = refined * config.oil.refineryYield;
-  const productsDomestic = Math.min(products, Math.max(0, capacities.productDomestic));
-  const productsExport = Math.min(products - productsDomestic, Math.max(0, capacities.productExport));
+  let left = batch;
+  const crude: Record<'domestic' | 'export' | 'refine', number> = { domestic: 0, export: 0, refine: 0 };
+  for (const market of crudeMarkets) {
+    const take = Math.min(left, market.capacity);
+    crude[market.key] = take;
+    left -= take;
+  }
+
+  const products = crude.refine * config.oil.refineryYield;
+  const productMarkets = [
+    { key: 'export' as const, price: prices.productExport, capacity: limit(capacities.export.products) },
+    { key: 'domestic' as const, price: prices.productDomestic, capacity: limit(capacities.domestic.products) },
+  ].sort((a, b) => b.price - a.price);
+
+  let productLeft = products;
+  const sold: Record<'domestic' | 'export', number> = { domestic: 0, export: 0 };
+  for (const market of productMarkets) {
+    const take = Math.min(productLeft, market.capacity);
+    sold[market.key] = take;
+    productLeft -= take;
+  }
 
   return {
-    domestic,
-    export: exported,
-    refined,
+    domestic: crude.domestic,
+    export: crude.export,
+    refined: crude.refine,
     products,
-    productsDomestic,
-    productsExport,
+    productsDomestic: sold.domestic,
+    productsExport: sold.export,
     rest: left,
   };
 }

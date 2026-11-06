@@ -137,6 +137,12 @@ export class Hud {
             row('crudeRefine', texts.get('hud.toRefine'), 'hud__row-value--sell').root,
             // Сколько добычи легло в резервуары и ждёт отправки.
             row('crudeStored', texts.get('hud.stored'), 'hud__row-value--stored').root,
+            // «Доступный объём» рынков: сколько они ещё могут принять.
+            // Занято / всего — сразу видно, где узкое место.
+            row('crudeMarketDomestic', texts.get('hud.marketDomestic'),
+              'hud__row-value--market').root,
+            row('crudeMarketExport', texts.get('hud.marketExport'),
+              'hud__row-value--market').root,
           ]),
         ]),
 
@@ -150,6 +156,11 @@ export class Hud {
             // Нефтебазы хранят нефтепродукты: показываем, сколько их лежит
             // и сколько всего влезает.
             row('productsOnHand', texts.get('hud.productStorage'), 'hud__row-value--stored').root,
+            // Те же «доступные объёмы» рынков, но для нефтепродуктов.
+            row('productsMarketDomestic', texts.get('hud.marketDomestic'),
+              'hud__row-value--market').root,
+            row('productsMarketExport', texts.get('hud.marketExport'),
+              'hud__row-value--market').root,
           ]),
         ]),
 
@@ -277,6 +288,22 @@ export class Hud {
     set('exportTanker', sale(flows.exportByMode.tanker, exportPrice));
     // Сколько нефти ушло в резервуары и ждёт отправки (не продано сразу).
     set('crudeStored', rate(flows.stored));
+    /*
+     * Доступный объём рынков: «сколько принято / сколько всего может принять».
+     * Это ёмкость канала, а не факт продажи: если добыча меньше ёмкости,
+     * справа будет запас, а не потолок. Считается для сырья и продуктов
+     * отдельно, потому что рынки у них разные.
+     */
+    const market = (used: number, total: number) => units('marketVolume', {
+      used: formatNumber(used),
+      total: formatNumber(total),
+      tonnes,
+      s: perSecond.replace('/', ''),
+    });
+    set('crudeMarketDomestic', market(flows.domestic, derived.capacities.domestic.crude));
+    set('crudeMarketExport', market(flows.export, derived.capacities.export.crude));
+    set('productsMarketDomestic', market(flows.productsDomestic, derived.capacities.domestic.products));
+    set('productsMarketExport', market(flows.productsExport, derived.capacities.export.products));
     // Переработка не продаёт сырьё, а превращает его в продукты.
     set('crudeRefine', rate(flows.refined));
     set('productsOut', rate(flows.productsProduced));

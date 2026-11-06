@@ -122,7 +122,7 @@
   "assets": {
     "tonnesValueSeconds": 900
   },
-  "winCost": 60000000000,
+  "winCost": 130000000000,
   "winRequirements": [],
   "achievementsTickSeconds": 1,
   "particles": {
