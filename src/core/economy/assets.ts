@@ -139,9 +139,3 @@ export function bankScaleOf(upgrades: UpgradeDef[], state: GameState): number {
   return scale;
 }
 
-/**
- * Главная функция: считает все производные показатели империи.
- *
- * content нужен для ёмкости резервуаров и проверки автодобычи; если его нет
- * (юнит-тесты отдельных формул), берётся только config.
- */
