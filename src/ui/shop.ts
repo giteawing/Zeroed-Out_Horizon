@@ -219,8 +219,30 @@ export class Shop {
     switch (def.type) {
       case 'perTap':
         return t('effectPerTap', { value: formatNumber(e.value ?? 0) });
-      case 'passive':
-        return t('effectPassive', { value: formatNumber(e.value ?? 0) });
+      case 'passive': {
+        const parts: string[] = [];
+        if (this.game.config.oil.autoDrill.requires.includes(def.id)) {
+          parts.push(t('effectCrew', {
+            value: formatPercent(this.game.config.oil.autoDrill.bonus, 0),
+          }));
+        }
+        if (def.group === 'staff' || def.group === 'crew') parts.push(t('effectStaff'));
+        if (def.id === 't_pump4') parts.push(t('effectGoalStage', { level: 5 }));
+        if (e.value) parts.push(t('effectPassive', { value: formatNumber(e.value) }));
+        if (e.exportBonus) {
+          parts.push(t('effectPassiveExport', { value: formatPercent(e.exportBonus, 1) }));
+        }
+        if (e.salaryAdd) {
+          parts.push(t('effectPassiveSalary', { value: formatPercent(e.salaryAdd, 1) }));
+        }
+        const unlocks = this.game.content.upgrades
+          .filter((upgrade) => upgrade.unlockAt?.upgrade === def.id)
+          .map((upgrade) => upgrade.name);
+        if (unlocks.length > 0) {
+          parts.push(t('effectUnlocks', { names: unlocks.slice(0, 3).join(', ') }));
+        }
+        return parts.join(' · ') || t('effectNoDirectBonus');
+      }
       case 'well': {
         // Показываем последнюю пробуренную скважину и расклад по классам.
         const wells = this.game.state.wells;

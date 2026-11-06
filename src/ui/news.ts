@@ -37,7 +37,7 @@ export class NewsFeed {
     ]);
     this.items.unshift(item);
     this.list.prepend(item);
-    while (this.items.length >= MAX_ITEMS) {
+    while (this.items.length > MAX_ITEMS) {
       const last = this.items.pop();
       last?.remove();
     }

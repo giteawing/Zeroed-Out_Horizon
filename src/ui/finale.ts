@@ -19,6 +19,7 @@ export interface FinaleCallbacks {
 
 export class Finale {
   readonly root: HTMLElement;
+  private cutsceneTimer: number | null = null;
 
   constructor(
     private readonly content: Content,
@@ -31,6 +32,7 @@ export class Finale {
 
   /** Показать финальную сцену и титры. */
   show(state: GameState): void {
+    this.clearCutsceneTimer();
     this.root.hidden = false;
     this.root.classList.remove('finale--done');
     this.root.replaceChildren(this.buildCutscene(state));
@@ -51,22 +53,17 @@ export class Finale {
     });
     const skip = el('button', { class: 'btn btn--ghost', type: 'button' }, this.texts.get('finale.skip'));
     skip.addEventListener('click', () => {
+      this.clearCutsceneTimer();
       this.root.replaceChildren(this.buildCredits(state));
     });
     cutscene.append(skip);
 
     // Автоматический переход к титрам, когда катсцена «доиграла».
     const total = lines.length * 1100 + 1200;
-    const timer = window.setTimeout(() => {
+    this.cutsceneTimer = window.setTimeout(() => {
+      this.cutsceneTimer = null;
       if (!this.root.hidden) this.root.replaceChildren(this.buildCredits(state));
     }, total);
-    this.root.addEventListener(
-      'click',
-      () => {
-        window.clearTimeout(timer);
-      },
-      { once: true },
-    );
     return cutscene;
   }
 
@@ -132,7 +129,14 @@ export class Finale {
     );
   }
 
+  private clearCutsceneTimer(): void {
+    if (this.cutsceneTimer === null) return;
+    window.clearTimeout(this.cutsceneTimer);
+    this.cutsceneTimer = null;
+  }
+
   hide(): void {
+    this.clearCutsceneTimer();
     this.root.hidden = true;
     this.root.replaceChildren();
   }

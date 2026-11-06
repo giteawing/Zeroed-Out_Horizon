@@ -118,7 +118,14 @@
     "scopeBoth": "оба рынка",
     "scopeCrude": "нефть",
     "scopeProducts": "нефтепродукты",
-    "effectAutoTap": "{value} авто-тапа/с"
+    "effectAutoTap": "{value} авто-тапа/с",
+    "effectCrew": "Часть буровой бригады: полный состав даёт +{value} к автодобыче",
+    "effectStaff": "Пополняет штат. Зарплатная ведомость растёт.",
+    "effectGoalStage": "Этап финального насоса: для запуска требуется уровень {level}.",
+    "effectNoDirectBonus": "Прямого бонуса к добыче нет. Смотрите условия найма и разблокировки.",
+    "effectPassiveExport": "Экспортная мощность +{value} за уровень",
+    "effectPassiveSalary": "Комиссия подрядчику: +{value} от выручки в расходы",
+    "effectUnlocks": "Открывает: {names}"
   },
   "panel": {
     "shop": "Магазин",
