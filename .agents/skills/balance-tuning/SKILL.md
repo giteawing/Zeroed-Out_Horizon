@@ -15,8 +15,8 @@ description: Use when changing upgrade prices, production multipliers, winCost, 
 
 - `src/core/simulator.ts` — детерминированный бот; использует `Game` и
   реальные правила экономики. Сохраняй детерминированность и seed.
-- `tests/balance.test.ts` — автоматические контрольные профили и допустимое
-  время прохождения.
+- `tests/balance-profiles.test.ts` — три контрольных профиля прохождения.
+- `tests/balance.test.ts` — темп, выкуп контента и устойчивость роста экономики.
 - `scripts/balance-report.ts` — сравнивает кандидаты winCost с профилями:
   - ленивый: 4 тапа/с, diligence 0.70, терпение экспорта 20 с;
   - обычный: 5 тапов/с, diligence 0.85, терпение 40 с;
@@ -56,8 +56,8 @@ npm run balance:auto
    так, чтобы он играл в другую игру.
 5. Сверь `config.winCost` и `win_pump.baseCost`; если меняется одно, второе
    должно оставаться согласованным.
-6. Запусти `npm run balance:report`, затем `npm test` (включая
-   `tests/balance.test.ts`) и `npm run build`.
+6. Запусти `npm run balance:report`, затем `npm run balance` (оба файла
+   профилей/прогрессии), `npm test` и `npm run build`.
 7. В отчёте укажи не только минуты, но и покупки/тапы/деньги и отклонения
    между профилями. Если целевой темп нарушен, не маскируй это ослаблением
    теста.

@@ -89,6 +89,7 @@ npm ci
 npm run dev
 npm run build          # tsc --noEmit + vite build
 npm test               # все Vitest unit/DOM/balance тесты
+npm run balance        # только два набора балансировочных тестов
 npm run test:e2e       # Playwright против собранного приложения
 npx playwright install chromium  # один раз перед локальным E2E
 npm run balance:report # отчёт симулятора по профилям

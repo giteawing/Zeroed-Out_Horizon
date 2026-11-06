@@ -99,7 +99,8 @@ net   = max(0, EBT - tax)
 - Добыча, налог и продажи: `tests/economy.test.ts`,
   `tests/mechanics-v2.test.ts`, `tests/regressions.test.ts`.
 - Сохранения и новые поля: `tests/state.test.ts`.
-- Баланс и темп прохождения: `tests/balance.test.ts` и
+- Профили прохождения: `tests/balance-profiles.test.ts`; проверка
+  экономической прогрессии: `tests/balance.test.ts`; аналитический отчёт —
   `npm run balance:report`.
 - Перед передачей: `npm run build && npm test`; UI также требует
   `npm run test:e2e`.
