@@ -260,8 +260,18 @@ export class Shop {
         if (e.percent) {
           parts.push(t('effectSellPrice', { value: formatPercent(e.percent / 100, 1) }));
         }
+        // В карточке видно, какой именно рынок она расширяет: сырьё,
+        // нефтепродукты или оба. Раньше это было скрыто в конфиге.
         const channelName = this.texts.get(`sales.${channel}`);
-        return `${channelName}: ${parts.join(' · ')}`;
+        const split = e.channelSplit;
+        const scope = !split
+          ? this.texts.get('shop.scopeBoth')
+          : (split.crude ?? 0) > 0 && (split.products ?? 0) > 0
+            ? this.texts.get('shop.scopeBoth')
+            : (split.products ?? 0) > 0
+              ? this.texts.get('shop.scopeProducts')
+              : this.texts.get('shop.scopeCrude');
+        return `${channelName} · ${scope}: ${parts.join(' · ')}`;
       }
       case 'storage':
         return t('effectStorage', { value: formatNumber((e.value ?? 0) * Math.max(1, level)) });

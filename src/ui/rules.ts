@@ -143,6 +143,9 @@ export class Rules {
           rate: rate(refine.baseRate),
           price: price(base * refine.priceFactor),
         }),
+        // Сколько рынок готов принять и как поставки выбирают, куда идти.
+        t('rules.marketsText', {}),
+        t('rules.marketsRedirect', {}),
       ]),
 
       this.section('rules.productsTitle', [

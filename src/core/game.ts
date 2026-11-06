@@ -659,7 +659,10 @@ export class Game {
     // Мощность экспорта, которую труба уже израсходовала за этот период,
     // пересчитываем в тонны в секунду — в таком виде её ждёт allocateBatch.
     const pipeUsedPerSecond = this.pipeSinceShip / Math.max(1e-9, periodSeconds);
-    const exportCapacity = Math.max(0, derived.capacities.export - pipeUsedPerSecond);
+    const exportCapacity = {
+      crude: Math.max(0, derived.capacities.export.crude - pipeUsedPerSecond),
+      products: Math.max(0, derived.capacities.export.products - pipeUsedPerSecond),
+    };
     this.pipeSinceShip = 0;
 
     // Партия больше, чем «одна секунда потоков», — в `shipBatch` разбиваем
@@ -674,8 +677,15 @@ export class Game {
   /** Распределить партию по каналам и превратить её в деньги. */
   private shipBatch(batch: number, derived: DerivedStats, seconds = 1): number {
     // Раскладываем ПАРТИЮ по мощностям, а не по уже посчитанным потокам:
-    // тапы дают нефть рывками, и она обязана найти сбыт.
-    const plan = allocateBatch(this.config, derived.capacities, batch, seconds);
+    // тапы дают нефть рывками, и она обязана найти сбыт. Цены передаём те же,
+    // по которым таблица выбирает выгодный рынок, — иначе экран и деньги
+    // разъедутся.
+    const plan = allocateBatch(this.config, derived.capacities, batch, seconds, {
+      crudeDomestic: derived.channels.contract.price,
+      crudeExport: derived.channels.export.price,
+      productDomestic: derived.productPriceDomestic,
+      productExport: derived.productPriceExport,
+    });
 
     const money =
       plan.domestic * derived.channels.contract.price +
