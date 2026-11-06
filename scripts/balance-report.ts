@@ -15,7 +15,7 @@ const profiles = [
 ];
 
 const winCosts = [
-  1e11, 3e11, 1e12, 3e12, 1e13, 3e13, 1e14, 3e14, 1e15,
+  1e12, 1e13, 1e14, 1e15, 1e16, 3e16, 6e16, 1e17, 1e18,
 ];
 
 for (const profile of profiles) {

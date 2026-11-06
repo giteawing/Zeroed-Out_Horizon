@@ -7,11 +7,11 @@
  * Бот детерминированный (свой ГПСЧ) — тесты не «мигают».
  */
 import { Game } from './game';
-import { costFor, isUnlocked, levelOf, unlockBlocker } from './economy';
+import { computeDerived, isUnlocked, levelOf, unlockBlocker, wellPricePerDailyTonne } from './economy';
 import { isRepeatable } from './game';
 import { createInitialState } from './state';
 import { Rng } from './rng';
-import type { Content, DerivedStats, GameConfig, UpgradeDef } from './types';
+import type { Content, GameState, UpgradeDef } from './types';
 
 export interface SimulatorOptions {
   /** Тапов в секунду (ТЗ: 4–6). */
@@ -115,7 +115,7 @@ export function runSimulation(content: Content, options: SimulatorOptions = {}):
     // Экспортная акция продаёт нефть со склада: ждём, пока резервуары
     // наполнятся хотя бы наполовину, и смотрим на мировую цену.
     const exportDef = content.byId.get('p_export');
-    if (exportDef && (state.cooldowns.p_export ?? 0) <= 0 && isUnlocked(exportDef, state)) {
+    if (exportDef && (state.cooldowns.p_export ?? 0) <= 0 && isUnlocked(exportDef, state, game.derived().influence)) {
       const derived = game.derived();
       const full = derived.oilCapacity > 0 ? state.oil / derived.oilCapacity : 0;
       if (full >= 0.5 && state.worldPrice >= opts.exportPriceThreshold) {
@@ -183,27 +183,30 @@ export function runSimulation(content: Content, options: SimulatorOptions = {}):
  * лучшее соотношение «прирост дохода / цена».
  */
 /** С какой доли от цены финала бот перестаёт тратить и начинает копить. */
-const savingShare = 0.05;
+const savingShare = 0.8;
 
 export function decide(game: Game, content: Content, purchased: Set<string>): boolean {
   const state = game.state;
   const derived = game.derived();
 
   const winDef = content.upgrades.find((u) => u.win);
+  const requirementsMet = (): boolean => content.config.winRequirements.every((req) => {
+    if (req.upgrade && levelOf(state, req.upgrade) < (req.level ?? 1)) return false;
+    if (req.balance !== undefined && state.totalEarned < req.balance) return false;
+    if (req.influence !== undefined && derived.influence < req.influence) return false;
+    return true;
+  });
+
   if (winDef) {
-    const influence = derived.influence;
-    const blocker = unlockBlocker(winDef, state, influence);
-    if (!blocker && state.coins >= winDef.baseCost) {
+    const blocker = unlockBlocker(winDef, state, derived.influence);
+    if (game.checkBuy(winDef.id).ok) {
       const res = game.buy(winDef.id);
       if (res.ok) purchased.add(winDef.id);
       return res.ok;
     }
-    // До финала рукой подать — бот копит, а не тратит на роскошь.
-    if (!blocker && state.coins >= winDef.baseCost * 0.55) return false;
-    // Живой игрок видит цель и начинает откладывать заранее, иначе деньги
-    // уходят на бесконечные улучшения и финал не наступает никогда.
-    if (!blocker && state.coins >= winDef.baseCost * savingShare) return false;
-
+    // Копить на финал имеет смысл только после выполнения его обязательных
+    // условий: иначе бот откладывал деньги и никогда не покупал Насос-Гигант.
+    if (!blocker && requirementsMet() && state.coins >= winDef.baseCost * savingShare) return false;
   }
 
   // Что нужно для финала: бот покупает эти покупки, даже если они «дорогие».
@@ -213,39 +216,36 @@ export function decide(game: Game, content: Content, purchased: Set<string>): bo
     if (levelOf(state, req.upgrade) < (req.level ?? 1)) needed.add(req.upgrade);
   }
 
-  // Сначала — то, что нужно для финала. Если не хватает денег, бот копит,
-  // а не тратит всё на дешёвые прокачки.
   for (const id of needed) {
     const reqDef = content.byId.get(id);
     if (!reqDef || !isUnlocked(reqDef, state, derived.influence)) continue;
-    if ((state.cooldowns[id] ?? 0) > 0) continue;
-    const cost = costFor(content.config, reqDef, levelOf(state, id));
-    if (cost <= state.coins) {
+    const check = game.checkBuy(id);
+    if (!check.unlocked || check.cooldownMs > 0) continue;
+    if (check.cost <= state.coins) {
       if (game.buy(id).ok) {
         purchased.add(id);
         return true;
       }
       continue;
     }
-    // Копим на важное: не больше чем в 40 раз дороже текущего баланса.
-    if (cost <= state.coins * 40) return false;
+    // Копим только на действительно близкую обязательную покупку. Порог
+    // «40×» останавливал развитие на полтора десятка минут раньше, чем
+    // доход мог окупить Насос-Гигант.
+    if (check.cost <= state.coins * 1.5) return false;
   }
 
   const candidates: Array<{ def: UpgradeDef; score: number }> = [];
   for (const def of content.upgrades) {
-    if (def.win) continue;
-    // Разовые акции (экспорт, отмывание, гэмблы) обрабатываются отдельно:
-    // в общем скоринге у них нулевая «цена», и бот крутил бы их вечно.
-    if (isRepeatable(def)) continue;
+    if (def.win || isRepeatable(def)) continue;
     const level = levelOf(state, def.id);
     if (level >= def.maxLevel) continue;
-    if (!isUnlocked(def, state)) continue;
-    if ((state.cooldowns[def.id] ?? 0) > 0) continue;
-    const cost = def.baseCost > 0 ? costFor(content.config, def, level) : 0;
+    const check = game.checkBuy(def.id);
+    if (!check.unlocked || check.cooldownMs > 0) continue;
+    const cost = check.cost;
     if (cost > state.coins) continue;
     candidates.push({
       def,
-      score: estimatedGain(def, derived, cost, content.config) / Math.max(1, cost),
+      score: estimatedGain(game, def, cost) / Math.max(1, cost),
     });
   }
 
@@ -262,100 +262,84 @@ export function decide(game: Game, content: Content, purchased: Set<string>): bo
   return boughtAny;
 }
 
+/** Усреднённая активность обычного профиля, тапов в секунду. */
+const SIMULATED_MANUAL_TAPS = 5 * 0.85;
+const HUMAN_TAPS_ID = '__simulator_human_taps';
+
 /**
- * Оценка прироста дохода за секунду от покупки одного уровня.
- *
- * Здесь важно, что считать «полезным»: нефть приносит деньги только когда
- * продана, поэтому при полных резервуарах ценность добычи падает до нуля,
- * а при пустых — падает ценность сбыта. Бот ведёт себя как живой игрок:
- * качает добычу, потом расширяет сбыт.
+ * Та же computeDerived, что и у игры, плюс условный источник ручных тапов.
+ * Это позволяет сравнить экономику до/после без отдельных формул цен,
+ * мощностей, переработки, налогов и scope-множителей.
  */
-export function estimatedGain(
-  def: UpgradeDef,
-  derived: DerivedStats,
-  cost: number,
-  gameConfig: GameConfig,
-): number {
+function derivedForSimulation(content: Content, state: GameState) {
+  const humanTaps: UpgradeDef = {
+    id: HUMAN_TAPS_ID,
+    tab: 'technical',
+    group: 'simulation',
+    name: HUMAN_TAPS_ID,
+    description: HUMAN_TAPS_ID,
+    icon: 'well',
+    type: 'autoTap',
+    baseCost: 0,
+    maxLevel: 1,
+    effect: { value: SIMULATED_MANUAL_TAPS },
+  };
+  return computeDerived(
+    content.config,
+    [...content.upgrades, humanTaps],
+    { ...state, levels: { ...state.levels, [HUMAN_TAPS_ID]: 1 } },
+    [],
+    content,
+  );
+}
+
+function averageWellDaily(content: Content): number {
+  return content.config.oil.wells.classes.reduce(
+    (sum, cls) => sum + cls.chance * ((cls.minDailyTonnes + cls.maxDailyTonnes) / 2),
+    0,
+  ) / content.config.oil.wells.secondsPerDay;
+}
+
+/**
+ * Оценка прироста — разница фактической производной экономики до и после
+ * условного уровня. Для скважин добавляется их математическое ожидание;
+ * реприватизация оценивается по её реальному бюджету 5–10× (среднее 7,5×).
+ */
+export function estimatedGain(game: Game, def: UpgradeDef, cost: number): number {
+  const content = game.content;
+  const before = derivedForSimulation(content, game.state);
   const e = def.effect;
-  const netFactor = 1 - derived.taxRate;
-  const fill = derived.oilCapacity > 0 ? Math.min(1, derived.oil / derived.oilCapacity) : 0;
-  // Контракты берут любой объём, поэтому добыча всегда находит сбыт.
-  const hasUnlimited = true;
-  switch (def.type) {
-    case 'perTap':
-      // Тонны за тап: бот делает ~5 тапов в секунду, каждая тонна уходит по цене канала.
-      return (e.value ?? 0) * 5 * 0.85 * derived.multiplier * derived.oilPricePerTon;
-    case 'well': {
-      // Скважина — лотерея: считаем по среднему дебиту всех классов.
-      // Средний дебит даёт тонны в секунду, они уходят по цене контрактов.
-      const cfg = gameConfig.oil.wells;
-      const avgDaily = cfg.classes.reduce(
-        (sum, cls) => sum + cls.chance * ((cls.minDailyTonnes + cls.maxDailyTonnes) / 2),
-        0,
-      );
-      const perSecond = avgDaily / cfg.secondsPerDay;
-      return perSecond * derived.multiplier * derived.oilPricePerTon;
-    }
-    case 'field': {
-      // Месторождение — сразу 5–50 скважин: бот оценивает прирост по среднему
-      // числу скважин и среднему дебиту, иначе покупка кажется ему дешёвой.
-      const cfg = gameConfig.oil.wells;
-      const avgDaily = cfg.classes.reduce(
-        (sum, cls) => sum + cls.chance * ((cls.minDailyTonnes + cls.maxDailyTonnes) / 2),
-        0,
-      );
-      const avgWells = ((gameConfig.oil.conquestWells?.min ?? 5) +
-        (gameConfig.oil.conquestWells?.max ?? 50)) / 2;
-      const perSecond = (avgDaily * avgWells) / cfg.secondsPerDay;
-      return perSecond * derived.multiplier * derived.oilPricePerTon;
-    }
-    case 'storage': {
-      // Ёмкость нужна, когда добыча превышает сбыт и нефть некуда девать.
-      const overflow = Math.max(0, derived.oilPerSecond + derived.tapValue * 4 - derived.sellPerSecond);
-      return overflow * derived.oilPricePerTon + Math.max(1, derived.grossPerSecond) * 0.2 * fill;
-    }
-    case 'sell': {
-      const channel = e.channel ?? 'contract';
-      const rate = derived.channels[channel];
-      // Расширение сбыта полезно, когда нефть упирается в ёмкость канала.
-      const pressure = channel === 'contract' ? 0.35 : Math.max(fill, 0.3);
-      const gain = (e.value ?? 0) * rate.price;
-      const rel = e.percent ? rate.rate * (e.percent / 100) : 0;
-      const unblock = hasUnlimited && derived.oil > derived.sellPerSecond * 3 ? 1.4 : 1;
-      return (gain + rel * rate.price) * pressure * unblock;
-    }
-    case 'passive':
-      return (e.value ?? 0) * netFactor * derived.priceMultiplier * derived.multiplier *
-        derived.oilPricePerTon;
-    case 'multiplier': {
-      const scope = e.scope ?? 'all';
-      const base = scope === 'tap' ? derived.tapValue * 5 : derived.grossPerSecond * netFactor;
-      return base * ((e.factor ?? 1) - 1);
-    }
-    case 'taxCut':
-      return derived.grossPerSecond * ((e.percent ?? 0) / 100);
-    case 'costCut':
-      return derived.expensesPerSecond * ((e.percent ?? 0) / 100);
-    case 'priceBoost':
-      return derived.grossPerSecond * ((e.factor ?? 1) - 1);
-    case 'oneShot':
-      return ((derived.tapValue + derived.grossPerSecond * 0.5) * (e.value ?? 1)) /
-        (def.cooldownSeconds ?? 60);
-    case 'periodic':
-      return ((derived.tapValue + derived.grossPerSecond * 0.5) * (e.value ?? 1)) /
-        (e.seconds ?? 60);
-    case 'gamble': {
-      const chance = e.chance ?? 0.5;
-      const factor = e.factor ?? 2;
-      const ev = chance * cost * (factor - 1) - (1 - chance) * cost;
-      return ev / (e.seconds ?? 30);
-    }
-    case 'autoTap':
-      return (e.value ?? 0) * derived.tapValue;
-    case 'luxury':
-      // Роскошь не приносит дохода: бот берёт её только «на сдачу» (почти нулевой скор).
-      return 1e-9;
-    default:
-      return 0;
+
+  // Разовые и периодические выплаты не меняют computeDerived, поэтому для
+  // них остаётся оценка темпа выплат, а не фиктивный постоянный прирост.
+  if (def.type === 'oneShot') {
+    return ((before.tapValue + before.grossPerSecond * 0.5) * (e.value ?? 1)) /
+      (def.cooldownSeconds ?? 60);
   }
+  if (def.type === 'periodic') {
+    return ((before.tapValue + before.grossPerSecond * 0.5) * (e.value ?? 1)) /
+      (e.seconds ?? 60);
+  }
+  if (def.type === 'gamble') {
+    const chance = e.chance ?? 0.5;
+    const factor = e.factor ?? 2;
+    const ev = chance * cost * (factor - 1) - (1 - chance) * cost;
+    return ev / (e.seconds ?? 30);
+  }
+  if (def.type === 'luxury') return 1e-9;
+
+  const level = levelOf(game.state, def.id);
+  const next: GameState = {
+    ...game.state,
+    levels: { ...game.state.levels, [def.id]: level + 1 },
+    wells: game.state.wells.map((well) => ({ ...well })),
+  };
+  if (def.type === 'well' || def.type === 'field') {
+    const daily = def.id === 't_well'
+      ? averageWellDaily(content)
+      : (cost * 7.5) / wellPricePerDailyTonne(content.config);
+    next.wells.push({ kind: 'unique', dailyTonnes: Math.max(1, daily) });
+  }
+  const after = derivedForSimulation(content, next);
+  return Math.max(0, after.netPerSecond - before.netPerSecond);
 }

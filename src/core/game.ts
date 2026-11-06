@@ -18,7 +18,6 @@ import {
   tapReward,
   unlockBlocker,
   winCostOf,
-  type TaxBuff,
 } from './economy';
 import type {
   Content,
@@ -63,12 +62,12 @@ export interface BuyCheck {
   level: number;
   maxLevel: number;
   affordable: number;
+  /** Фактическое число уровней в этой проверке и последующей покупке. */
+  count: number;
   unlocked: boolean;
   cooldownMs: number;
   blocker: ReturnType<typeof unlockBlocker>;
 }
-
-const BUFF_TAX_DURATION_MS = 25_000;
 
 /** Покупки, которые бурят новую скважину со случайным дебитом. */
 /** Покупки, которые бурят ОДНУ скважину-лотерею. */
@@ -86,19 +85,17 @@ export class Game {
   private rng: Rng;
   private derivedCache: DerivedStats | null = null;
   private listeners = new Set<(event: GameEvent) => void>();
-  private buffs: TaxBuff[] = [];
   private autoTapAccum = 0;
   private achievementTimerMs = 0;
   private worldTarget = 1;
   private worldTimerMs = 0;
-  private salesAccum = 0;
   /** Разлито за текущий шаг, тонн: переводим в т/с уже после шага. */
   private spillCrudeThisStep = 0;
   private spillProductsThisStep = 0;
-  /** Длительность текущего шага, с — нужна срочной отгрузке. */
-  private lastDtSeconds = 1;
-  /** Деньги срочной отгрузки внутри шага: попадут в доход этого же шага. */
-  private shipMoneyThisStep = 0;
+  /** Длительность именно выполняемого шага; вне update() равна нулю. */
+  private activeDtSeconds = 0;
+  /** Выручка текущей финансовой сделки, ещё не прошедшая расходы и налог. */
+  private pendingSalesGross = 0;
   /** Сглаженный фактический доход (то, что реально капает на счёт), ₦/с. */
   private revenueEma = 0;
   private lastSaleLogMs = 0;
@@ -125,10 +122,9 @@ export class Game {
 
   /** Производные показатели с кешем: пересчёт только при изменениях. */
   derived(): DerivedStats {
-    this.pruneBuffs();
     if (!this.derivedCache) {
       this.derivedCache = computeDerived(
-        this.config, this.content.upgrades, this.state, this.buffs, this.content,
+        this.config, this.content.upgrades, this.state, [], this.content,
       );
     }
     return this.derivedCache;
@@ -140,15 +136,6 @@ export class Game {
    */
   invalidate(): void {
     this.derivedCache = null;
-  }
-
-  private pruneBuffs(): void {
-    if (this.buffs.length === 0) return;
-    const alive = this.buffs.filter((b) => b.untilMs > this.state.clockMs);
-    if (alive.length !== this.buffs.length) {
-      this.buffs = alive;
-      this.derivedCache = null;
-    }
   }
 
   level(id: string): number {
@@ -188,9 +175,9 @@ export class Game {
     const viaPipe = Math.min(tonnes, room);
     if (viaPipe <= 0) return 0;
     this.state.totalSold += viaPipe;
-    this.salesAccum += viaPipe;
-    // Деньги сразу: налог и расходы спишутся в общем порядке в конце шага.
-    this.grantCoins(viaPipe * price);
+    // Как и любая другая продажа, труба добавляет именно ВАЛОВУЮ выручку.
+    // Деньги появятся только после общего расчёта расходов и налога.
+    this.pendingSalesGross += viaPipe * price;
     return viaPipe;
   }
 
@@ -199,42 +186,58 @@ export class Game {
    *
    * Нефть копится `shipDays` суток, поэтому резервуары должны вмещать
    * пятисуточную добычу — иначе она упирается в стенку и рост останавливается.
-   * Когда место всё же кончается, партию отправляют досрочно (tickShipping),
-   * но ничего не «сгорает»: терять добычу нельзя.
+   * Когда место кончается, партия отправляется досрочно за фактически
+   * накопленное время. Если рынки не успевают, остаток разливается и штрафуется.
    */
   private addOil(tonnes: number): number {
     if (tonnes <= 0) return 0;
-    let free = Math.max(0, this.derived().oilCapacity - this.state.oil);
-    /*
-     * Резервуары полны, а нефть всё качается: сначала пробуем СРОЧНУЮ
-     * отгрузку, и только если сбыта нет — разливаем. Иначе излишек тёк бы
-     * мимо свободного рынка просто потому, что таймер партии ещё не вышел.
-     */
-    if (tonnes > free + 1e-9 && this.state.oil > 0) {
-      this.shipMoneyThisStep += this.tickShipping(
-        this.derived(),
-        this.lastDtSeconds,
-        true,
-      );
-      free = Math.max(0, this.derived().oilCapacity - this.state.oil);
+    let left = tonnes;
+    let addedTotal = 0;
+
+    // Безлимитный канал принимает всю партию за один проход: разбивать её
+    // на сотни резервуаров не нужно и слишком дорого для поздней игры.
+    const hasUnlimitedCrude = Object.values(this.config.oil.channels)
+      .some((channel) => channel.unlimited === true);
+    const initialFree = Math.max(0, this.derived().oilCapacity - this.state.oil);
+    if (left > initialFree && hasUnlimitedCrude) {
+      this.state.oil += left;
+      addedTotal += left;
+      this.pendingSalesGross += this.tickShipping(this.derived(), 0, true);
+      if (this.activeDtSeconds === 0) this.settleSales();
+      return addedTotal;
     }
-    const added = Math.min(free, tonnes);
-    this.state.oil += added;
-    const spilled = tonnes - added;
-    if (spilled > 1e-9) {
-      /*
-       * Резервуары полны: лишняя нефть выливается. Раньше она «продавалась
-       * на внутреннем рынке» — то есть тонула в земле, а игрок получал
-       * деньги за разлив. Теперь министерство природных ресурсов выписывает
-       * штраф, а в журнале видно, сколько и куда утекло.
-       */
-      this.spill('crude', spilled);
-      this.emit({ type: 'oilFull' });
+
+    // Большой приток обрабатывается частями: заполнили свободное место →
+    // срочно отгрузили за РЕАЛЬНО накопленное время → продолжили. Одной
+    // отгрузки на весь вызов недостаточно: иначе update(1000) и десять
+    // update(100) теряли разные объёмы на первом же резервуаре.
+    for (let guard = 0; guard < 10_000 && left > 1e-9; guard++) {
+      const capacity = this.derived().oilCapacity;
+      const free = Math.max(0, capacity - this.state.oil);
+      const added = Math.min(free, left);
+      this.state.oil += added;
+      addedTotal += added;
+      left -= added;
+      if (left <= 1e-9) break;
+
+      const beforeShip = this.state.oil;
+      if (beforeShip > 0) {
+        this.pendingSalesGross += this.tickShipping(this.derived(), 0, true);
+        if (this.activeDtSeconds === 0) this.settleSales();
+      }
+
+      // Рынок за накопленное время не освободил ничего: дальнейшие
+      // принудительные рейсы лишь крутили бы таймер. Остаток — разлив.
+      if (this.state.oil >= beforeShip - 1e-9) {
+        this.spill('crude', left);
+        this.emit({ type: 'oilFull' });
+        left = 0;
+      }
     }
-    return added;
+    return addedTotal;
   }
 
-  /** Продать нефть, которая не влезла в резервуары, по цене «на разлив». */
+  /** Начислить фактически полученные деньги и обновить суммарный заработок. */
   private grantCoins(amount: number): void {
     if (amount <= 0) return;
     this.state.coins += amount;
@@ -260,7 +263,7 @@ export class Game {
     if (!winDef || this.state.won) return false;
     this.state.levels[winDef.id] = 1;
     this.state.won = true;
-    this.state.wonAtMs = this.state.clockMs;
+    this.state.wonAtMs = this.state.playtimeMs;
     this.invalidate();
     this.emit({ type: 'win' });
     return true;
@@ -293,7 +296,7 @@ export class Game {
     if (!def) {
       return {
         ok: false, reason: 'locked', cost: 0, level: 0, maxLevel: 0,
-        affordable: 0, unlocked: false, cooldownMs: 0, blocker: null,
+        affordable: 0, count: 0, unlocked: false, cooldownMs: 0, blocker: null,
       };
     }
     const level = this.level(id);
@@ -301,10 +304,13 @@ export class Game {
     const unlocked = isUnlocked(def, this.state, derived.influence);
     const cooldownMs = this.state.cooldowns[id] ?? 0;
     const repeatable = isRepeatable(def);
-    const wanted = def.cooldownSeconds
+    const requested = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1;
+    const wanted = repeatable || def.cooldownSeconds || def.win
       ? 1
-      : Math.max(1, Math.min(count, this.config.maxBuyLevels));
-    const buyCount = repeatable ? wanted : Math.min(wanted, Math.max(0, def.maxLevel - level));
+      : Math.min(requested, this.config.maxBuyLevels);
+    const buyCount = repeatable
+      ? 1
+      : Math.min(wanted, Math.max(0, def.maxLevel - level));
     const rawCost = def.win
       ? winCostOf(this.config, this.content.upgrades)
       : this.priceOfLevels(def, level, buyCount);
@@ -319,7 +325,7 @@ export class Game {
     else if (!repeatable && level >= def.maxLevel) reason = 'maxLevel';
     else if (cooldownMs > 0) reason = 'cooldown';
     else if (def.win) {
-      if (!isWinReady(this.config, this.content.upgrades, this.state, this.state.coins)) {
+      if (!isWinReady(this.config, this.content.upgrades, this.state, this.state.coins, derived.influence)) {
         reason = 'locked';
       }
     } else if (this.state.coins < cost) {
@@ -335,9 +341,17 @@ export class Game {
       cost,
       level,
       maxLevel: def.maxLevel,
-      affordable: def.win
+      affordable: def.win || repeatable
         ? (this.state.coins >= cost ? 1 : 0)
-        : affordableLevels(this.config, def, level, this.state.coins),
+        : affordableLevels(
+            this.config,
+            def,
+            level,
+            def.conquest
+              ? this.state.coins / Math.max(1e-9, 1 - derived.conquestCut)
+              : this.state.coins,
+          ),
+      count: buyCount,
       unlocked,
       cooldownMs,
       blocker: unlockBlocker(def, this.state, derived.influence),
@@ -358,11 +372,10 @@ export class Game {
     if (def.win) return this.buyWin(def, check.cost);
 
     const repeatable = isRepeatable(def);
-    const buyCount = def.cooldownSeconds
-      ? 1
-      : Math.max(1, Math.min(count, this.config.maxBuyLevels));
-    const rawCost = this.priceOfLevels(def, check.level, buyCount);
-    const cost = def.conquest ? Math.round(rawCost * (1 - this.derived().conquestCut)) : rawCost;
+    // Количество и цена рассчитаны ровно один раз в checkBuy(): исполнение
+    // не имеет права пересчитать их без учёта остатка до maxLevel.
+    const buyCount = check.count;
+    const cost = check.cost;
     this.state.coins -= cost;
     // Действия с перезарядкой не «прокачиваются»: уровень остаётся 1,
     // иначе после первой покупки кнопка навсегда стала бы «Максимум».
@@ -377,18 +390,20 @@ export class Game {
 
     // «Пробурить скважину» — это лотерея: класс скважины и её суточный дебит
     // выпадают случайно, поэтому каждая покупка даёт разную добычу.
-    if (def.id === 'p_reprivatize') {
-      // Реприватизация приносит случайный набор месторождений, но их
-      // стоимость всегда в 5–10 раз больше, чем заплачено за активацию.
-      const prize = this.applyReprivatization(cost);
-      payouts.push({ id: def.id, amount: prize.dailyTonnes });
-    } else if (def.type === 'field') {
-      // Отжатое месторождение — это сразу 5–50 скважин (границы в конфиге).
-      const prize = this.applyReprivatization(cost, def.id);
-      payouts.push({ id: def.id, amount: prize.dailyTonnes });
+    const effectCount = repeatable ? 1 : buyCount;
+    if (def.id === 'p_reprivatize' || def.type === 'field') {
+      // Каждый оплаченный уровень даёт своё месторождение. Пакетная
+      // покупка не должна начислять уровни без соответствующих активов.
+      let dailyTonnes = 0;
+      for (let i = 0; i < effectCount; i++) {
+        const prize = this.applyReprivatization(cost / effectCount, def.id);
+        dailyTonnes += prize.dailyTonnes;
+      }
+      payouts.push({ id: def.id, amount: dailyTonnes });
     } else if (WELL_UPGRADE_IDS.has(def.id) && !repeatable) {
-      const drilled = this.drillWell();
-      payouts.push({ id: def.id, amount: drilled.dailyTonnes });
+      let dailyTonnes = 0;
+      for (let i = 0; i < effectCount; i++) dailyTonnes += this.drillWell().dailyTonnes;
+      payouts.push({ id: def.id, amount: dailyTonnes });
     }
 
     // Реприватизация пишет свою строку с числом скважин и стоимостью активов,
@@ -413,9 +428,9 @@ export class Game {
    * панель и сохранения работают без спецкода.
    */
   applyReprivatization(paid: number, upgradeId = 'p_reprivatize'): ReprivatizationPrize {
-    const derived = this.derived();
-    const price = derived.exportPricePerTon || derived.oilPricePerTon;
-    const prize = reprivatizationPrize(this.config, paid, price, () => this.rng.next());
+    const prize = reprivatizationPrize(
+      this.config, paid, this.config.oil.basePricePerTon, () => this.rng.next(),
+    );
     // Разбиваем суммарный дебит на скважины разных классов — «месторождение».
     let left = prize.dailyTonnes;
     for (let i = 0; i < prize.wells; i++) {
@@ -502,29 +517,43 @@ export class Game {
         // деньги приходят по цене канала (и по мировой цене).
         // Если экспортный канал ещё не построен, акция всё равно работает:
         // нефть уходит по цене контрактов — «сбагрили через границу».
-        const channel = def.effect.burstChannel ?? 'export';
-        const price =
-          derived.channels[channel].price || derived.channels.contract.price;
+        const requested = def.effect.burstChannel ?? 'export';
+        const requestedCfg = this.config.oil.channels[requested];
+        const crudeRate = requested === 'export'
+          ? derived.capacities.export.crude
+          : requested === 'contract'
+            ? derived.capacities.domestic.crude
+            : derived.capacities.refine;
+        // Цена канала существует и без инфраструктуры, поэтому выбирать
+        // fallback нужно по мощности ИМЕННО для сырой нефти.
+        const channel = requestedCfg.unlimited || crudeRate > 0 ? requested : 'contract';
+        const channelCfg = this.config.oil.channels[channel];
+        const actualRate = channel === 'export'
+          ? derived.capacities.export.crude
+          : channel === 'contract'
+            ? derived.capacities.domestic.crude
+            : derived.capacities.refine;
+        const price = derived.channels[channel].price;
         const desired = Math.min(this.state.oil, Math.max(1, this.state.oil * 0.5));
-        const tonnes = this.config.oil.channels[channel].unlimited
-          ? desired
-          : Math.min(desired, derived.channels[channel].rate * this.config.oil.exportBurstSeconds || desired);
+        const capacity = actualRate * this.config.oil.exportBurstSeconds;
+        const tonnes = channelCfg.unlimited ? desired : Math.min(desired, capacity);
         if (tonnes <= 0) return payouts;
-        const amount = Math.round(tonnes * price * (1 + (def.effect.exportBonus ?? 0)));
+        const gross = tonnes * price * (1 + (def.effect.exportBonus ?? 0));
         this.state.oil -= tonnes;
         this.state.totalSold += tonnes;
-        this.grantCoins(amount);
+        this.pendingSalesGross += gross;
+        const settled = this.settleSales();
         this.pushLog({
           kind: 'sold',
           upgradeId: def.id,
           channel,
           tonnes,
           price,
-          money: amount,
+          money: gross,
         });
-        payouts.push({ id: def.id, amount });
-        this.emit({ type: 'oneShot', id: def.id, amount });
-        this.emit({ type: 'sold', channel, tonnes, money: amount });
+        payouts.push({ id: def.id, amount: settled.net });
+        this.emit({ type: 'oneShot', id: def.id, amount: settled.net });
+        this.emit({ type: 'sold', channel, tonnes, money: gross });
         return payouts;
       }
       const base = eventPayout(def, derived, level, cost);
@@ -534,7 +563,7 @@ export class Game {
         : base;
       // Отмывание через убыточный банк проходит мимо налогового ведомства:
       // деньги те же, но налог с них не берут (это и есть «уход от налогов»).
-      const gross = def.effect.launder ? amount : amount;
+      const gross = amount;
       this.grantCoins(gross);
       this.pushLog({
         kind: def.effect.launder ? 'launder' : 'event',
@@ -586,7 +615,9 @@ export class Game {
    */
   update(dtMs: number): void {
     if (dtMs <= 0) return;
-    const maxStep = 250;
+    // Фиксированный экономический квант не зависит от частоты вызовов
+    // update(): большой кадр и серия маленьких проходят одинаковые шаги.
+    const maxStep = Math.max(1, Math.min(50, this.config.tickMs));
     let left = dtMs;
     while (left > 0) {
       const step = Math.min(maxStep, left);
@@ -596,71 +627,55 @@ export class Game {
     }
   }
 
-  /** Сколько тонн труба уже забрала с прошлой отправки партии. */
-  private pipeSinceShip = 0;
-
   private step(dtMs: number): void {
-    this.state.playtimeMs += dtMs;
     if (this.state.won) return;
-
+    this.state.playtimeMs += dtMs;
     this.state.clockMs += dtMs;
-    this.pruneBuffs();
+    // Дебит скважин зависит от playtimeMs (падение добычи). Без сброса кеша
+    // непрерывная игра использовала прошлый квант, а загруженный сейв —
+    // текущий, из-за чего после первого шага расходились остатки нефти.
+    this.invalidate();
 
-    const dtSeconds = Math.max(1e-3, dtMs / 1000);
-    this.lastDtSeconds = dtSeconds;
-    this.spillCrudeThisStep = 0;
-    this.spillProductsThisStep = 0;
-    this.shipMoneyThisStep = 0;
+    const dtSeconds = Math.max(1e-9, dtMs / 1000);
+    this.activeDtSeconds = dtSeconds;
+    // Единственное место, где движется таймер отгрузки. Ни тап, ни
+    // принудительная отправка не добавляют уже прожитое время повторно.
+    this.state.shipTimerMs += dtMs;
     const derived = this.derived();
 
-    // 1. Добыча. Если есть трубопровод, он забирает нефть сразу и она уходит
-    //    на экспорт, минуя резервуары: качать в бак, из которого труба тут же
-    //    вычерпывает, бессмысленно. В резервуары попадает только то, что
-    //    труба не унесла.
+    // 1. Добыча. Труба продаёт свою часть сразу, остаток идёт в резервуары.
     if (derived.oilPerSecond > 0) {
       const pumped = derived.oilPerSecond * dtSeconds;
       const viaPipe = this.directExport(derived, pumped, dtSeconds);
-      this.pipeSinceShip += viaPipe;
+      this.state.pipeSoldSinceShip += viaPipe;
       this.addOil(pumped - viaPipe);
     }
+    // Автотапы относятся к этому же интервалу и к этой же партии.
+    this.applyAutoTaps(dtMs);
 
-    // 2. Отправка партии: раз в `shipDays` суток накопленная нефть уезжает
-    //    на внутренний рынок, экспорт и переработку, а продукты — на продажу.
-    // Деньги срочной отгрузки (если она случилась при переполнении) —
-    // часть дохода этого шага: без них выручка ушла бы «в никуда».
-    const gross = this.tickShipping(derived, dtSeconds) + this.shipMoneyThisStep;
+    // 2. Отгрузка лишь читает накопленный таймер и добавляет валовую
+    // выручку в общий финансовый расчёт.
+    this.pendingSalesGross += this.tickShipping(derived, dtSeconds);
 
-    /*
-     * Штраф за разлив этого шага. Расходы берём ДО сглаживания (по факту
-     * разлитого), а не из кеша: иначе в шаге, где случился разлив, штраф
-     * списался бы из ещё «пустого» среднего, и касса разошлась бы с
-     * таблицей. Сглаженное среднее остаётся для показа в панели.
-     */
     const fineNow =
       this.spillCrudeThisStep * this.config.fines.oilPerTon +
       this.spillProductsThisStep * this.config.fines.productPerTon;
     this.commitSpill(dtSeconds);
 
-    // 3. Налог и расходы считаются от ФАКТИЧЕСКИ проданного. Иначе пустые
-    //    резервуары всё равно приносили бы деньги, а безлимитные контракты
-    //    обнуляли бы «теоретический» доход.
-    //    Порядок как в панели: доход − расходы = EBT, налог берётся с EBT.
+    // 3. Расходы копятся ровно столько же времени, сколько нефть. Они
+    // списываются вместе с ближайшей выручкой, а не только за последний
+    // подшаг перед отгрузкой. Отрицательный результат по-прежнему не
+    // уводит кошелёк в минус.
     const current = this.derived();
-    // `gross` — это уже деньги за шаг (партия), а расходы — за секунду.
-    // Норматив штрафа из `expensesPerSecond` убираем и берём факт этого шага:
-    // так разлив оплачивается ровно один раз.
     const expensesWithoutFine =
       (current.expensesPerSecond - current.finePerSecond) * dtSeconds;
-    const expenses = expensesWithoutFine + fineNow * current.fineFactor;
-    const ebt = Math.max(0, gross - expenses);
-    const net = ebt * (1 - current.taxRate);
-    if (net > 0) this.grantCoins(net);
-    this.trackRevenue(net, dtSeconds);
+    this.state.expensesAccrued +=
+      Math.max(0, expensesWithoutFine) + fineNow * current.fineFactor;
+    this.settleSales(dtSeconds);
 
     this.tickCooldowns(dtMs);
     this.tickPeriodic(dtMs, derived);
     this.tickGambles();
-    this.applyAutoTaps(dtMs);
     this.tickWorldPrice(dtMs);
 
     this.achievementTimerMs += dtMs;
@@ -669,7 +684,26 @@ export class Game {
       this.checkAchievements();
     }
 
+    this.activeDtSeconds = 0;
     this.emit({ type: 'income' });
+  }
+
+  /** Единая касса для нефти, продуктов, трубы и экспортной акции. */
+  private settleSales(dtSeconds = 0): { gross: number; expenses: number; tax: number; net: number } {
+    const gross = this.pendingSalesGross;
+    if (!(gross > 1e-9)) {
+      if (dtSeconds > 0) this.trackRevenue(0, dtSeconds);
+      return { gross: 0, expenses: 0, tax: 0, net: 0 };
+    }
+    const expenses = Math.max(0, this.state.expensesAccrued);
+    const ebt = Math.max(0, gross - expenses);
+    const tax = ebt * this.derived().taxRate;
+    const net = Math.max(0, ebt - tax);
+    this.pendingSalesGross = 0;
+    this.state.expensesAccrued = 0;
+    if (net > 0) this.grantCoins(net);
+    if (dtSeconds > 0) this.trackRevenue(net, dtSeconds);
+    return { gross, expenses, tax, net };
   }
 
   /**
@@ -678,31 +712,23 @@ export class Game {
    * Правило заказчика: нефть копится в резервуарах `shipDays` суток (5 суток
    * = 5 реальных секунд) и только потом уезжает. Партия распределяется по
    * мощностям из `derived.flows` — тем же, что видны в таблице:
-   *   внутренний рынок → экспорт сырья → переработка (остаток).
-   * Переработка даёт нефтепродукты, они продаются внутри и на экспорт.
-   *
-   * Если резервуары переполнены, лишнее продаётся сразу по внутренней цене:
-   * терять добычу нельзя. Поэтому расширять резервуары выгодно — экспорт
-   * и переработка приносят больше.
+   * Каналы выбираются по фактической цене; безлимитный канал принимает
+   * остаток. Переработка даёт продукты для внутреннего рынка и экспорта.
+   * Срочная партия использует только реально накопленные секунды мощности.
    */
   private tickShipping(derived: DerivedStats, dtSeconds: number, force = false): number {
     const dayMs = Math.max(0.001, this.config.oil.wells.secondsPerDay) * 1000;
     const periodMs = Math.max(dayMs, this.config.oil.shipDays * dayMs);
-    this.state.shipTimerMs += dtSeconds * 1000;
 
     const batch = this.state.oil;
     if (batch <= 0) {
-      // Нефти нет, но на нефтебазах может ждать топливо: распродаём его по
-      // рынкам. Деньги идут сразу чистыми — партии, к которой их отнести,
-      // в этом такте нет.
+      // Остатки продуктов возвращают ВАЛОВУЮ выручку в тот же расчёт,
+      // что и обычная партия: никакого отдельного «налога с оборота».
       const stock = this.state.products;
       if (stock > 0) {
-        const sale = this.shipProducts(stock, derived, Math.max(1e-9, dtSeconds));
+        const sale = this.shipProducts(stock, derived, dtSeconds);
         this.state.products = sale.leftover;
-        if (sale.money > 0) {
-          this.state.totalSold += stock - sale.leftover;
-          this.grantCoins(sale.money * (1 - derived.taxRate));
-        }
+        return sale.money;
       }
       return 0;
     }
@@ -720,7 +746,7 @@ export class Game {
      * берём фактически накопленное время.
      */
     const periodSeconds = Math.max(
-      1e-3,
+      0,
       Math.min(periodMs, this.state.shipTimerMs) / 1000,
     );
     this.state.shipTimerMs = 0;
@@ -734,12 +760,13 @@ export class Game {
 
     // Мощность экспорта, которую труба уже израсходовала за этот период,
     // пересчитываем в тонны в секунду — в таком виде её ждёт allocateBatch.
-    const pipeUsedPerSecond = this.pipeSinceShip / Math.max(1e-9, periodSeconds);
+    const pipeUsedPerSecond = this.state.pipeSoldSinceShip / Math.max(1e-9, periodSeconds);
     const exportCapacity = {
       crude: Math.max(0, derived.capacities.export.crude - pipeUsedPerSecond),
-      products: Math.max(0, derived.capacities.export.products - pipeUsedPerSecond),
+      // Сырая нефть в трубе не занимает продуктовые танкеры и эстакады.
+      products: derived.capacities.export.products,
     };
-    this.pipeSinceShip = 0;
+    this.state.pipeSoldSinceShip = 0;
 
     // Партия больше, чем «одна секунда потоков», — в `shipBatch` разбиваем
     // её по секциям, чтобы ни один канал не получил больше своей мощности.
@@ -780,7 +807,6 @@ export class Game {
     const soldCrude = plan.domestic + plan.export + plan.refined;
     this.state.oil = Math.max(0, batch - soldCrude);
     this.state.totalSold += soldCrude;
-    this.salesAccum += soldCrude;
     /*
      * Топливо: к свежему выходу НПЗ добавляем то, что уже лежало на
      * нефтебазах, и раскладываем по рынкам. Остаток остаётся на складе —
@@ -821,7 +847,7 @@ export class Game {
     derived: DerivedStats,
     seconds = 1,
   ): { leftover: number; money: number } {
-    const span = Math.max(1e-9, seconds);
+    const span = Math.max(0, seconds);
     const markets = [
       { price: derived.productPriceExport, capacity: derived.capacities.export.products * span },
       { price: derived.productPriceDomestic, capacity: derived.capacities.domestic.products * span },
@@ -864,6 +890,8 @@ export class Game {
     };
     apply(this.spillCrudeThisStep, 'spillCrudePerSecond');
     apply(this.spillProductsThisStep, 'spillProductsPerSecond');
+    this.spillCrudeThisStep = 0;
+    this.spillProductsThisStep = 0;
     // Поток разлива входит в расходы, поэтому кеш производных устарел:
     // без сброса строка «Норматив штрафа» висела бы на нуле.
     this.invalidate();
@@ -940,14 +968,6 @@ export class Game {
         const amount = eventPayout(def, derived, level, 0);
         this.grantCoins(amount);
         this.emit({ type: 'periodic', id: def.id, amount });
-        if (def.effect.taxCut) {
-          this.buffs.push({
-            id: def.id,
-            amount: def.effect.taxCut,
-            untilMs: this.state.clockMs + BUFF_TAX_DURATION_MS,
-          });
-          this.invalidate();
-        }
       }
       this.state.timers[def.id] = acc;
     }
@@ -957,8 +977,12 @@ export class Game {
     if (this.state.gambles.length === 0) return;
     const due = this.state.gambles.filter((g) => g.resolveAt <= this.state.clockMs);
     if (due.length === 0) return;
-    this.state.gambles = this.state.gambles.filter((g) => g.resolveAt > this.state.clockMs);
-    for (const g of due.slice(0, MAX_GAMBLE_RESOLVES_PER_TICK)) {
+    const resolving = due.slice(0, MAX_GAMBLE_RESOLVES_PER_TICK);
+    const resolved = new Set(resolving);
+    // Необработанные из-за лимита события остаются в очереди. Раньше фильтр
+    // выбрасывал их вместе с результатом.
+    this.state.gambles = this.state.gambles.filter((g) => !resolved.has(g));
+    for (const g of resolving) {
       const def = this.content.byId.get(g.id);
       const chance = def?.effect.chance ?? 0.5;
       const won = this.rng.next() < chance;
@@ -1045,7 +1069,7 @@ export class Game {
 
   /** Начислить офлайн-доход (один раз при загрузке). */
   applyOffline(seconds: number, coins: number): void {
-    if (coins <= 0) return;
+    if (coins <= 0 || this.state.won) return;
     this.grantCoins(coins);
     this.state.playtimeMs += seconds * 1000;
     this.emit({ type: 'offline', seconds, coins });

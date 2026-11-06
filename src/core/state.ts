@@ -14,6 +14,8 @@ export function createInitialState(config: GameConfig, seed = randomSeed()): Gam
     oil: config.oil.startOil,
     products: 0,
     shipTimerMs: 0,
+    expensesAccrued: 0,
+    pipeSoldSinceShip: 0,
     spillCrudePerSecond: 0,
     spillProductsPerSecond: 0,
     totalEarned: config.startCoins,
@@ -54,6 +56,8 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
   state.oil = Math.max(0, num((src as { oil?: number }).oil, base.oil));
   state.products = Math.max(0, num(src.products, 0));
   state.shipTimerMs = Math.max(0, num(src.shipTimerMs, 0));
+  state.expensesAccrued = Math.max(0, num(src.expensesAccrued, 0));
+  state.pipeSoldSinceShip = Math.max(0, num(src.pipeSoldSinceShip, 0));
   state.spillCrudePerSecond = Math.max(0, num(src.spillCrudePerSecond, 0));
   state.spillProductsPerSecond = Math.max(0, num(src.spillProductsPerSecond, 0));
   state.totalSold = Math.max(0, num((src as { totalSold?: number }).totalSold, 0));
@@ -72,6 +76,7 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
   state.particlesOn = typeof src.particlesOn === 'boolean' ? src.particlesOn : true;
   state.won = src.won === true;
   state.wonAtMs = typeof src.wonAtMs === 'number' ? src.wonAtMs : null;
+  if (state.won && state.wonAtMs === null) state.wonAtMs = state.playtimeMs;
   state.rngSeed = num(src.rngSeed, base.rngSeed) >>> 0;
 
   const levels: Record<string, number> = {};
@@ -162,6 +167,8 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
           money: typeof e.money === 'number' ? e.money : undefined,
           textKey: typeof e.textKey === 'string' ? e.textKey : undefined,
           count: typeof e.count === 'number' ? e.count : undefined,
+          spill: e.spill === 'crude' || e.spill === 'products' ? e.spill : undefined,
+          place: typeof e.place === 'string' ? e.place : undefined,
         })))
     : [];
 

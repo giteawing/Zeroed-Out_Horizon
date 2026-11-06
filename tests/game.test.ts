@@ -86,6 +86,10 @@ describe('тап', () => {
     game.buy('t_well', 10);
     state.oil = 0;
     // Убираем все каналы: продавать некуда.
+    const previous = {
+      unlimited: config.oil.channels.contract.unlimited,
+      baseRate: config.oil.channels.contract.baseRate,
+    };
     for (const channel of ['contract', 'export', 'refine'] as const) {
       game.content.config.oil.channels[channel].unlimited = false;
       game.content.config.oil.channels[channel].baseRate = 0;
@@ -98,8 +102,8 @@ describe('тап', () => {
     // Сбыта нет: за этот тик не продано ни тонны.
     expect(state.totalSold).toBe(soldBefore);
     // Восстанавливаем конфиг для остальных тестов.
-    content.config.oil.channels.contract.unlimited = true;
-    content.config.oil.channels.contract.baseRate = 40;
+    content.config.oil.channels.contract.unlimited = previous.unlimited;
+    content.config.oil.channels.contract.baseRate = previous.baseRate;
     game.invalidate();
   });
 
@@ -273,7 +277,7 @@ describe('нефтепродукты: производство сходится 
   it('излишек сверх рынка и склада разливается и штрафуется', () => {
     const { game, state } = setup();
     makeRich(state, 't_refinery', 60);
-    state.wells = Array.from({ length: 40 }, () => ({ kind: 'unique' as const, dailyTonnes: 250 }));
+    state.wells = Array.from({ length: 40 }, () => ({ kind: 'unique' as const, dailyTonnes: 2500 }));
     state.levels = { t_refinery: 30 };
     state.oil = 0;
     state.products = 0;

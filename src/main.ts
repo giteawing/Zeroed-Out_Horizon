@@ -107,7 +107,7 @@ function boot(): void {
   const wealth = new Wealth(game, texts);
 
   const shop = new Shop(game, texts, currency, {
-    onBuy: (id) => buy(id),
+    onBuy: (id, count) => buy(id, count),
     onError: (check) => reportBuyError(check.reason),
   });
 
@@ -323,9 +323,9 @@ function boot(): void {
   window.addEventListener('beforeunload', () => save());
 
   // --------------------------------------------------------------- покупки
-  function buy(id: string): void {
+  function buy(id: string, count = 1): void {
     const def = content.byId.get(id);
-    const result = game.buy(id);
+    const result = game.buy(id, count);
     if (!result.ok) {
       if (result.reason === 'noMoney' || result.reason === 'noOil') sound.event(false);
       return;

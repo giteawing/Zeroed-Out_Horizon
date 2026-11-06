@@ -325,7 +325,7 @@ export class Hud {
     // а излишек сверх ёмкости склада ушёл по внутренней цене — показываем
     // обе части, чтобы производство сходилось с продажей построчно.
     set('productsLeft', rate(flows.productsStored));
-    set('productsSpill', sale(flows.productsSpill, derived.productPriceDomestic));
+    set('productsSpill', rate(flows.productsSpill));
     // Запас нефтепродуктов на нефтебазах: «сколько / сколько влезает».
     set('productsOnHand', units('oilInTank', {
       oil: formatNumber(state.products),

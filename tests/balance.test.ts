@@ -53,7 +53,10 @@ describe('прохождение игры ботом', () => {
   });
 
   it('нефть не «замерзает»: к концу игры империя растёт на порядки', () => {
-    const result = runSimulation(content, {
+    const observation = loadContent();
+    observation.config.winCost = 1e30;
+    observation.byId.get('win_pump')!.baseCost = 1e30;
+    const result = runSimulation(observation, {
       maxSeconds: 60 * 20,
       seed: 11,
       sampleSeconds: 30,

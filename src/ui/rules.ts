@@ -85,6 +85,20 @@ export class Rules {
           cost: formatMoney(config.winCost, this.currency),
           pump: this.texts.get('finale.pumpName'),
         }),
+        ...(config.winRequirements.length > 0 ? [t('rules.goalRequirements', {
+          requirements: config.winRequirements.map((req) => {
+            if (req.upgrade) {
+              return t('shop.unlockHintUpgrade', {
+                name: this.content.byId.get(req.upgrade)?.name ?? req.upgrade,
+                level: req.level ?? 1,
+              });
+            }
+            if (req.influence !== undefined) {
+              return t('shop.unlockHintInfluence', { value: req.influence });
+            }
+            return t('shop.unlockHint', { cost: formatMoney(req.balance ?? 0, this.currency) });
+          }).join('; '),
+        })] : []),
       ]),
 
       this.section('rules.tapTitle', [

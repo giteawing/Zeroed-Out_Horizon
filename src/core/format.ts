@@ -40,7 +40,7 @@ function trimZeros(s: string): string {
 
 /** Число без валюты: 12,3 */
 export function formatNumber(value: number): string {
-  return formatSmall(value);
+  return Number.isFinite(value) ? formatSmall(value) : '∞';
 }
 
 /** Секунды -> «12:34» */
