@@ -21,7 +21,7 @@ export function saleProceeds(
   return Math.max(0, tonnes * rate.price * bonus);
 }
 
-/** Доход за один тап: тонны с лёгким «разбросом», чтобы не было одинаковых цифр. */
+/** Распределяет фактическую добычу между рынками по доступной мощности и цене. */
 
 export function oilFlowsOf(
   config: GameConfig,
