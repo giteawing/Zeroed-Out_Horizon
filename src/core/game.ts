@@ -643,7 +643,21 @@ export class Game {
     this.state.shipTimerMs += dtSeconds * 1000;
 
     const batch = this.state.oil;
-    if (batch <= 0) return 0;
+    if (batch <= 0) {
+      // Нефти нет, но на нефтебазах может ждать топливо: распродаём его по
+      // рынкам. Деньги идут сразу чистыми — партии, к которой их отнести,
+      // в этом такте нет.
+      const stock = this.state.products;
+      if (stock > 0) {
+        const sale = this.shipProducts(stock, derived, Math.max(1e-9, dtSeconds));
+        this.state.products = sale.leftover;
+        if (sale.money > 0) {
+          this.state.totalSold += stock - sale.leftover;
+          this.grantCoins(sale.money * (1 - derived.taxRate));
+        }
+      }
+      return 0;
+    }
 
     const full = batch >= derived.oilCapacity - 1e-9;
     if (this.state.shipTimerMs < periodMs && !full) return 0;
@@ -656,6 +670,7 @@ export class Game {
      * трубопровод продавал бы нефть дважды: сразу и ещё раз из резервуаров.
      */
     const periodSeconds = periodMs / 1000;
+
     // Мощность экспорта, которую труба уже израсходовала за этот период,
     // пересчитываем в тонны в секунду — в таком виде её ждёт allocateBatch.
     const pipeUsedPerSecond = this.pipeSinceShip / Math.max(1e-9, periodSeconds);
@@ -676,6 +691,14 @@ export class Game {
 
   /** Распределить партию по каналам и превратить её в деньги. */
   private shipBatch(batch: number, derived: DerivedStats, seconds = 1): number {
+    /*
+     * Топливо, которое уже лежит на нефтебазах, — тоже товар к продаже:
+     * раньше оно копилось молча и обрезалось ёмкостью, то есть исчезало.
+     * Теперь склад складывается со свежим выходом НПЗ, и всё вместе идёт
+     * на рынки. Что не влезло — остаётся на складе до следующего рейса,
+     * поэтому производство всегда равно «продано + осталось на складе».
+     */
+    const stockProducts = this.state.products;
     // Раскладываем ПАРТИЮ по мощностям, а не по уже посчитанным потокам:
     // тапы дают нефть рывками, и она обязана найти сбыт. Цены передаём те же,
     // по которым таблица выбирает выгодный рынок, — иначе экран и деньги
@@ -687,22 +710,27 @@ export class Game {
       productExport: derived.productPriceExport,
     });
 
+    // Сырьё: деньги по ценам своих каналов. За продукты платит shipProducts —
+    // он же решает, сколько топлива рынки реально взяли.
     const money =
       plan.domestic * derived.channels.contract.price +
-      plan.export * derived.channels.export.price +
-      plan.productsDomestic * derived.productPriceDomestic +
-      plan.productsExport * derived.productPriceExport;
+      plan.export * derived.channels.export.price;
 
     const soldCrude = plan.domestic + plan.export + plan.refined;
     this.state.oil = Math.max(0, batch - soldCrude);
     this.state.totalSold += soldCrude;
     this.salesAccum += soldCrude;
-    // Что не ушло с партией (нет мощностей) остаётся на нефтебазах.
-    // Нефтепродукты лежат на нефтебазах; сверх ёмкости — продаются сразу
-    // внутри страны, как и переполнение резервуаров с сырьём.
-    const productsNow = this.state.products - plan.productsDomestic - plan.productsExport + plan.products;
-    const productRoom = this.derived().productCapacity;
-    this.state.products = Math.max(0, Math.min(productsNow, productRoom));
+    /*
+     * Топливо: к свежему выходу НПЗ добавляем то, что уже лежало на
+     * нефтебазах, и раскладываем по рынкам. Остаток остаётся на складе —
+     * он не сгорает и не обрезается ёмкостью, а ждёт следующего рейса.
+     * Поэтому производство всегда равно «продано + осталось на складе».
+     */
+    const fresh = plan.products;
+    const productsNow = stockProducts + fresh;
+    const productSale = this.shipProducts(productsNow, derived, seconds);
+    this.state.products = productSale.leftover;
+    const moneyWithProducts = money + productSale.money;
 
     if (soldCrude > 0 && this.state.clockMs - this.lastSaleLogMs >= 3000) {
       this.lastSaleLogMs = this.state.clockMs;
@@ -710,13 +738,52 @@ export class Game {
         kind: 'sold',
         tonnes: soldCrude,
         price: money / soldCrude,
-        money,
+        money: moneyWithProducts,
         channel: plan.export >= plan.domestic && plan.export >= plan.refined
           ? 'export'
           : plan.refined >= plan.domestic ? 'refine' : 'contract',
       });
     }
-    return money;
+    return moneyWithProducts;
+  }
+
+  /**
+   * Продать нефтепродукты с рынков: сначала более выгодный, остаток — на
+   * второй. Что не влезло, остаётся на нефтебазах до следующего рейса.
+   *
+   * Раньше этот остаток просто обрезался ёмкостью склада, и топливо
+   * «исчезало»: производство не сходилось с продажей, а деньги за него
+   * не приходили вовсе.
+   */
+  private shipProducts(
+    tonnes: number,
+    derived: DerivedStats,
+    seconds = 1,
+  ): { leftover: number; money: number } {
+    const span = Math.max(1e-9, seconds);
+    const markets = [
+      { price: derived.productPriceExport, capacity: derived.capacities.export.products * span },
+      { price: derived.productPriceDomestic, capacity: derived.capacities.domestic.products * span },
+    ].sort((a, b) => b.price - a.price);
+
+    let left = Math.max(0, tonnes);
+    let money = 0;
+    for (const market of markets) {
+      const take = Math.min(left, Number.isFinite(market.capacity) ? Math.max(0, market.capacity) : left);
+      left -= take;
+      money += take * market.price;
+    }
+    /*
+     * Склад: то, что не взяли рынки, лежит на нефтебазах. Места на них
+     * хватает только до ёмкости — остальное, как и перелив резервуаров с
+     * сырьём, продаётся сразу по внутренней цене. Раньше здесь стоял
+     * Math.min с ёмкостью, и всё, что сверх неё, просто исчезало.
+     */
+    const room = Math.max(0, derived.productCapacity);
+    const leftover = Math.min(left, room);
+    const spill = left - leftover;
+    money += spill * derived.productPriceDomestic;
+    return { leftover, money };
   }
 
   /** Фактический доход в секунду: сглаженное среднее по начислениям. */

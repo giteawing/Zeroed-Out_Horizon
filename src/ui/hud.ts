@@ -152,7 +152,16 @@ export class Hud {
           el('div', { class: 'hud__rows hud__rows--single' }, [
             row('productsOut', texts.get('hud.production'), 'hud__row-value--oil').root,
             row('productsDomestic', texts.get('hud.saleDomestic'), 'hud__row-value--sell').root,
+            // Излишек сверх рынка и склада — подпункт внутренней продажи:
+            // он уходит по внутренней цене, но уже без мощности рынка.
+            row('productsSpill', texts.get('hud.productsSpill'),
+              'hud__row-value--sell hud__row-value--under', 'hud__row--under').root,
             row('productsExport', texts.get('hud.saleExport'), 'hud__row-value--sell').root,
+            // Топливо, которому не хватило рынка: оно лежит на нефтебазах.
+            // Без этой строки производство не сходилось с продажей, и
+            // казалось, что продукты исчезают.
+            row('productsLeft', texts.get('hud.productsUnsold'),
+              'hud__row-value--stored hud__row-value--under').root,
             // Нефтебазы хранят нефтепродукты: показываем, сколько их лежит
             // и сколько всего влезает.
             row('productsOnHand', texts.get('hud.productStorage'), 'hud__row-value--stored').root,
@@ -309,6 +318,11 @@ export class Hud {
     set('productsOut', rate(flows.productsProduced));
     set('productsDomestic', sale(flows.productsDomestic, derived.productPriceDomestic));
     set('productsExport', sale(flows.productsExport, derived.productPriceExport));
+    // Не продано: топливо осталось на нефтебазах и ждёт свободного рынка,
+    // а излишек сверх ёмкости склада ушёл по внутренней цене — показываем
+    // обе части, чтобы производство сходилось с продажей построчно.
+    set('productsLeft', rate(flows.productsStored));
+    set('productsSpill', sale(flows.productsSpill, derived.productPriceDomestic));
     // Запас нефтепродуктов на нефтебазах: «сколько / сколько влезает».
     set('productsOnHand', units('oilInTank', {
       oil: formatNumber(state.products),

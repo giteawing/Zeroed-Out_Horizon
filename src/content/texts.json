@@ -64,7 +64,9 @@
     "productsStored": "на нефтебазах: {value}",
     "productStorage": "на нефтебазах",
     "marketDomestic": "доступный объём вн. рынка",
-    "marketExport": "доступный объём экспорта"
+    "marketExport": "доступный объём экспорта",
+    "productsUnsold": "осталось на нефтебазах",
+    "productsSpill": "сверх склада · по вн. цене"
   },
   "tabs": {
     "political": "Политика",

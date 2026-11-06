@@ -468,6 +468,37 @@ describe('товарная модель: сырая нефть → нефтеп�
     ).toBeCloseTo(100, 6);
   });
 
+  it('производство продуктов = продажа + склад + сверх склада', () => {
+    // Жалоба заказчика: «в нефтепродуктах не бьётся математика — производство
+    // не равно продаже на вн. рынке + экспорт». Топливо, которому не хватило
+    // рынка, остаётся на нефтебазах, а сверх их ёмкости уходит по внутренней
+    // цене. Сходиться обязано при любых мощностях.
+    const cases = [
+      { domestic: { crude: 0, products: 100 }, export: { crude: 0, products: 0 }, refine: 1000 },
+      { domestic: { crude: 0, products: 100 }, export: { crude: 0, products: 50 }, refine: 1000 },
+      { domestic: { crude: 0, products: 900 }, export: { crude: 0, products: 900 }, refine: 1000 },
+      { domestic: { crude: 0, products: 0 }, export: { crude: 0, products: 0 }, refine: 1000 },
+    ];
+    for (const caps of cases) {
+      const sold = oilFlowsOf(config, caps, 1000, {
+        prices: equalPrices,
+        productStorage: 2000,
+      });
+      expect(
+        sold.productsDomestic + sold.productsExport + sold.productsStored + sold.productsSpill,
+      ).toBeCloseTo(sold.productsProduced, 6);
+    }
+    // Склад переполнен: излишек не исчезает, а продаётся по внутренней цене.
+    const cramped = oilFlowsOf(
+      config,
+      { domestic: { crude: 0, products: 0 }, export: { crude: 0, products: 0 }, refine: 1000 },
+      1000,
+      { prices: equalPrices, productStorage: 100 },
+    );
+    expect(cramped.productsStored).toBeCloseTo(100, 6);
+    expect(cramped.productsSpill).toBeGreaterThan(0);
+  });
+
   it('у рынков свои доступные объёмы для сырья и нефтепродуктов', () => {
     const state = createInitialState(config, 67);
     const base = computeDerived(config, content.upgrades, state, [], content);

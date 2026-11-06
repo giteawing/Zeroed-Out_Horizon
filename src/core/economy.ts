@@ -657,7 +657,10 @@ export function computeDerived(
     flows.domestic * channels.contract.price +
     flows.export * channels.export.price +
     flows.productsDomestic * productPriceDomestic +
-    flows.productsExport * productPriceExport;
+    flows.productsExport * productPriceExport +
+    // Излишек сверх рынка и склада продаётся по внутренней цене — деньги
+    // за него тоже входят в выручку, иначе панель и касса разойдутся.
+    flows.productsSpill * productPriceDomestic;
 
   // Влияние считается до налога: больше влияния — меньше налог.
   const influenceTotal = Math.min(
@@ -950,6 +953,14 @@ export function oilFlowsOf(
   }
   const productsDomestic = productsByMarket.domestic;
   const productsExport = productsByMarket.export;
+  /*
+   * Остаток не продаётся — он лежит на нефтебазах и ждёт свободного рынка.
+   * Если места на складе нет, лишнее уходит по внутренней цене, как перелив
+   * резервуаров с сырьём: производство обязано сходиться с продажей.
+   */
+  const storeRoom = Math.max(0, options.productStorage ?? config.product.baseStorage);
+  const productsStored = Math.min(productRest, storeRoom);
+  const productsSpill = productRest - productsStored;
 
   /*
    * Разбивка экспорта по видам транспорта. Доли берём из фактических
@@ -982,6 +993,8 @@ export function oilFlowsOf(
     productsProduced,
     productsDomestic,
     productsExport,
+    productsStored,
+    productsSpill,
     // Остаток остаётся в резервуарах: его видно игроку, он не «сгорает».
     backlog: stored,
     refineCapacity: safe(capacities.refine),
