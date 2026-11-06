@@ -214,7 +214,7 @@ export class Shop {
 
   private describeEffect(def: UpgradeDef, level: number): string {
     const e = def.effect;
-    const t = (key: string, params: Record<string, string | number>) =>
+    const t = (key: string, params: Record<string, string | number> = {}) =>
       this.texts.get(`shop.${key}`, params);
     switch (def.type) {
       case 'perTap':
