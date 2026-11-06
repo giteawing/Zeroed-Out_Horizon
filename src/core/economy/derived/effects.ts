@@ -8,7 +8,7 @@ import { levelOf } from '../purchases';
 
 const GROUPS_OFFICIALS = new Set(['grants', 'taxes', 'deals', 'conquest', 'favors', 'pmc']);
 const GROUPS_STAFF = new Set(['staff', 'crew']);
-const GROUPS_INFLUENCE = new Set(['grants', 'taxes', 'deals', 'conquest', 'favors', 'pmc']);
+const GROUPS_INFLUENCE = new Set(['grants', 'taxes', 'deals', 'conquest', 'favors', 'pmc', 'media']);
 
 export interface UpgradeEffects {
   tapFlat: number;

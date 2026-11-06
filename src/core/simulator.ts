@@ -7,7 +7,7 @@
  * Бот детерминированный (свой ГПСЧ) — тесты не «мигают».
  */
 import { Game } from './game';
-import { computeDerived, isUnlocked, levelOf, unlockBlocker, wellPricePerDailyTonne } from './economy';
+import { bankScaleOf, computeDerived, eventPayout, isUnlocked, levelOf, unlockBlocker, wellPricePerDailyTonne } from './economy';
 import { isRepeatable } from './game';
 import { createInitialState } from './state';
 import { Rng } from './rng';
@@ -297,7 +297,7 @@ function averageWellDaily(content: Content): number {
   return content.config.oil.wells.classes.reduce(
     (sum, cls) => sum + cls.chance * ((cls.minDailyTonnes + cls.maxDailyTonnes) / 2),
     0,
-  ) / content.config.oil.wells.secondsPerDay;
+  );
 }
 
 /**
@@ -310,15 +310,16 @@ export function estimatedGain(game: Game, def: UpgradeDef, cost: number): number
   const before = derivedForSimulation(content, game.state);
   const e = def.effect;
 
-  // Разовые и периодические выплаты не меняют computeDerived, поэтому для
-  // них остаётся оценка темпа выплат, а не фиктивный постоянный прирост.
+  // Считаем по той же денежной формуле, что и реальная выплата игры.
+  // tapValue — тонны, его нельзя смешивать с нефтефаниками.
   if (def.type === 'oneShot') {
-    return ((before.tapValue + before.grossPerSecond * 0.5) * (e.value ?? 1)) /
-      (def.cooldownSeconds ?? 60);
+    const payout = eventPayout(def, before, levelOf(game.state, def.id) + 1, cost);
+    const bankBonus = def.effect.bankScale ? bankScaleOf(content.upgrades, game.state) : 1;
+    return (payout * bankBonus) / (def.cooldownSeconds ?? 60);
   }
   if (def.type === 'periodic') {
-    return ((before.tapValue + before.grossPerSecond * 0.5) * (e.value ?? 1)) /
-      (e.seconds ?? 60);
+    const payout = eventPayout(def, before, levelOf(game.state, def.id) + 1, 0);
+    return payout / (e.seconds ?? 60);
   }
   if (def.type === 'gamble') {
     const chance = e.chance ?? 0.5;

@@ -39,6 +39,7 @@ export function createInitialState(config: GameConfig, seed = randomSeed()): Gam
     won: false,
     wonAtMs: null,
     rngSeed: seed,
+    worldPriceSeed: seed >>> 0,
   };
 }
 
@@ -58,6 +59,8 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
   state.shipTimerMs = Math.max(0, num(src.shipTimerMs, 0));
   state.expensesAccrued = Math.max(0, num(src.expensesAccrued, 0));
   state.pipeSoldSinceShip = Math.max(0, num(src.pipeSoldSinceShip, 0));
+  // Не переносим расход трубы в новое окно, если таймер уже закрыт.
+  if (state.shipTimerMs <= 0) state.pipeSoldSinceShip = 0;
   state.spillCrudePerSecond = Math.max(0, num(src.spillCrudePerSecond, 0));
   state.spillProductsPerSecond = Math.max(0, num(src.spillProductsPerSecond, 0));
   state.totalSold = Math.max(0, num((src as { totalSold?: number }).totalSold, 0));
@@ -78,6 +81,7 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
   state.wonAtMs = typeof src.wonAtMs === 'number' ? src.wonAtMs : null;
   if (state.won && state.wonAtMs === null) state.wonAtMs = state.playtimeMs;
   state.rngSeed = num(src.rngSeed, base.rngSeed) >>> 0;
+  state.worldPriceSeed = num((src as { worldPriceSeed?: number }).worldPriceSeed, state.rngSeed) >>> 0;
 
   const levels: Record<string, number> = {};
   if (src.levels && typeof src.levels === 'object') {

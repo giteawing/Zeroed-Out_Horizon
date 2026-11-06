@@ -14,7 +14,7 @@ import type {
   UpgradeDef,
 } from '../types';
 
-interface Market<Key extends string> {
+export interface Market<Key extends string> {
   key: Key;
   price: number;
   capacity: number;
@@ -26,19 +26,23 @@ interface Market<Key extends string> {
  *
  * Входные capacity должны быть уже приведены к нужному временному интервалу.
  */
-function allocateByPrice<Key extends string>(
+export function allocateByPrice<Key extends string>(
   volume: number,
   markets: readonly Market<Key>[],
 ): { byMarket: Record<Key, number>; remaining: number } {
   const byMarket = {} as Record<Key, number>;
-  let remaining = volume;
-
+  let remaining = Number.isFinite(volume) ? Math.max(0, volume) : 0;
+  for (const market of markets) byMarket[market.key] = 0;
   for (const market of [...markets].sort((a, b) => b.price - a.price)) {
-    const taken = Math.min(remaining, market.capacity);
+    const capacity = market.capacity === Number.POSITIVE_INFINITY
+      ? remaining
+      : Number.isFinite(market.capacity)
+        ? Math.max(0, market.capacity)
+        : 0;
+    const taken = Math.min(remaining, capacity);
     byMarket[market.key] = taken;
     remaining -= taken;
   }
-
   return { byMarket, remaining };
 }
 
@@ -88,7 +92,11 @@ export function oilFlowsOf(
 ): OilFlows {
   const total = Math.max(0, produced);
   const safe = (value: number): number =>
-    Number.isFinite(value) ? Math.max(0, value) : Number.MAX_SAFE_INTEGER;
+    value === Number.POSITIVE_INFINITY
+      ? Number.MAX_SAFE_INTEGER
+      : Number.isFinite(value)
+        ? Math.max(0, value)
+        : 0;
 
   const prices = options.prices ?? {
     crudeDomestic: 1,
@@ -147,9 +155,9 @@ export function oilFlowsOf(
 
   const shares = options.modeShares;
   const shareSum = shares
-    ? Math.max(1e-9, shares.pipeline + shares.rail + shares.tanker)
+    ? shares.pipeline + shares.rail + shares.tanker
     : 0;
-  const exportByMode: Record<ExportMode, number> = shares && shareSum > 1
+  const exportByMode: Record<ExportMode, number> = shares && shareSum > 1e-9
     ? {
       pipeline: exportTonnes * (shares.pipeline / shareSum),
       rail: exportTonnes * (shares.rail / shareSum),
@@ -211,7 +219,11 @@ export function allocateBatch(
 } {
   const span = Math.max(0, seconds);
   const limit = (value: number): number =>
-    Number.isFinite(value) ? Math.max(0, value) * span : Number.MAX_SAFE_INTEGER;
+    value === Number.POSITIVE_INFINITY
+      ? Number.MAX_SAFE_INTEGER
+      : Number.isFinite(value)
+        ? Math.max(0, value) * span
+        : 0;
 
   const refinePrice =
     prices.crudeExport *
@@ -266,23 +278,18 @@ export function sellOil(
   dtSeconds: number,
   unlimited: Channel[] = ['contract'],
 ): { oil: number; gross: number; sold: number; byChannel: Record<Channel, number> } {
-  const byChannel: Record<Channel, number> = { contract: 0, export: 0, refine: 0 };
-  const order: Channel[] = ['refine', 'export', 'contract'];
-  let left = oil;
-  let gross = 0;
-  let sold = 0;
-
-  for (const channel of order) {
-    if (left <= 0) break;
-    const rate = derived.channels[channel];
-    const available = unlimited.includes(channel) ? left : rate.rate * dtSeconds;
-    const taken = Math.min(left, available);
-    if (taken <= 0) continue;
-    byChannel[channel] += taken;
-    left -= taken;
-    sold += taken;
-    gross += taken * rate.price;
-  }
-
-  return { oil: left, gross, sold, byChannel };
+  const plan = allocateByPrice(Math.max(0, oil), (['contract', 'export', 'refine'] as Channel[]).map((channel) => ({
+    key: channel,
+    price: derived.channels[channel].price,
+    capacity: unlimited.includes(channel)
+      ? Number.POSITIVE_INFINITY
+      : derived.channels[channel].rate * Math.max(0, dtSeconds),
+  })));
+  const byChannel = plan.byMarket;
+  const sold = Object.values(byChannel).reduce((sum, tonnes) => sum + tonnes, 0);
+  const gross = (Object.keys(byChannel) as Channel[]).reduce(
+    (sum, channel) => sum + byChannel[channel] * derived.channels[channel].price,
+    0,
+  );
+  return { oil: plan.remaining, gross, sold, byChannel };
 }

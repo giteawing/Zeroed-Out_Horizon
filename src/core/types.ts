@@ -63,11 +63,6 @@ export interface ChannelConfig {
   baseRate: number;
   /** Канал берёт любой объём сырой нефти: ёмкость не ограничена. */
   unlimited?: boolean;
-  /** Средний размер одной сделки, тонн (тысячи тонн, а не штуки). */
-  minLotTonnes?: number;
-  maxLotTonnes?: number;
-  /** За сколько секунд канал оборачивает одну сделку. */
-  lotSeconds?: number;
 }
 
 export interface OilConfig {
@@ -97,8 +92,6 @@ export interface OilConfig {
   exportBurstSeconds: number;
   /** Автодобыча: какие сотрудники нужны и какой бонус дают все вместе. */
   autoDrill: { requires: string[]; bonus: number };
-  /** Сколько тонн «сгорает» при переполнении резервуаров (доля потерь в секунду). */
-  spillLoss: number;
   /**
    * Пробуренные скважины. Каждая даёт случайный дебит из своего диапазона,
    * поэтому покупка «Пробурить скважину» — это лотерея: обычная, хорошая
@@ -259,7 +252,6 @@ export interface GameConfig {
   version: number;
   currency: string;
   startCoins: number;
-  baseTapValue: number;
   costGrowth: number;
   maxBuyLevels: number;
   tickMs: number;
@@ -274,8 +266,6 @@ export interface GameConfig {
     minRate: number;
     /** На сколько снижается ставка за единицу влияния (0.00055 = 0.055 п.п.). */
     influenceDrop: number;
-    /** Влияние, при котором налог опускается до minRate. */
-    influenceForZero: number;
   };
   /**
    * Штрафы за разлив: излишек сверх склада не «исчезает», а выливается.
@@ -307,7 +297,6 @@ export interface GameConfig {
     max: number;
     periodSeconds: number;
     startPrice: number;
-    smoothing: number;
   };
   oil: OilConfig;
   /**
@@ -347,7 +336,7 @@ export interface GameConfig {
   winRequirements: UnlockRequirement[];
   achievementsTickSeconds: number;
   particles: { maxParticles: number; maxFloating: number };
-  balance: { passiveScale: number; tapScale: number; exportGainSeconds: number };
+  balance: { passiveScale: number; tapScale: number };
 }
 
 export type AchievementRule =
@@ -520,6 +509,8 @@ export interface GameState {
   wonAtMs: number | null;
   /** Сид гейм-РНГ: сохраняется, чтобы поведение было воспроизводимым. */
   rngSeed: number;
+  /** Постоянный seed волны мировой цены; не меняется при расходовании игрового RNG. */
+  worldPriceSeed: number;
 }
 
 export interface ChannelRate {

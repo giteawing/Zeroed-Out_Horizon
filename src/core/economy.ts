@@ -8,3 +8,4 @@ export * from './economy/production';
 export * from './economy/assets';
 export * from './economy/sales';
 export * from './economy/derived';
+export * from './economy/world-price';
