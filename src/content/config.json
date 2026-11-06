@@ -2,7 +2,6 @@
   "version": 2,
   "currency": "₦",
   "startCoins": 0,
-  "baseTapValue": 1,
   "costGrowth": 1.15,
   "maxBuyLevels": 25,
   "tickMs": 100,
@@ -13,8 +12,7 @@
   "tax": {
     "baseRate": 0.28,
     "minRate": 0.02,
-    "influenceDrop": 0.0006,
-    "influenceForZero": 430
+    "influenceDrop": 0.00065
   },
   "expenses": {
     "baseSalaries": 0.4,
@@ -35,8 +33,7 @@
     "min": 0.75,
     "max": 1.28,
     "periodSeconds": 12,
-    "startPrice": 1,
-    "smoothing": 0.55
+    "startPrice": 1
   },
   "oil": {
     "basePricePerTon": 3,
@@ -47,16 +44,11 @@
       "contract": {
         "priceFactor": 0.35,
         "baseRate": 9000,
-        "unlimited": true,
-        "minLotTonnes": 1000,
-        "maxLotTonnes": 25000,
-        "lotSeconds": 6
+        "unlimited": true
       },
       "export": {
         "priceFactor": 1,
-        "baseRate": 0,
-        "minLotTonnes": 5000,
-        "maxLotTonnes": 60000
+        "baseRate": 0
       },
       "refine": {
         "priceFactor": 2.6,
@@ -74,7 +66,6 @@
       ],
       "bonus": 1
     },
-    "spillLoss": 0.25,
     "wells": {
       "secondsPerDay": 1,
       "classes": [
@@ -144,8 +135,7 @@
   },
   "balance": {
     "passiveScale": 1,
-    "tapScale": 1,
-    "exportGainSeconds": 40
+    "tapScale": 1
   },
   "product": {
     "domesticPriceFactor": 1.8,

@@ -273,8 +273,12 @@ describe('сырьё, мощности и игровое время', () => {
     const game = new Game(content, state);
     game.tap();
     expect(state.log.some((entry) => entry.kind === 'spill')).toBe(true);
-    game.update(50);
     expect(state.expensesAccrued).toBeGreaterThan(0);
+    const restored = normalizeState(
+      JSON.parse(JSON.stringify(game.snapshot())), content.config, content,
+    );
+    expect(restored.expensesAccrued).toBeGreaterThan(0);
+    expect(restored.spillCrudePerSecond).toBeGreaterThan(0);
     expect(state.coins).toBe(0);
   });
 
@@ -333,6 +337,78 @@ describe('сырьё, мощности и игровое время', () => {
     expect(rail.productSpill).toBeCloseTo(0, 6);
     expect(pipe.state.products).toBeCloseTo(rail.state.products, 6);
     expect(Math.abs(pipe.state.coins - rail.state.coins) / rail.state.coins).toBeLessThan(0.01);
+  });
+});
+
+describe('устойчивость времени и состояния движка', () => {
+  it('сохранение RNG не меняет фазу мировой цены', () => {
+    const content = freshContent();
+    const firstState = createInitialState(content.config, 912345);
+    const secondState = createInitialState(content.config, 912345);
+    const first = new Game(content, firstState);
+    const second = new Game(content, secondState);
+
+    first.tap();
+    second.tap();
+    first.snapshot();
+    first.update(2500);
+    second.update(2500);
+
+    expect(firstState.rngSeed).not.toBe(firstState.worldPriceSeed);
+    expect(firstState.worldPrice).toBeCloseTo(secondState.worldPrice, 12);
+  });
+
+  it('пустые окна трубопровода закрываются до следующей партии', () => {
+    const content = freshContent();
+    freezeWorldPrice(content);
+    content.config.oil.baseCapacity = 500;
+    content.config.oil.channels.contract.baseRate = 0;
+    content.config.oil.channels.contract.unlimited = false;
+    content.config.oil.channels.export.baseRate = 0;
+    const state = rich(content, 0);
+    state.wells = [{ kind: 'unique', dailyTonnes: 16_200 }];
+    state.levels.t_pipeline = 1;
+    const game = new Game(content, state);
+
+    game.update(60_000);
+    expect(state.oil).toBeCloseTo(0, 5);
+    expect(state.shipTimerMs).toBeCloseTo(0, 5);
+    expect(state.pipeSoldSinceShip).toBeCloseTo(0, 5);
+
+    state.wells = [];
+    state.oil = game.derived().oilCapacity;
+    game.invalidate();
+    const before = state.totalSold;
+    game.update(5000);
+
+    expect(state.totalSold).toBeGreaterThan(before);
+    expect(state.oil).toBeLessThan(game.derived().oilCapacity);
+  });
+
+  it('reset очищает временные накопители и устанавливает новый seed', () => {
+    const content = freshContent();
+    const oldState = rich(content, 0);
+    oldState.wells = [{ kind: 'good', dailyTonnes: 900 }];
+    const game = new Game(content, oldState);
+    game.update(5000);
+    expect(game.revenuePerSecond()).toBeGreaterThan(0);
+
+    const fresh = createInitialState(content.config, 456789);
+    game.reset(fresh);
+    const reference = new Game(content, createInitialState(content.config, 456789));
+
+    expect(game.state).toBe(fresh);
+    expect(game.revenuePerSecond()).toBe(0);
+    expect(game.tap()).toBeCloseTo(reference.tap(), 12);
+  });
+
+  it('начисление денег сразу обновляет DerivedStats.progress', () => {
+    const content = freshContent();
+    const state = createInitialState(content.config, 7);
+    const game = new Game(content, state);
+    const before = game.derived().progress;
+    game.applyOffline(1, content.config.winCost / 2);
+    expect(game.derived().progress).toBeGreaterThan(before);
   });
 });
 

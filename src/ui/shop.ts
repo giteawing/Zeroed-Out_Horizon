@@ -214,14 +214,13 @@ export class Shop {
 
   private describeEffect(def: UpgradeDef, level: number): string {
     const e = def.effect;
-    void level;
     const t = (key: string, params: Record<string, string | number>) =>
       this.texts.get(`shop.${key}`, params);
     switch (def.type) {
       case 'perTap':
-        return t('effectPerTap', { value: formatMoney(e.value ?? 0, this.currency) });
+        return t('effectPerTap', { value: formatNumber(e.value ?? 0) });
       case 'passive':
-        return t('effectPassive', { value: formatMoney(e.value ?? 0, this.currency) });
+        return t('effectPassive', { value: formatNumber(e.value ?? 0) });
       case 'well': {
         // Показываем последнюю пробуренную скважину и расклад по классам.
         const wells = this.game.state.wells;
@@ -236,7 +235,7 @@ export class Shop {
       }
       case 'multiplier':
         return t('effectMultiplier', {
-          value: formatPercent(Math.pow(e.factor ?? 1, Math.max(1, level)) - 1, 1),
+          value: formatPercent(Math.pow(e.factor ?? 1, Math.sqrt(Math.max(1, level))) - 1, 1),
         });
       case 'taxCut': {
         const parts = [t('effectTaxCut', { value: formatPercent((e.percent ?? 0) / 100, 1) })];
@@ -259,7 +258,7 @@ export class Shop {
       case 'periodic':
         return t('effectPeriodic', { seconds: e.seconds ?? 0, value: e.value ?? 0 });
       case 'autoTap':
-        return t('effectPassive', { value: formatMoney(e.value ?? 0, this.currency) });
+        return t('effectAutoTap', { value: formatNumber(e.value ?? 0) });
       case 'sell': {
         const channel = e.channel ?? 'contract';
         const parts = [

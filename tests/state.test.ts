@@ -21,6 +21,7 @@ describe('начальное состояние', () => {
     expect(state.particlesOn).toBe(true);
     expect(state.won).toBe(false);
     expect(state.rngSeed).toBe(42);
+    expect(state.worldPriceSeed).toBe(42);
   });
 });
 
@@ -34,6 +35,14 @@ describe('нормализация сохранения', () => {
     expect(restored.coins).toBe(12345);
     expect(restored.levels).toEqual({ t_well: 3, d1_blade: 2 });
     expect(restored.totalTaps).toBe(55);
+  });
+
+  it('старый сейв получает постоянный seed цены из RNG seed', () => {
+    const legacy = createInitialState(config, 987654);
+    const oldState = { ...legacy } as unknown as Record<string, unknown>;
+    delete oldState.worldPriceSeed;
+    const restored = normalizeState(oldState, config, content);
+    expect(restored.worldPriceSeed).toBe(legacy.rngSeed);
   });
 
   it('выбрасывает мусор и неизвестные покупки', () => {

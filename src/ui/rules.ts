@@ -10,6 +10,7 @@ import { el } from './dom';
 import type { Texts } from './texts';
 import { formatMoney, formatNumber, formatPercent } from '../core/format';
 import type { Content } from '../core/types';
+import { winCostOf } from '../core/economy';
 
 export class Rules {
   readonly root: HTMLElement;
@@ -82,7 +83,7 @@ export class Rules {
     return [
       this.section('rules.goalTitle', [
         t('rules.goalText', {
-          cost: formatMoney(config.winCost, this.currency),
+          cost: formatMoney(winCostOf(config, upgrades), this.currency),
           pump: this.texts.get('finale.pumpName'),
         }),
         ...(config.winRequirements.length > 0 ? [t('rules.goalRequirements', {
@@ -199,7 +200,7 @@ export class Rules {
         t('rules.taxText', {
           base: formatPercent(config.tax.baseRate, 0),
           min: formatPercent(config.tax.minRate, 0),
-          drop: config.tax.influenceDrop,
+          drop: (config.tax.influenceDrop * 100).toFixed(3),
         }),
         t('rules.expensesText', {
           salaries: formatMoney(config.expenses.baseSalaries, this.currency),

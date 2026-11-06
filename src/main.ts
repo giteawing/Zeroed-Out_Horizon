@@ -11,7 +11,6 @@ import './styles/base.css';
 import { loadContent, creditsIsPlaceholder } from './core/content';
 import { Game } from './core/game';
 import {
-  SAVE_KEY,
   createInitialState,
   normalizeState,
   offlineReport,
@@ -287,10 +286,7 @@ function boot(): void {
 
   /** Пересоздать движок на новом состоянии (новая игра). */
   function restartWith(next: GameState): void {
-    game.state = next;
-    game.state.rngSeed = next.rngSeed;
-    (game as unknown as { rng: Rng }).rng = new Rng(next.rngSeed);
-    (game as unknown as { derivedCache: unknown }).derivedCache = null;
+    game.reset(next);
     shop.setTab(shop.activeTab);
     refreshUi(true);
   }
@@ -306,13 +302,16 @@ function boot(): void {
       game.applyOffline(report.seconds, report.coins);
       showBadge(`+${formatMoney(report.coins, currency)}`);
     }
+    // Закрываем офлайн-интервал сразу, иначе быстрый reload до autosave
+    // может повторно начислить одну и ту же выплату.
+    save();
   }
 
   // ------------------------------------------------------------- сохранение
   let lastSaveAt = 0;
   function save(): void {
     const snapshot = game.snapshot();
-    writeSave(`${JSON.stringify(snapshot)}`);
+    writeSave(serializeState(snapshot));
     lastSaveAt = performance.now();
   }
 
@@ -533,8 +532,6 @@ function boot(): void {
   (window as unknown as { __game: Game }).__game = game;
   (window as unknown as { __creditsPlaceholder: boolean }).__creditsPlaceholder =
     creditsIsPlaceholder(creditsRaw);
-  void SAVE_KEY;
-  void serializeState;
 
   // Первый кадр рисуем сразу: иначе до следующего requestAnimationFrame
   // (в скрытой вкладке и в тестах он может не прийти) панель стоит пустой.

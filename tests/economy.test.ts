@@ -18,6 +18,7 @@ import {
   totalCostFor,
   unlockBlocker,
   winCostOf,
+  worldPriceAt,
 } from '../src/core/economy';
 import { createInitialState } from '../src/core/state';
 import { loadContent } from '../src/core/content';
@@ -162,6 +163,40 @@ describe('производные показатели', () => {
     // 2 уровня × 3 п.п. = 6 п.п. ниже базовой ставки.
     expect(d.taxRate).toBeCloseTo(config.tax.baseRate - 0.06, 6);
     expect(d.taxRate).toBeGreaterThanOrEqual(config.tax.minRate);
+  });
+
+  it('максимальное влияние действительно приводит к минимальной ставке налога', () => {
+    expect(taxRateOf(config, config.influence.cap)).toBeCloseTo(config.tax.minRate, 9);
+  });
+
+  it('группа медиа даёт влияние по коэффициенту из конфига', () => {
+    const media = makeUpgrade({ id: 'media', tab: 'political', group: 'media', type: 'priceBoost', effect: { factor: 1 } });
+    const derived = computeDerived(config, [media], withUpgrades({ media: 1 }));
+    expect(derived.influence).toBe(config.influence.perGroup.media);
+  });
+
+  it('волна мировой цены начинается с заданной цены и остаётся в границах', () => {
+    const settings = config.worldPrice;
+    expect(worldPriceAt(settings, 1234, 0)).toBeCloseTo(settings.startPrice, 12);
+    for (let seconds = 0; seconds <= 120; seconds += 3) {
+      const value = worldPriceAt(settings, 1234, seconds * 1000);
+      expect(value).toBeGreaterThanOrEqual(settings.min);
+      expect(value).toBeLessThanOrEqual(settings.max);
+    }
+  });
+
+  it('распределяет малую экспортную мощность между всеми видами транспорта', () => {
+    const flows = oilFlowsOf(config, {
+      domestic: { crude: 0, products: 0 },
+      export: { crude: 1, products: 0 },
+      refine: 0,
+    }, 0.5, {
+      modeShares: { pipeline: 0.2, rail: 0.3, tanker: 0.5 },
+      productStorage: 0,
+    });
+    expect(flows.exportByMode.pipeline).toBeCloseTo(0.1, 9);
+    expect(flows.exportByMode.rail).toBeCloseTo(0.15, 9);
+    expect(flows.exportByMode.tanker).toBeCloseTo(0.25, 9);
   });
 
   it('цена победы берётся из winCost конфига', () => {
