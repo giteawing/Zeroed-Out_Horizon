@@ -26,6 +26,7 @@ export function calculateFinancialRates(
   state: GameState,
   effects: UpgradeEffects,
   grossPerSecond: number,
+  additionalIncomePerSecond = 0,
 ): FinancialRates {
   const influence = Math.min(config.influence.cap, Math.round(effects.influenceFromLevels));
   const taxRate = Math.min(
@@ -63,7 +64,8 @@ export function calculateFinancialRates(
     Math.max(0, state.spillCrudePerSecond) * config.fines.oilPerTon * fineFactor +
     Math.max(0, state.spillProductsPerSecond) * config.fines.productPerTon * fineFactor;
   const expensesPerSecond = salaries + officials + finePerSecond;
-  const ebtPerSecond = Math.max(0, grossPerSecond - expensesPerSecond);
+  // Внешние выплаты не увеличивают эксплуатационные расходы, но входят в EBT.
+  const ebtPerSecond = Math.max(0, grossPerSecond + Math.max(0, additionalIncomePerSecond) - expensesPerSecond);
   const taxPerSecond = ebtPerSecond * taxRate;
   const netPerSecond = Math.max(0, ebtPerSecond - taxPerSecond);
 

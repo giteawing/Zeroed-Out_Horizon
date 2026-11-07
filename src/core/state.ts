@@ -40,6 +40,7 @@ export function createInitialState(config: GameConfig, seed = randomSeed()): Gam
     wonAtMs: null,
     rngSeed: seed,
     worldPriceSeed: seed >>> 0,
+    capitalFlightStartedAtMs: null,
   };
 }
 
@@ -82,6 +83,10 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
   if (state.won && state.wonAtMs === null) state.wonAtMs = state.playtimeMs;
   state.rngSeed = num(src.rngSeed, base.rngSeed) >>> 0;
   state.worldPriceSeed = num((src as { worldPriceSeed?: number }).worldPriceSeed, state.rngSeed) >>> 0;
+  const flightStarted = (src as { capitalFlightStartedAtMs?: number | null }).capitalFlightStartedAtMs;
+  state.capitalFlightStartedAtMs = typeof flightStarted === 'number' && Number.isFinite(flightStarted)
+    ? Math.max(0, flightStarted)
+    : null;
 
   const levels: Record<string, number> = {};
   if (src.levels && typeof src.levels === 'object') {

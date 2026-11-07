@@ -192,6 +192,12 @@ export interface UpgradeEffect {
    * (0.3 = +30 % к выплате при каждом уровне «Увеличения масштабов»).
    */
   bankScale?: number;
+  /** Компенсация внутреннего рынка при экспортной цене выше внутренней. */
+  fuelDamper?: boolean;
+  /** Базовый доход от вывоза капитала, ₦/с. */
+  capitalFlightPerSecond?: number;
+  /** Рост дохода за игровую минуту, доля от базового потока. */
+  capitalFlightGrowthPerMinute?: number;
 }
 
 export interface UnlockRequirement {
@@ -511,6 +517,8 @@ export interface GameState {
   rngSeed: number;
   /** Постоянный seed волны мировой цены; не меняется при расходовании игрового RNG. */
   worldPriceSeed: number;
+  /** Игровое время покупки карточки вывоза капитала; null — ещё не куплена. */
+  capitalFlightStartedAtMs: number | null;
 }
 
 export interface ChannelRate {
@@ -638,8 +646,20 @@ export interface DerivedStats {
   assetsValue: number;
   /** Сколько чего построено — для панели империи. */
   assetCounts: Record<AssetKind, number>;
-  /** Доход от продажи нефти (до налогов), ₦/с. */
+  /** Совокупный доход от продаж и внешних выплат, ₦/с. */
   grossPerSecond: number;
+  /** Доход от топливного демпфера, ₦/с. */
+  damperIncomePerSecond: number;
+  /** Доход от вывоза капитала, ₦/с. */
+  capitalFlightIncomePerSecond: number;
+  /** Суммарная ёмкость сырьевых и продуктовых хранилищ, тонн. */
+  totalStorageCapacity: number;
+  /** Внутренняя пропускная способность, т/с. */
+  domesticThroughputCapacity: number;
+  /** Суммарная экспортная пропускная способность, т/с. */
+  exportThroughputCapacity: number;
+  /** Пропускная способность НПЗ, т/с. */
+  refineryThroughputCapacity: number;
   netPerSecond: number;
   expensesPerSecond: number;
   /**

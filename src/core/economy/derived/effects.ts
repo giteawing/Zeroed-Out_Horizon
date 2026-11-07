@@ -27,6 +27,9 @@ export interface UpgradeEffects {
   influenceFromLevels: number;
   conquestCut: number;
   capacityBonus: number;
+  fuelDamperEnabled: boolean;
+  capitalFlightPerSecond: number;
+  capitalFlightGrowthPerMinute: number;
   luxuries: string[];
   rateFlat: Record<Channel, number>;
   priceBonus: Record<Channel, number>;
@@ -56,6 +59,9 @@ export function collectUpgradeEffects(
     influenceFromLevels: 0,
     conquestCut: 0,
     capacityBonus: 0,
+    fuelDamperEnabled: false,
+    capitalFlightPerSecond: 0,
+    capitalFlightGrowthPerMinute: 0,
     luxuries: [],
     rateFlat: { contract: 0, export: 0, refine: 0 },
     priceBonus: { contract: 0, export: 0, refine: 0 },
@@ -73,6 +79,7 @@ export function collectUpgradeEffects(
 
     result.totalLevels += level;
     const effect = def.effect;
+    if (effect.fuelDamper) result.fuelDamperEnabled = true;
 
     if (GROUPS_STAFF.has(def.group)) result.staffLevels += level;
     if (GROUPS_OFFICIALS.has(def.group)) result.officialLevels += level;
@@ -90,6 +97,10 @@ export function collectUpgradeEffects(
         result.tapFlat += (effect.value ?? 0) * level;
         break;
       case 'passive':
+        if (effect.capitalFlightPerSecond) {
+          result.capitalFlightPerSecond += effect.capitalFlightPerSecond * level;
+          result.capitalFlightGrowthPerMinute += (effect.capitalFlightGrowthPerMinute ?? 0) * level;
+        }
         if (effect.costCut) result.costCutFraction += effect.costCut * level;
         if (effect.exportBonus) result.exportMultiplier += effect.exportBonus * level;
         if (effect.salaryAdd) result.salariesGrowth += effect.salaryAdd * level;

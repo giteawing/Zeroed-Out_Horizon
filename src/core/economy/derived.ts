@@ -24,7 +24,17 @@ export function computeDerived(
 
   const effects = collectUpgradeEffects(config, upgrades, state);
   const market = calculateMarket(config, state, effects, content);
-  const finance = calculateFinancialRates(config, state, effects, market.grossPerSecond);
+  const damperIncomePerSecond = effects.fuelDamperEnabled
+    ? Math.max(0, market.exportPricePerTon - market.domesticPricePerTon) * market.flows.domestic
+    : 0;
+  const capitalFlightElapsedMinutes = state.capitalFlightStartedAtMs === null
+    ? 0
+    : Math.max(0, state.clockMs - state.capitalFlightStartedAtMs) / 60_000;
+  const capitalFlightIncomePerSecond = effects.capitalFlightPerSecond > 0 && state.capitalFlightStartedAtMs !== null
+    ? effects.capitalFlightPerSecond * (1 + capitalFlightElapsedMinutes * effects.capitalFlightGrowthPerMinute)
+    : 0;
+  const additionalIncomePerSecond = damperIncomePerSecond + capitalFlightIncomePerSecond;
+  const finance = calculateFinancialRates(config, state, effects, market.grossPerSecond, additionalIncomePerSecond);
   const winCost = winCostOf(config, upgrades);
   const oilCapacity = content
     ? oilCapacityOf(config, content, state)
@@ -60,7 +70,13 @@ export function computeDerived(
     profitPerSecond: finance.netPerSecond,
     assetsValue: assetsValueOf(config, upgrades, state),
     assetCounts: assetCountsOf(upgrades, state),
-    grossPerSecond: market.grossPerSecond,
+    grossPerSecond: market.grossPerSecond + additionalIncomePerSecond,
+    damperIncomePerSecond,
+    capitalFlightIncomePerSecond,
+    totalStorageCapacity: oilCapacity + market.productStorage,
+    domesticThroughputCapacity: market.channels.contract.rate,
+    exportThroughputCapacity: market.exportCapacityByMode.pipeline + market.exportCapacityByMode.rail + market.exportCapacityByMode.tanker,
+    refineryThroughputCapacity: market.channels.refine.rate,
     netPerSecond: finance.netPerSecond,
     expensesPerSecond: finance.expensesPerSecond,
     finePerSecond: finance.finePerSecond,

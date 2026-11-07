@@ -94,17 +94,21 @@ export class Game {
   /** Сглаженный фактический доход (то, что реально капает на счёт), ₦/с. */
   private revenueEma = 0;
   private lastSaleLogMs = 0;
+  /** Последняя целая секунда, для которой обновлена мировая котировка. */
+  private lastWorldPriceSecond = 0;
 
   constructor(content: Content, state: GameState) {
     this.content = content;
     this.state = state;
     this.rng = new Rng(state.rngSeed);
+    this.lastWorldPriceSecond = Math.floor(state.clockMs / 1000);
   }
 
   /** Перезапустить партию, сохранив подписчиков и контент. */
   reset(state: GameState): void {
     this.state = state;
     this.rng = new Rng(state.rngSeed);
+    this.lastWorldPriceSecond = Math.floor(state.clockMs / 1000);
     this.autoTapAccum = 0;
     this.achievementTimerMs = 0;
     this.spillCrudeThisStep = 0;
@@ -409,6 +413,9 @@ export class Game {
     this.state.totalPurchases += 1;
     if (def.cooldownSeconds) this.state.cooldowns[id] = def.cooldownSeconds * 1000;
     if (def.type === 'luxury') this.state.luxurySpent += cost;
+    if (def.effect.capitalFlightPerSecond && this.state.capitalFlightStartedAtMs === null) {
+      this.state.capitalFlightStartedAtMs = this.state.clockMs;
+    }
     this.invalidate();
 
     const payouts = this.applyImmediateEffect(def, newLevel, cost);
@@ -681,6 +688,10 @@ export class Game {
     // 2. Отгрузка лишь читает накопленный таймер и добавляет валовую
     // выручку в общий финансовый расчёт.
     this.pendingSalesGross += this.tickShipping(derived, dtSeconds);
+    // Внешние выплаты поступают непрерывно и не ждут отгрузки партии.
+    this.pendingSalesGross += (
+      derived.damperIncomePerSecond + derived.capitalFlightIncomePerSecond
+    ) * dtSeconds;
 
     const fineNow =
       this.spillCrudeThisStep * this.config.fines.oilPerTon +
@@ -1022,8 +1033,11 @@ export class Game {
 
   /** Мировая цена зависит от логических часов и постоянного seed партии. */
   private tickWorldPrice(): void {
+    const second = Math.floor(this.state.clockMs / 1000);
+    if (second <= this.lastWorldPriceSecond) return;
+    this.lastWorldPriceSecond = second;
     const previous = this.state.worldPrice;
-    const next = worldPriceAt(this.config.worldPrice, this.state.worldPriceSeed, this.state.clockMs);
+    const next = worldPriceAt(this.config.worldPrice, this.state.worldPriceSeed, second * 1000);
     this.state.worldPrice = next;
     if (next !== previous) this.invalidate();
     if (Math.abs(next - previous) > 0.004) {
