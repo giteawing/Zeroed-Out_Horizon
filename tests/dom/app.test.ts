@@ -161,7 +161,9 @@ describe('HUD', () => {
     const order = [...(invoice?.querySelectorAll('.hud__row-label, .hud__profit-label') ?? [])]
       .map((n) => n.textContent ?? '');
     expect(order[0]).toBe('Доход');
-    expect(order[1]).toBe('Расходы');
+    expect(order[1]).toBe('Доход от топливного демпфера');
+    expect(order[2]).toBe('Доход от вывоза капитала');
+    expect(order[3]).toBe('Расходы');
     expect(order).toContain('EBT');
     // Итог «Расходы» стоит перед своими статьями, статьи — перед EBT.
     expect(order.indexOf('Расходы')).toBeLessThan(order.indexOf('Зарплаты'));
