@@ -26,6 +26,8 @@ const STRICT_NAMES = [
   'Занести в «министерство нефтяных ресурсов»',
   'Сходить в сауну с главой «комитета по промышленности»',
   'Контрабанда нефти заграницу',
+  'Пропихнуть в министерстве энергетики топливный демпфер',
+  'Вывоз капитала за границу',
   'Магистральный Насос «Упырь-Абсолют»',
 ];
 
@@ -40,6 +42,23 @@ describe('обязательные формулировки', () => {
   it('все покупки с tag: strict помечены и на месте', () => {
     const strict = content.upgrades.filter((u) => u.tag === 'strict');
     expect(strict.length).toBeGreaterThanOrEqual(5);
+  });
+});
+
+describe('новые политические и финансовые механики', () => {
+  it('демпфер находится в политике и включается только покупкой', () => {
+    const damper = byId.get('p_fuel_damper')!;
+    expect(damper.tab).toBe('political');
+    expect(damper.effect.fuelDamper).toBe(true);
+    expect(damper.maxLevel).toBe(1);
+  });
+
+  it('вывоз капитала находится во вкладке цели и стоит ровно триллион', () => {
+    const capital = byId.get('g_capital_flight')!;
+    expect(capital.tab).toBe('goals');
+    expect(capital.baseCost).toBe(1_000_000_000_000);
+    expect(capital.effect.capitalFlightPerSecond).toBe(5_000_000_000);
+    expect(capital.effect.capitalFlightGrowthPerMinute).toBe(0.01);
   });
 });
 

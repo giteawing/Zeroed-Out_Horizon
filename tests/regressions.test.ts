@@ -5,6 +5,7 @@ import {
   assetsValueOf,
   computeDerived,
   totalCostFor,
+  worldPriceAt,
   wellPricePerDailyTonne,
 } from '../src/core/economy';
 import { createInitialState, normalizeState } from '../src/core/state';
@@ -409,7 +410,73 @@ describe('устойчивость времени и состояния движ
     const before = game.derived().progress;
     game.applyOffline(1, content.config.winCost / 2);
     expect(game.derived().progress).toBeGreaterThan(before);
+  });  it('обновляет мировую цену только на границе целой секунды', () => {
+    const content = freshContent();
+    const state = createInitialState(content.config, 998877);
+    const game = new Game(content, state);
+    const initial = state.worldPrice;
+    game.update(900);
+    expect(state.worldPrice).toBe(initial);
+    game.update(100);
+    expect(state.worldPrice).toBeCloseTo(
+      worldPriceAt(content.config.worldPrice, state.worldPriceSeed, 1000), 12,
+    );
+    const atOneSecond = state.worldPrice;
+    game.update(900);
+    expect(state.worldPrice).toBe(atOneSecond);
   });
+
+  it('топливный демпфер платит только разницу экспортной и внутренней цены по внутренним продажам', () => {
+    const content = freshContent();
+    const state = rich(content, 0);
+    state.wells = [{ kind: 'good', dailyTonnes: 100 }];
+    state.levels.p_fuel_damper = 1;
+    const game = new Game(content, state);
+    const derived = game.derived();
+    const expected = Math.max(0, derived.exportPricePerTon - derived.domesticPricePerTon) * derived.flows.domestic;
+    expect(derived.flows.domestic).toBeGreaterThan(0);
+    expect(derived.damperIncomePerSecond).toBeCloseTo(expected, 8);
+    expect(derived.grossPerSecond).toBeCloseTo(
+      derived.flows.domestic * derived.domesticPricePerTon +
+        derived.flows.export * derived.exportPricePerTon +
+        derived.flows.productsDomestic * derived.productPriceDomestic +
+        derived.flows.productsExport * derived.productPriceExport + expected,
+      6,
+    );
+  });
+
+  it('вывоз капитала стартует с 5 млрд/с, растёт на 1% в минуту и не добавляет расходов', () => {
+    const content = freshContent();
+    const state = rich(content, 1e12);
+    const game = new Game(content, state);
+    const beforeExpenses = game.derived().expensesPerSecond;
+    const result = game.buy('g_capital_flight');
+    expect(result.ok).toBe(true);
+    expect(state.capitalFlightStartedAtMs).toBe(0);
+    const started = game.derived();
+    expect(started.capitalFlightIncomePerSecond).toBe(5e9);
+    expect(started.expensesPerSecond).toBeCloseTo(beforeExpenses, 9);
+    game.update(60_000);
+    const afterMinute = game.derived();
+    expect(afterMinute.capitalFlightIncomePerSecond).toBeCloseTo(5.05e9, 2);
+    expect(afterMinute.expensesPerSecond).toBeCloseTo(beforeExpenses, 9);
+    expect(state.coins).toBeGreaterThan(1e12);
+  });
+
+  it('суммирует ёмкости хранилищ и пропускную способность по внутреннему и экспортным направлениям', () => {
+    const content = freshContent();
+    const state = rich(content, 0);
+    state.levels = { t_depot: 2, t_pipeline: 1, t_rail: 1, t_terminal: 1, t_refinery: 1 };
+    const game = new Game(content, state);
+    const derived = game.derived();
+    expect(derived.totalStorageCapacity).toBeCloseTo(derived.oilCapacity + derived.productCapacity, 9);
+    expect(derived.domesticThroughputCapacity).toBeGreaterThan(0);
+    expect(derived.exportThroughputCapacity).toBeCloseTo(
+      derived.exportCapacityByMode.pipeline + derived.exportCapacityByMode.rail + derived.exportCapacityByMode.tanker, 9,
+    );
+    expect(derived.refineryThroughputCapacity).toBeGreaterThan(0);
+  });
+
 });
 
 describe('победа, события и единая оценка активов', () => {
