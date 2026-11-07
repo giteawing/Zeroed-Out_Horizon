@@ -197,6 +197,14 @@ export class Hud {
           row('assetsExportPipe', texts.get('hud.exportPipes')).root,
           row('assetsRefineryPipe', texts.get('hud.refineryPipes')).root,
           row('capacity', texts.get('hud.capacity')).root,
+          row('productsCapacity', texts.get('hud.productsCapacity')).root,
+          row('totalStorageCapacity', texts.get('hud.totalStorageCapacity')).root,
+          row('domesticThroughput', texts.get('hud.domesticThroughput')).root,
+          row('exportThroughput', texts.get('hud.exportThroughput')).root,
+          row('exportPipelineCapacity', texts.get('hud.exportPipelineCapacity'), 'hud__row-value--under', 'hud__row--under').root,
+          row('exportRailCapacity', texts.get('hud.exportRailCapacity'), 'hud__row-value--under', 'hud__row--under').root,
+          row('exportTankerCapacity', texts.get('hud.exportTankerCapacity'), 'hud__row-value--under', 'hud__row--under').root,
+          row('refineryThroughput', texts.get('hud.refineryThroughput')).root,
           row('wellsCount', texts.get('hud.wellsCount')).root,
         ]),
       ]),
@@ -207,6 +215,8 @@ export class Hud {
     // Расходы раскрыты двумя статьями, но в EBT идут одной суммой.
     this.invoice.append(
       row('gross', texts.get('hud.income'), 'hud__row-value--plus').root,
+      row('damperIncome', texts.get('hud.damperIncome'), 'hud__row-value--plus', 'hud__row--sub').root,
+      row('capitalFlightIncome', texts.get('hud.capitalFlightIncome'), 'hud__row-value--plus', 'hud__row--sub').root,
       // «Расходы» — итог по статьям, чтобы арифметика читалась построчно:
       // доход − расходы = EBT.
       row('expenses', texts.get('hud.expensesTitle'), 'hud__row-value--minus hud__row--total').root,
@@ -336,6 +346,14 @@ export class Hud {
       value: formatMoney(derived.grossPerSecond, this.currency),
       s: perSecond.replace('/', ''),
     }));
+    set('damperIncome', units('moneyRate', {
+      value: formatMoney(derived.damperIncomePerSecond, this.currency),
+      s: perSecond.replace('/', ''),
+    }));
+    set('capitalFlightIncome', units('moneyRate', {
+      value: formatMoney(derived.capitalFlightIncomePerSecond, this.currency),
+      s: perSecond.replace('/', ''),
+    }));
     // EBT — прибыль до налога: доход минус расходы. Из неё считается налог,
     // поэтому в таблице она стоит отдельной строкой перед налогом.
     const ebtText = units('moneyRate', {
@@ -450,6 +468,20 @@ export class Hud {
       value: formatNumber(derived.oilCapacity),
       tonnes,
     }));
+    set('productsCapacity', units('tonnesValue', {
+      value: formatNumber(derived.productCapacity),
+      tonnes,
+    }));
+    set('totalStorageCapacity', units('tonnesValue', {
+      value: formatNumber(derived.totalStorageCapacity),
+      tonnes,
+    }));
+    set('domesticThroughput', rate(derived.domesticThroughputCapacity));
+    set('exportThroughput', rate(derived.exportThroughputCapacity));
+    set('exportPipelineCapacity', rate(derived.exportCapacityByMode.pipeline));
+    set('exportRailCapacity', rate(derived.exportCapacityByMode.rail));
+    set('exportTankerCapacity', rate(derived.exportCapacityByMode.tanker));
+    set('refineryThroughput', rate(derived.refineryThroughputCapacity));
 
     const fill = Math.max(0, Math.min(1, derived.oilCapacity > 0 ? state.oil / derived.oilCapacity : 0));
     this.oilFill.style.width = `${(fill * 100).toFixed(1)}%`;

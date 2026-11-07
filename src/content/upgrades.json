@@ -2025,6 +2025,40 @@
       "effect": {}
     },
     {
+      "id": "p_fuel_damper",
+      "tab": "political",
+      "group": "deals",
+      "name": "Пропихнуть в министерстве энергетики топливный демпфер",
+      "description": "Если экспортный паритет выше внутренней цены, бюджет компенсирует нефтяникам разницу за каждую тонну сырья, проданную внутри страны. Субсидия автоматически растёт вместе с разницей цен и внутренними продажами.",
+      "icon": "ministry",
+      "type": "multiplier",
+      "baseCost": 750000000,
+      "maxLevel": 1,
+      "effect": {
+        "factor": 1,
+        "scope": "passive",
+        "fuelDamper": true
+      },
+      "unlockAt": {
+        "balance": 500000000
+      }
+    },
+    {
+      "id": "g_capital_flight",
+      "tab": "goals",
+      "group": "capital",
+      "name": "Вывоз капитала за границу",
+      "description": "Перевести триллион на зарубежные счета. Сразу приносит 5 млрд ₦/с, а затем доход растёт на 1% от начальной суммы каждую игровую минуту. Новые расходы не возникают.",
+      "icon": "offshore",
+      "type": "passive",
+      "baseCost": 1000000000000,
+      "maxLevel": 1,
+      "effect": {
+        "capitalFlightPerSecond": 5000000000,
+        "capitalFlightGrowthPerMinute": 0.01
+      }
+    },
+    {
       "id": "win_pump",
       "tab": "goals",
       "group": "win",

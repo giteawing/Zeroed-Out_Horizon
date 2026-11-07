@@ -49,7 +49,7 @@
     "income": "Доход",
     "expensesTitle": "Расходы",
     "capacity": "Резервуары",
-    "productsCapacity": "Нефтебазы",
+    "productsCapacity": "Ёмкость нефтебаз под нефтепродукты",
     "ebt": "EBT",
     "taxPaid": "Налог на прибыль {rate}",
     "exportPrice": "экспортная цена",
@@ -68,7 +68,16 @@
     "productsUnsold": "осталось на нефтебазах",
     "productsSpill": "сверх склада · разлив и штраф",
     "fineTitle": "Норматив штрафа",
-    "fineHint": "за разлив, скидка {relief}"
+    "fineHint": "за разлив, скидка {relief}",
+    "damperIncome": "Доход от топливного демпфера",
+    "capitalFlightIncome": "Доход от вывоза капитала",
+    "totalStorageCapacity": "Суммарная ёмкость хранения",
+    "domesticThroughput": "Внутренняя пропускная способность",
+    "exportThroughput": "Экспортная пропускная способность",
+    "exportPipelineCapacity": "трубопроводами",
+    "exportRailCapacity": "поездами",
+    "exportTankerCapacity": "терминалами и танкерами",
+    "refineryThroughput": "Переработка на НПЗ"
   },
   "tabs": {
     "political": "Политика",
@@ -125,7 +134,9 @@
     "effectNoDirectBonus": "Прямого бонуса к добыче нет. Смотрите условия найма и разблокировки.",
     "effectPassiveExport": "Экспортная мощность +{value} за уровень",
     "effectPassiveSalary": "Комиссия подрядчику: +{value} от выручки в расходы",
-    "effectUnlocks": "Открывает: {names}"
+    "effectUnlocks": "Открывает: {names}",
+    "effectFuelDamper": "Компенсация = разница экспортной и внутренней цены × объём внутренней продажи",
+    "effectCapitalFlight": "{value}/с на старте; рост на {growth} от начальной суммы каждую минуту"
   },
   "panel": {
     "shop": "Магазин",

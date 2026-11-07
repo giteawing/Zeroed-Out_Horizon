@@ -235,6 +235,12 @@ export class Shop {
         if (e.salaryAdd) {
           parts.push(t('effectPassiveSalary', { value: formatPercent(e.salaryAdd, 1) }));
         }
+        if (e.capitalFlightPerSecond) {
+          parts.push(t('effectCapitalFlight', {
+            value: formatMoney(e.capitalFlightPerSecond, this.currency),
+            growth: formatPercent(e.capitalFlightGrowthPerMinute ?? 0, 0),
+          }));
+        }
         const unlocks = this.game.content.upgrades
           .filter((upgrade) => upgrade.unlockAt?.upgrade === def.id)
           .map((upgrade) => upgrade.name);
@@ -256,6 +262,7 @@ export class Shop {
         return this.texts.get('shop.effectWellHint');
       }
       case 'multiplier':
+        if (e.fuelDamper) return t('effectFuelDamper');
         return t('effectMultiplier', {
           value: formatPercent(Math.pow(e.factor ?? 1, Math.sqrt(Math.max(1, level))) - 1, 1),
         });
