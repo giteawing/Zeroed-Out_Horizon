@@ -134,9 +134,13 @@ export function calculateMarket(
   const productPriceDomestic = domesticOilPricePerTon * config.product.domesticPriceFactor;
   const productPriceExport = exportOilPricePerTon * config.product.exportPriceFactor;
 
+  // Пакетная отгрузка использует мощности за весь закрываемый интервал
+  // (Game.tickShipping → allocateBatch), а не только оставшееся время
+  // до его границы. Иначе старый запас преждевременно блокирует НПЗ
+  // в конце каждого окна, хотя рынок ещё способен принять свежий выпуск.
   const shipmentWindowSeconds = Math.max(
     0.001,
-    config.oil.shipDays * config.oil.wells.secondsPerDay - state.shipTimerMs / 1000,
+    config.oil.shipDays * config.oil.wells.secondsPerDay,
   );
   const productStorageFree = Math.max(0, productStorage - state.products);
   const flows = oilFlowsOf(config, capacities, producedPerSecond, {
