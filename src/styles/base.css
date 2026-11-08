@@ -1864,3 +1864,29 @@ img {
   color: var(--gold);
   font-weight: 800;
 }
+
+
+/* --------------------------------------------------------- расшифровка активов */
+.hud__row--action { cursor: pointer; border-radius: 5px; }
+.hud__row--action:hover,
+.hud__row--action:focus-visible {
+  background: rgba(242, 180, 48, 0.12);
+  outline: 1px solid rgba(242, 180, 48, 0.65);
+  outline-offset: 2px;
+}
+.assets__inner { width: min(760px, calc(100vw - 28px)); max-height: min(82vh, 760px); overflow: auto; }
+.assets__list { display: grid; gap: 5px; max-height: min(58vh, 520px); overflow: auto; padding: 2px 4px; }
+.assets__row {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  padding: 8px 10px; border-bottom: 1px solid rgba(253, 243, 221, 0.14);
+  background: rgba(20, 16, 12, 0.36);
+}
+.assets__name { display: grid; min-width: 0; gap: 2px; }
+.assets__name small { color: var(--steel); font-size: 11px; }
+.assets__value { flex: none; color: var(--gold-light); text-align: right; }
+.assets__total {
+  display: flex; justify-content: space-between; gap: 16px; padding: 12px 10px;
+  margin: 10px 0; border-top: 2px solid var(--gold-dark); font-weight: 800;
+}
+.assets__total-value { color: var(--gold-light); }
+.assets__empty { color: var(--steel); text-align: center; }

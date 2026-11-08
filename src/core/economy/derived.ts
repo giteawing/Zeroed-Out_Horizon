@@ -2,7 +2,7 @@
  * Сборка публичного снимка экономики.
  * Вычисления делегированы effects, market и financial-rates.
  */
-import type { Content, DerivedStats, GameConfig, GameState, UpgradeDef } from '../types';
+import type { AssetKind, Content, DerivedStats, GameConfig, GameState, UpgradeDef } from '../types';
 import { type TaxBuff } from './definitions';
 import { levelOf } from './purchases';
 import { oilCapacityOf } from './production';
@@ -45,6 +45,13 @@ export function computeDerived(
     (360 * Math.max(1e-6, config.oil.wells.secondsPerDay));
   const additionalIncomePerSecond = baseExternalIncome + investmentIncomePerSecond;
   const finance = calculateFinancialRates(config, state, effects, market.grossPerSecond, additionalIncomePerSecond);
+  const assetThroughputByKind: Partial<Record<AssetKind, number>> = {};
+  for (const def of upgrades) {
+    if (!def.assetKind || def.type !== 'sell') continue;
+    const level = levelOf(state, def.id);
+    if (level <= 0) continue;
+    assetThroughputByKind[def.assetKind] = (assetThroughputByKind[def.assetKind] ?? 0) + (def.effect.value ?? 0) * level;
+  }
   const winCost = winCostOf(config, upgrades);
   const oilCapacity = content
     ? oilCapacityOf(config, content, state)
@@ -80,6 +87,7 @@ export function computeDerived(
     profitPerSecond: finance.netPerSecond,
     assetsValue: assetsValueOf(config, upgrades, state),
     assetCounts: assetCountsOf(upgrades, state),
+    assetThroughputByKind,
     grossPerSecond: market.grossPerSecond + additionalIncomePerSecond,
     damperIncomePerSecond,
     capitalFlightIncomePerSecond,

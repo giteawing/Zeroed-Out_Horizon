@@ -27,7 +27,7 @@ export interface ShopOptions {
   onError: (check: BuyCheck) => void;
 }
 
-const TABS: Tab[] = ['technical', 'sales', 'political', 'luxury', 'goals'];
+const TABS: Tab[] = ['technical', 'production', 'sales', 'political', 'luxury', 'goals'];
 
 export class Shop {
   readonly root: HTMLElement;
@@ -235,6 +235,7 @@ export class Shop {
         if (e.salaryAdd) {
           parts.push(t('effectPassiveSalary', { value: formatPercent(e.salaryAdd, 1) }));
         }
+        if (e.influence) parts.push(t('effectInfluence', { value: formatNumber(e.influence) }));
         if (e.capitalFlightPerSecond) {
           parts.push(t('effectCapitalFlight', {
             value: formatMoney(e.capitalFlightPerSecond, this.currency),

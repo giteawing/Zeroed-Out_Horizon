@@ -54,7 +54,7 @@ export class Hud {
 
     const row = (key: string, label: string, cls = '', rowCls = ''): Row => {
       const value = el('span', { class: `hud__row-value ${cls}` }, '');
-      const root = el('div', { class: `hud__row ${rowCls}`.trim() }, [
+      const root = el('div', { class: `hud__row ${rowCls}`.trim(), 'data-row': key }, [
         el('span', { class: 'hud__row-label' }, label),
         value,
       ]);
@@ -187,36 +187,45 @@ export class Hud {
       // доход → расходы → EBT → налог на прибыль → чистая прибыль.
       group('money', texts.get('hud.groupMoney'), [this.invoice]),
 
-      // --- собственность: стоимость активов, объекты, резервуары, скважины ---
+      // --- собственность: агрегированные количества и мощности; общая стоимость внизу ---
       group('property', texts.get('hud.groupProperty'), [
         el('div', { class: 'hud__rows' }, [
-          row('assets', texts.get('hud.assets'), 'hud__row-value--assets').root,
-          row('assetsRefinery', texts.get('hud.refineries')).root,
-          row('assetsDepot', texts.get('hud.depots')).root,
-          row('assetsAzs', texts.get('hud.azsCount')).root,
-          row('assetsExportPipe', texts.get('hud.exportPipes')).root,
-          row('assetsRefineryPipe', texts.get('hud.refineryPipes')).root,
-          row('capacity', texts.get('hud.capacity')).root,
-          row('productsCapacity', texts.get('hud.productsCapacity')).root,
+          row('wellsCount', texts.get('hud.assetsWells')).root,
+          row('assetsRefinery', texts.get('hud.assetsRefinery')).root,
+          row('assetsGas', texts.get('hud.assetsGas')).root,
+          row('assetsDepot', texts.get('hud.assetsDepot')).root,
+          row('assetsAzs', texts.get('hud.assetsAzs')).root,
+          row('assetsCrudeTank', texts.get('hud.assetsCrudeTank')).root,
+          row('assetsExportPipe', texts.get('hud.assetsExportPipe')).root,
+          row('assetsExportRail', texts.get('hud.assetsExportRail')).root,
+          row('assetsExportTanker', texts.get('hud.assetsExportTanker')).root,
+          row('assetsRefineryPipe', texts.get('hud.assetsRefineryPipe')).root,
           row('totalStorageCapacity', texts.get('hud.totalStorageCapacity')).root,
           row('domesticThroughput', texts.get('hud.domesticThroughput')).root,
           row('exportThroughput', texts.get('hud.exportThroughput')).root,
-          row('exportPipelineCapacity', texts.get('hud.exportPipelineCapacity'), 'hud__row-value--under', 'hud__row--under').root,
-          row('exportRailCapacity', texts.get('hud.exportRailCapacity'), 'hud__row-value--under', 'hud__row--under').root,
-          row('exportTankerCapacity', texts.get('hud.exportTankerCapacity'), 'hud__row-value--under', 'hud__row--under').root,
           row('refineryThroughput', texts.get('hud.refineryThroughput')).root,
-          row('wellsCount', texts.get('hud.wellsCount')).root,
+          row('assets', texts.get('hud.assets'), 'hud__row-value--assets').root,
         ]),
       ]),
 
     ]);
 
-    // Таблица счёта: каждая строка — шаг расчёта, суммы справа по краю.
-    // Расходы раскрыты двумя статьями, но в EBT идут одной суммой.
+    // Строка «Активы» открывает подробную оценку собственности.
+    const assetsRow = this.rows.get('assets')?.root;
+    assetsRow?.setAttribute('role', 'button');
+    assetsRow?.setAttribute('tabindex', '0');
+    assetsRow?.classList.add('hud__row--action');
+
+    // Таблица счёта: доход раскрыт по направлениям продаж, расходы — по статьям.
     this.invoice.append(
       row('gross', texts.get('hud.income'), 'hud__row-value--plus').root,
+      row('crudeExportIncome', texts.get('hud.crudeExportIncome'), 'hud__row-value--plus', 'hud__row--sub').root,
+      row('productsExportIncome', texts.get('hud.productsExportIncome'), 'hud__row-value--plus', 'hud__row--sub').root,
+      row('crudeDomesticIncome', texts.get('hud.crudeDomesticIncome'), 'hud__row-value--plus', 'hud__row--sub').root,
+      row('productsDomesticIncome', texts.get('hud.productsDomesticIncome'), 'hud__row-value--plus', 'hud__row--sub').root,
       row('damperIncome', texts.get('hud.damperIncome'), 'hud__row-value--plus', 'hud__row--sub').root,
       row('capitalFlightIncome', texts.get('hud.capitalFlightIncome'), 'hud__row-value--plus', 'hud__row--sub').root,
+      row('investmentIncome', texts.get('hud.investmentIncome', { rate: 1 }), 'hud__row-value--plus', 'hud__row--sub').root,
       // «Расходы» — итог по статьям, чтобы арифметика читалась построчно:
       // доход − расходы = EBT.
       row('expenses', texts.get('hud.expensesTitle'), 'hud__row-value--minus hud__row--total').root,
@@ -279,7 +288,6 @@ export class Hud {
       capacity: formatNumber(derived.oilCapacity),
       tonnes,
     }));
-    set('wellsCount', String(state.wells.length));
     // --- сырая нефть и нефтепродукты: всё в тоннах в секунду ---
     const flows = derived.flows;
     const rate = (value: number) => units('tonnesRate', {
@@ -287,6 +295,8 @@ export class Hud {
       tonnes,
       s: perSecond.replace('/', ''),
     });
+    const assetLine = (count: number, capacity: number): string => `${formatNumber(count)} · ${rate(capacity)}`;
+    const storageLine = (count: number, capacity: number): string => `${formatNumber(count)} · ${units('tonnesValue', { value: formatNumber(capacity), tonnes })}`;
     /**
      * Строка сбыта в понятном виде: «сколько × по какой цене = сколько денег».
      * Заказчик просил именно так: «экспорт 500 т/с × ₦4,44/т = ₦2220/с».
@@ -300,6 +310,7 @@ export class Hud {
         s: perSecond.replace('/', ''),
       });
 
+    set('wellsCount', assetLine(state.wells.length, derived.oilPerSecond));
     set('produced', rate(flows.produced));
     set('crudeDomestic', sale(flows.domestic, derived.channels.contract.price));
     set('crudeExport', sale(flows.export, derived.channels.export.price));
@@ -342,18 +353,21 @@ export class Hud {
       capacity: formatNumber(derived.productCapacity),
       tonnes,
     }));
-    set('gross', units('moneyRate', {
-      value: formatMoney(derived.grossPerSecond, this.currency),
+    const moneyRate = (value: number): string => units('moneyRate', {
+      value: formatMoney(value, this.currency),
       s: perSecond.replace('/', ''),
-    }));
-    set('damperIncome', units('moneyRate', {
-      value: formatMoney(derived.damperIncomePerSecond, this.currency),
-      s: perSecond.replace('/', ''),
-    }));
-    set('capitalFlightIncome', units('moneyRate', {
-      value: formatMoney(derived.capitalFlightIncomePerSecond, this.currency),
-      s: perSecond.replace('/', ''),
-    }));
+    });
+    set('gross', moneyRate(derived.grossPerSecond));
+    set('crudeExportIncome', moneyRate(derived.crudeExportIncomePerSecond));
+    set('productsExportIncome', moneyRate(derived.productsExportIncomePerSecond));
+    set('crudeDomesticIncome', moneyRate(derived.crudeDomesticIncomePerSecond));
+    set('productsDomesticIncome', moneyRate(derived.productsDomesticIncomePerSecond));
+    set('damperIncome', moneyRate(derived.damperIncomePerSecond));
+    set('capitalFlightIncome', moneyRate(derived.capitalFlightIncomePerSecond));
+    set('investmentIncome', moneyRate(derived.investmentIncomePerSecond));
+    const investmentLabel = this.texts.get('hud.investmentIncome', { rate: formatNumber(derived.investmentRatePercent) });
+    const investmentLabelNode = this.rows.get('investmentIncome')?.root.querySelector('.hud__row-label');
+    if (investmentLabelNode && investmentLabelNode.textContent !== investmentLabel) investmentLabelNode.textContent = investmentLabel;
     // EBT — прибыль до налога: доход минус расходы. Из неё считается налог,
     // поэтому в таблице она стоит отдельной строкой перед налогом.
     const ebtText = units('moneyRate', {
@@ -372,8 +386,11 @@ export class Hud {
      * секунду. Подпись показывает скидку за влияние — так видно, что
      * политика реально смягчает счёт, а расширение складов его убирает.
      */
+    const fineValue = derived.finePerSecond > 0 && derived.finePerSecond < 0.01
+      ? `${this.currency}${derived.finePerSecond.toFixed(6).replace('.', ',')}`
+      : formatMoney(derived.finePerSecond, this.currency);
     set('fine', units('minusRate', {
-      value: formatMoney(derived.finePerSecond, this.currency),
+      value: fineValue,
       s: perSecond.replace('/', ''),
     }));
     const fineLabel = this.texts.get('hud.fineHint', {
@@ -441,12 +458,19 @@ export class Hud {
     }
     const share = Math.min(1, derived.influence / Math.max(1, this.config.influence.cap));
     this.influenceFill.style.width = `${(share * 100).toFixed(1)}%`;
+    set('assetsRefinery', assetLine(derived.assetCounts.refinery, derived.assetThroughputByKind.refinery ?? 0));
+    set('assetsGas', assetLine(
+      derived.assetCounts.gasPlant + derived.assetCounts.powerPlant,
+      (derived.assetThroughputByKind.gasPlant ?? 0) + (derived.assetThroughputByKind.powerPlant ?? 0),
+    ));
+    set('assetsDepot', storageLine(derived.assetCounts.depot, derived.productCapacity));
+    set('assetsAzs', assetLine(derived.assetCounts.azs, derived.capacities.domestic.products));
+    set('assetsCrudeTank', storageLine(derived.assetCounts.crudeTank, derived.oilCapacity));
+    set('assetsExportPipe', assetLine(derived.assetCounts.exportPipe, derived.exportCapacityByMode.pipeline));
+    set('assetsExportRail', assetLine(derived.assetCounts.exportRail, derived.exportCapacityByMode.rail));
+    set('assetsExportTanker', assetLine(derived.assetCounts.exportTanker, derived.exportCapacityByMode.tanker));
+    set('assetsRefineryPipe', assetLine(derived.assetCounts.refineryPipe, derived.assetThroughputByKind.refineryPipe ?? 0));
     set('assets', formatMoney(derived.assetsValue, this.currency));
-    set('assetsRefinery', String(derived.assetCounts.refinery));
-    set('assetsDepot', String(derived.assetCounts.depot));
-    set('assetsAzs', String(derived.assetCounts.azs));
-    set('assetsExportPipe', String(derived.assetCounts.exportPipe));
-    set('assetsRefineryPipe', String(derived.assetCounts.refineryPipe));
     set('perTap', units('tonnesValue', { value: formatNumber(derived.tapValue), tonnes }));
     // Автодобыча — одной фразой на всю ширину: подпись и статус слиты.
     set('autoDrill', derived.autoDrill
@@ -463,14 +487,6 @@ export class Hud {
     set('officials', units('minusRate', {
       value: formatMoney(derived.officials, this.currency),
       s: perSecond.replace('/', ''),
-    }));
-    set('capacity', units('tonnesValue', {
-      value: formatNumber(derived.oilCapacity),
-      tonnes,
-    }));
-    set('productsCapacity', units('tonnesValue', {
-      value: formatNumber(derived.productCapacity),
-      tonnes,
     }));
     set('totalStorageCapacity', units('tonnesValue', {
       value: formatNumber(derived.totalStorageCapacity),

@@ -650,6 +650,8 @@ export interface DerivedStats {
   assetsValue: number;
   /** Сколько чего построено — для панели империи. */
   assetCounts: Record<AssetKind, number>;
+  /** Номинальная установленная мощность производственных объектов по типам. */
+  assetThroughputByKind: Partial<Record<AssetKind, number>>;
   /** Совокупный доход от продаж и внешних выплат, ₦/с. */
   grossPerSecond: number;
   /** Доход от топливного демпфера, ₦/с. */

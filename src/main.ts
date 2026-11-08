@@ -36,6 +36,7 @@ import { Menu } from './ui/menu';
 import { Rules } from './ui/rules';
 import { DevMenu } from './ui/dev';
 import { Wealth } from './ui/wealth';
+import { AssetDetails } from './ui/asset-details';
 import { OperationLog } from './ui/log';
 import creditsRaw from './content/credits.txt?raw';
 import type { GameState } from './core/types';
@@ -104,6 +105,15 @@ function boot(): void {
   });
 
   const wealth = new Wealth(game, texts);
+  const assetDetails = new AssetDetails(game, texts, currency);
+  const assetsRow = hud.root.querySelector<HTMLElement>('[data-row="assets"]');
+  assetsRow?.addEventListener('click', () => assetDetails.open());
+  assetsRow?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      assetDetails.open();
+    }
+  });
 
   const shop = new Shop(game, texts, currency, {
     onBuy: (id, count) => buy(id, count),
@@ -178,6 +188,7 @@ function boot(): void {
       isOn: () => game.state.soundOn,
     },
     { id: 'wealth', icon: '💎', label: texts.get('panel.wealth'), onSelect: () => wealth.open() },
+    { id: 'assets', icon: '🏭', label: texts.get('panel.assets'), onSelect: () => assetDetails.open() },
     {
       id: 'stats',
       icon: '📊',
@@ -230,6 +241,7 @@ function boot(): void {
     rules.root,
     dev.root,
     wealth.root,
+    assetDetails.root,
     finale.root,
     menu.root,
   );
@@ -281,6 +293,7 @@ function boot(): void {
     finale.hide();
     settings.close();
     wealth.close();
+    assetDetails.close();
     scheduleUi();
   }
 
@@ -516,7 +529,8 @@ function boot(): void {
     if (event.key === 'Escape') {
       if (dev.visible) dev.close();
       if (settings.visible) settings.close();
-      else if (wealth.visible) wealth.close();
+      if (wealth.visible) wealth.close();
+      if (assetDetails.visible) assetDetails.close();
     }
   });
 
