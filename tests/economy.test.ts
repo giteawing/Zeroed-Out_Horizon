@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   allocateBatch,
+  assetValueBreakdownOf,
   fineFactorOf,
   fineFor,
   oilFlowsOf,
@@ -685,5 +686,73 @@ describe('товарная модель: сырая нефть → нефтеп�
     const high = computeDerived(config, content.upgrades, state, [], content);
     expect(high.oilPricePerTon).toBeGreaterThan(low.oilPricePerTon);
     expect(high.domesticPricePerTon).toBeGreaterThan(low.domesticPricePerTon);
+  });
+});
+
+
+describe('потолок добычи и состав собственности', () => {
+  it('в активы включает оборудование, медиа, инфраструктуру, скважины и роскошь — не действия и персонал', () => {
+    const state = createInitialState(config, 71);
+    state.levels = {
+      t_pump1: 2,
+      t_imager: 1,
+      p_newspaper: 1,
+      p_tvchannel: 1,
+      pmc_airbase: 1,
+      t_pipeline: 1,
+      p_monarch: 1,
+      p_puppy: 1,
+      s_geonav: 1,
+      g_capital_flight: 1,
+      t_mud: 1,
+      l_boat: 1,
+    };
+    state.luxurySpent = 203;
+    state.wells = [{ kind: 'ordinary', dailyTonnes: 10 }];
+    const ids = assetValueBreakdownOf(config, content.upgrades, state).map(line => line.id);
+
+    expect(ids).toContain('t_pump1');
+    expect(ids).toContain('t_imager');
+    expect(ids).toContain('p_newspaper');
+    expect(ids).toContain('p_tvchannel');
+    expect(ids).toContain('pmc_airbase');
+    expect(ids).toContain('t_pipeline');
+    expect(ids).toContain('wells');
+    expect(ids).toContain('luxury');
+    for (const excluded of ['p_monarch', 'p_puppy', 's_geonav', 'g_capital_flight', 't_mud']) {
+      expect(ids).not.toContain(excluded);
+    }
+  });
+
+  it('все скважины и месторождения на максимуме дают меньше 10 млн т/с даже со всеми множителями', () => {
+    const wellUpgrade = content.byId.get('t_well');
+    const fieldUpgrade = content.byId.get('p_field');
+    const reprivatization = content.byId.get('p_reprivatize');
+    expect(wellUpgrade && fieldUpgrade && reprivatization).toBeTruthy();
+
+    const fieldPurchaseCost =
+      totalCostFor(config, fieldUpgrade!, 0, fieldUpgrade!.maxLevel) +
+      totalCostFor(config, reprivatization!, 0, reprivatization!.maxLevel);
+    const uniqueMax = config.oil.wells.classes.find(well => well.key === 'unique')!.maxDailyTonnes;
+    const dailyTonnesAtAllMax =
+      wellUpgrade!.maxLevel * uniqueMax +
+      fieldPurchaseCost * 10 / (config.oil.basePricePerTon * config.oil.wells.priceSeconds);
+
+    const state = createInitialState(config, 72);
+    state.levels = Object.fromEntries(content.upgrades.map(def => [def.id, def.maxLevel]));
+    state.wells = [{ kind: 'unique', dailyTonnes: dailyTonnesAtAllMax }];
+    const derived = computeDerived(config, content.upgrades, state, [], content);
+
+    expect(derived.oilPerSecond).toBeGreaterThan(9_000_000);
+    expect(derived.oilPerSecond).toBeLessThanOrEqual(10_000_000);
+    expect(derived.oilPerSecond).toBeLessThanOrEqual(config.oil.maxProductionPerSecond);
+  });
+
+  it('жёсткий предел сохраняется для старых сохранений с аномальным дебитом', () => {
+    const state = createInitialState(config, 73);
+    state.levels = Object.fromEntries(content.upgrades.map(def => [def.id, def.maxLevel]));
+    state.wells = [{ kind: 'unique', dailyTonnes: 1_000_000_000_000 }];
+    const derived = computeDerived(config, content.upgrades, state, [], content);
+    expect(derived.oilPerSecond).toBe(config.oil.maxProductionPerSecond);
   });
 });

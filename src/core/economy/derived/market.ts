@@ -53,12 +53,15 @@ export function calculateMarket(
     effects.throughputBonus.contract,
     effects.throughputBonus.export,
   );
-  const oilPerSecond =
+  const rawOilPerSecond =
     wellsTonnesPerSecond(config, state) *
     effects.multPassive *
     config.balance.passiveScale *
     crewMultiplier *
     salesVolumeMultiplier;
+  // Защита экономики от экстремальных комбинаций апгрейдов и старых сейвов.
+  const productionLimit = Math.max(0, config.oil.maxProductionPerSecond);
+  const oilPerSecond = Math.min(productionLimit, rawOilPerSecond);
 
   const oilPricePerTon = config.oil.basePricePerTon * state.worldPrice * effects.priceMultiplier;
   const channels = {} as Record<Channel, ChannelRate>;
@@ -74,7 +77,10 @@ export function calculateMarket(
 
   const domesticPricePerTon = channels.contract.price;
   const exportPricePerTon = channels.export.price;
-  const producedPerSecond = oilPerSecond + tapValue * effects.autoTaps;
+  const producedPerSecond = Math.min(
+    productionLimit,
+    oilPerSecond + tapValue * effects.autoTaps,
+  );
   const split = config.product.transportSplit;
 
   // Базовая мощность распределяется по transportSplit; бонусы покупок уже

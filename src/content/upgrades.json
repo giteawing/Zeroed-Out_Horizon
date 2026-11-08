@@ -5,7 +5,7 @@
       "tab": "production",
       "group": "infrastructure",
       "name": "Пробурить скважину",
-      "description": "Дебит выпадает случайно: обычная скважина — 8–10 т/сут, хорошая — около 60, уникальная — сотни и тысячи.",
+      "description": "Дебит выпадает случайно: обычная скважина — 8–10 т/сут, хорошая — 50–70, уникальная — 200–1500 т/сут.",
       "icon": "well",
       "type": "well",
       "baseCost": 73,
@@ -393,7 +393,8 @@
         "Долото «Терминатор»",
         "Долото «Имперский резец»",
         "Долото «Абсолют-Бур»"
-      ]
+      ],
+      "assetKind": "equipment"
     },
     {
       "id": "t_pump1",
@@ -424,7 +425,8 @@
         "Насос «Гигант-Империя»",
         "Насос «Абсолют»",
         "Насос «Упырь-Младший»"
-      ]
+      ],
+      "assetKind": "equipment"
     },
     {
       "id": "t_pump2",
@@ -443,7 +445,8 @@
         "upgrade": "t_pump1",
         "level": 3
       },
-      "costGrowth": 1.3
+      "costGrowth": 1.3,
+      "assetKind": "equipment"
     },
     {
       "id": "t_pump3",
@@ -462,7 +465,8 @@
         "upgrade": "t_pump2",
         "level": 3
       },
-      "costGrowth": 1.3
+      "costGrowth": 1.3,
+      "assetKind": "equipment"
     },
     {
       "id": "t_pump4",
@@ -478,7 +482,8 @@
         "balance": 2000000
       },
       "costGrowth": 1.12,
-      "effect": {}
+      "effect": {},
+      "assetKind": "equipment"
     },
     {
       "id": "t_carat",
@@ -495,7 +500,8 @@
       },
       "unlockAt": {
         "balance": 250
-      }
+      },
+      "assetKind": "equipment"
     },
     {
       "id": "t_imager",
@@ -513,7 +519,8 @@
       "unlockAt": {
         "upgrade": "t_carat",
         "level": 2
-      }
+      },
+      "assetKind": "equipment"
     },
     {
       "id": "t_cartographer",
@@ -531,7 +538,8 @@
       "unlockAt": {
         "upgrade": "t_imager",
         "level": 2
-      }
+      },
+      "assetKind": "equipment"
     },
     {
       "id": "t_mwd",
@@ -549,7 +557,8 @@
       "unlockAt": {
         "balance": 5000
       },
-      "costGrowth": 1.3
+      "costGrowth": 1.3,
+      "assetKind": "equipment"
     },
     {
       "id": "t_resist",
@@ -567,7 +576,8 @@
       "unlockAt": {
         "upgrade": "t_cartographer",
         "level": 2
-      }
+      },
+      "assetKind": "equipment"
     },
     {
       "id": "t_core",
@@ -586,7 +596,8 @@
       "unlockAt": {
         "upgrade": "t_mwd",
         "level": 2
-      }
+      },
+      "assetKind": "equipment"
     },
     {
       "id": "t_motor",
@@ -617,7 +628,8 @@
         "Двигатель «Управляемый-Про»",
         "Двигатель «Имперский вал»",
         "Двигатель «Абсолют-Винт»"
-      ]
+      ],
+      "assetKind": "equipment"
     },
     {
       "id": "t_rss",
@@ -636,7 +648,8 @@
         "upgrade": "t_motor",
         "level": 3
       },
-      "costGrowth": 1.3
+      "costGrowth": 1.3,
+      "assetKind": "equipment"
     },
     {
       "id": "t_topdrive",
@@ -653,7 +666,8 @@
       },
       "unlockAt": {
         "balance": 12000
-      }
+      },
+      "assetKind": "equipment"
     },
     {
       "id": "t_mud",
@@ -731,7 +745,8 @@
       "unlockAt": {
         "balance": 600000
       },
-      "costGrowth": 1.12
+      "costGrowth": 1.12,
+      "assetKind": "equipment"
     },
     {
       "id": "t_esp",
@@ -748,7 +763,8 @@
       },
       "unlockAt": {
         "balance": 40000
-      }
+      },
+      "assetKind": "equipment"
     },
     {
       "id": "s_geonav",
@@ -865,7 +881,8 @@
       },
       "unlockAt": {
         "balance": 50000
-      }
+      },
+      "assetKind": "equipment"
     },
     {
       "id": "t_roga",
@@ -901,7 +918,8 @@
       },
       "unlockAt": {
         "balance": 150000
-      }
+      },
+      "assetKind": "facility"
     },
     {
       "id": "t_dashboard",
@@ -1155,17 +1173,17 @@
       "tab": "production",
       "group": "conquest",
       "name": "Отжать месторождение у конкурентов",
-      "description": "Целое месторождение: от 5 до 50 скважин за раз. Сколько даст каждая — как повезёт: от 8 т/сут до тысяч.",
+      "description": "Забираем у конкурентов месторождение из 5–50 скважин. Суммарный дебит зависит от стоимости сделки и ограничен общим лимитом добычи.",
       "icon": "field",
       "type": "field",
-      "baseCost": 10000000,
+      "baseCost": 130000,
       "maxLevel": 45,
       "effect": {},
       "unlockAt": {
         "balance": 3000000
       },
       "conquest": true,
-      "costGrowth": 1.34
+      "costGrowth": 1.025
     },
     {
       "id": "p_refinery",
@@ -1294,7 +1312,8 @@
       },
       "unlockAt": {
         "balance": 15000
-      }
+      },
+      "assetKind": "media"
     },
     {
       "id": "p_tvchannel",
@@ -1310,7 +1329,8 @@
       "effect": {},
       "unlockAt": {
         "balance": 4000000000
-      }
+      },
+      "assetKind": "media"
     },
     {
       "id": "p_puppy",
@@ -2422,7 +2442,8 @@
       "unlockAt": {
         "balance": 3000000000
       },
-      "costGrowth": 1.15
+      "costGrowth": 1.15,
+      "assetKind": "equipment"
     },
     {
       "id": "r_alkyl",
@@ -2442,7 +2463,8 @@
       "unlockAt": {
         "balance": 25000000000
       },
-      "costGrowth": 1.15
+      "costGrowth": 1.15,
+      "assetKind": "equipment"
     },
     {
       "id": "r_aromatics",
@@ -2462,7 +2484,8 @@
       "unlockAt": {
         "balance": 300000000000
       },
-      "costGrowth": 1.15
+      "costGrowth": 1.15,
+      "assetKind": "equipment"
     },
     {
       "id": "r_chemical",
@@ -2482,7 +2505,8 @@
       "unlockAt": {
         "balance": 6000000000000
       },
-      "costGrowth": 1.15
+      "costGrowth": 1.15,
+      "assetKind": "equipment"
     },
     {
       "id": "s_railtank",
@@ -2531,7 +2555,8 @@
       "unlockAt": {
         "balance": 40000000
       },
-      "costGrowth": 1.15
+      "costGrowth": 1.15,
+      "assetKind": "equipment"
     },
     {
       "id": "pmc_vet",
@@ -2585,7 +2610,8 @@
       },
       "unlockAt": {
         "balance": 7000000000
-      }
+      },
+      "assetKind": "facility"
     },
     {
       "id": "pmc_legal",
@@ -2630,10 +2656,10 @@
       "tab": "production",
       "group": "conquest",
       "name": "Устроить реприватизацию месторождения со скважинами конкурента",
-      "description": "Забираем месторождение конкурента: случайное число скважин, но их стоимость всегда в 5–10 раз больше, чем заплатили за акцию.",
+      "description": "Забираем месторождение конкурента: случайные 5–50 скважин, суммарная рыночная стоимость которых в 5–10 раз выше цены сделки.",
       "icon": "reprivat",
       "type": "well",
-      "baseCost": 90000000,
+      "baseCost": 300000,
       "maxLevel": 6,
       "effect": {},
       "conquest": true,
@@ -2641,7 +2667,7 @@
         "balance": 900000000,
         "influence": 45
       },
-      "costGrowth": 1.9
+      "costGrowth": 1.15
     },
     {
       "id": "p_badbank",

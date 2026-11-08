@@ -87,8 +87,8 @@
           "key": "unique",
           "chance": 0.05,
           "minDailyTonnes": 200,
-          "maxDailyTonnes": 5000,
-          "step": 50
+          "maxDailyTonnes": 1500,
+          "step": 25
         }
       ],
       "decline": {
@@ -102,7 +102,8 @@
     "conquestWells": {
       "min": 5,
       "max": 50
-    }
+    },
+    "maxProductionPerSecond": 10000000
   },
   "influence": {
     "perGroup": {

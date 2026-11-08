@@ -883,23 +883,26 @@ img {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 4px;
-  padding: 6px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 3px;
+  padding: 4px;
   background: rgba(0, 0, 0, 0.35);
   border-bottom: var(--stroke-w) solid var(--ink);
 }
 
 .tab {
-  min-height: 44px;
-  padding: 4px 2px;
+  min-width: 0;
+  min-height: 40px;
+  padding: 3px 1px;
   border: 2px solid rgba(23, 17, 12, 0.9);
   border-radius: 10px;
   background: linear-gradient(180deg, var(--oil-3), var(--oil-2));
   color: var(--cream);
-  font-size: clamp(10px, 2.5vw, 13px);
+  font-size: clamp(8px, 2vw, 11px);
   font-weight: 700;
-  line-height: 1.15;
+  line-height: 1.1;
+  white-space: nowrap;
+  letter-spacing: -0.02em;
   transition: transform 0.08s ease, background 0.15s ease;
 }
 
@@ -1890,3 +1893,6 @@ img {
 }
 .assets__total-value { color: var(--gold-light); }
 .assets__empty { color: var(--steel); text-align: center; }
+
+/* Строки собственности занимают всю ширину панели, по одной на строку. */
+.hud__rows--property { grid-template-columns: minmax(0, 1fr); }

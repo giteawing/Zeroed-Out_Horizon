@@ -57,7 +57,7 @@ describe('раскладка', () => {
     expect(main?.querySelector('[data-testid="drill"]')).toBeNull();
     // Все шесть вкладок — внутри магазина.
     const tabs = [...(main?.querySelectorAll('.tab') ?? [])].map((n) => n.textContent);
-    expect(tabs).toEqual(['Техника', 'Производство', 'Сбыт', 'Политика', 'Роскошь', 'Цель']);
+    expect(tabs).toEqual(['Техника', 'Добыча', 'Сбыт', 'Политика', 'Роскошь', 'Цель']);
   });
 
   it('в правом столбце таблица, журнал и долото — именно в этом порядке', () => {
@@ -117,6 +117,8 @@ describe('раскладка', () => {
     ]) {
       expect(labels).toContain(expected);
     }
+    const propertyRows = hud?.querySelector('[data-group="property"] .hud__rows');
+    expect(propertyRows?.classList.contains('hud__rows--property')).toBe(true);
     // Денежная таблица идёт в порядке применения: доход → расходы → EBT →
     // налог на прибыль → чистая прибыль.
     const money = hud?.querySelector('[data-group="money"]');

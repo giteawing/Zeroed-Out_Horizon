@@ -189,7 +189,7 @@ export class Hud {
 
       // --- собственность: агрегированные количества и мощности; общая стоимость внизу ---
       group('property', texts.get('hud.groupProperty'), [
-        el('div', { class: 'hud__rows' }, [
+        el('div', { class: 'hud__rows hud__rows--property' }, [
           row('wellsCount', texts.get('hud.assetsWells')).root,
           row('assetsRefinery', texts.get('hud.assetsRefinery')).root,
           row('assetsGas', texts.get('hud.assetsGas')).root,
@@ -200,6 +200,9 @@ export class Hud {
           row('assetsExportRail', texts.get('hud.assetsExportRail')).root,
           row('assetsExportTanker', texts.get('hud.assetsExportTanker')).root,
           row('assetsRefineryPipe', texts.get('hud.assetsRefineryPipe')).root,
+          row('assetsEquipment', texts.get('hud.assetsEquipment')).root,
+          row('assetsMedia', texts.get('hud.assetsMedia')).root,
+          row('assetsFacilities', texts.get('hud.assetsFacilities')).root,
           row('totalStorageCapacity', texts.get('hud.totalStorageCapacity')).root,
           row('domesticThroughput', texts.get('hud.domesticThroughput')).root,
           row('exportThroughput', texts.get('hud.exportThroughput')).root,
@@ -470,6 +473,9 @@ export class Hud {
     set('assetsExportRail', assetLine(derived.assetCounts.exportRail, derived.exportCapacityByMode.rail));
     set('assetsExportTanker', assetLine(derived.assetCounts.exportTanker, derived.exportCapacityByMode.tanker));
     set('assetsRefineryPipe', assetLine(derived.assetCounts.refineryPipe, derived.assetThroughputByKind.refineryPipe ?? 0));
+    set('assetsEquipment', formatNumber(derived.assetCounts.equipment));
+    set('assetsMedia', formatNumber(derived.assetCounts.media));
+    set('assetsFacilities', formatNumber(derived.assetCounts.facility));
     set('assets', formatMoney(derived.assetsValue, this.currency));
     set('perTap', units('tonnesValue', { value: formatNumber(derived.tapValue), tonnes }));
     // Автодобыча — одной фразой на всю ширину: подпись и статус слиты.

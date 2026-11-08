@@ -92,7 +92,10 @@
     "assetsExportPipe": "Экспортные трубопроводы",
     "assetsExportRail": "Железнодорожные эстакады",
     "assetsExportTanker": "Морские терминалы и танкеры",
-    "assetsRefineryPipe": "Трубопроводы к НПЗ"
+    "assetsRefineryPipe": "Трубопроводы к НПЗ",
+    "assetsEquipment": "Оборудование",
+    "assetsMedia": "Газеты и телеканалы",
+    "assetsFacilities": "Принадлежащие объекты"
   },
   "tabs": {
     "political": "Политика",
@@ -100,7 +103,7 @@
     "sales": "Сбыт",
     "luxury": "Роскошь",
     "goals": "Цель",
-    "production": "Производство"
+    "production": "Добыча"
   },
   "shop": {
     "buy": "Купить",

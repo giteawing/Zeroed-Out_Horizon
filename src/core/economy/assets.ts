@@ -19,6 +19,9 @@ export function assetCountsOf(upgrades: UpgradeDef[], state: GameState): Record<
     gasPlant: 0,
     powerPlant: 0,
     productExport: 0,
+    equipment: 0,
+    media: 0,
+    facility: 0,
   };
   for (const def of upgrades) {
     if (!def.assetKind) continue;
@@ -40,7 +43,9 @@ export function assetValueBreakdownOf(config: GameConfig, upgrades: UpgradeDef[]
   const lines: AssetValueLine[] = [];
   for (const def of upgrades) {
     const level = levelOf(state, def.id);
-    if (level <= 0 || def.type === 'luxury' || def.type === 'well' || def.type === 'win') continue;
+    // Только явно классифицированная собственность. Политические действия,
+    // взятки, найм, договоры, финансовые операции и прочие эффекты не активы.
+    if (level <= 0 || !def.assetKind || def.type === 'luxury' || def.type === 'well' || def.type === 'win') continue;
     const growth = def.costGrowth ?? config.costGrowth;
     const value = costFor(config, def, 0) *
       ((Math.pow(growth, level) - 1) / Math.max(1e-9, growth - 1));

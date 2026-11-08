@@ -51,7 +51,11 @@ export type AssetKind =
   | 'gasPlant'
   | 'powerPlant'
   /** Экспорт нефтепродуктов: наливные терминалы, танкеры. */
-  | 'productExport';
+  | 'productExport'
+  /** Физическое оборудование, медиаактивы и принадлежащие объекты. */
+  | 'equipment'
+  | 'media'
+  | 'facility';
 
 /**
  * Канал сбыта. В модели «сырая нефть → нефтепродукты» каналы означают:
@@ -72,6 +76,8 @@ export interface ChannelConfig {
 export interface OilConfig {
   /** Цена тонны при мировой цене 1.0, в нефтефантиках. */
   basePricePerTon: number;
+  /** Абсолютный предел автоматической добычи/подачи на рынок, тонн в секунду. */
+  maxProductionPerSecond: number;
   /** Стартовый запас нефти. */
   startOil: number;
   /** Стартовая ёмкость резервуаров, тонн. */
