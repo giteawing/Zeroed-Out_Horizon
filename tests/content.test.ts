@@ -102,10 +102,10 @@ describe('состав контента (ТЗ §6)', () => {
   });
 
   it('производственные объекты и сбытовая техника разнесены по вкладкам', () => {
-    for (const id of ['t_well', 't_refinery', 't_refpipe', 't_gasplant', 't_power', 't_canister', 't_tank', 'p_field', 'p_refinery', 'p_reprivatize']) {
+    for (const id of ['t_well', 't_refinery', 't_refpipe', 't_gasplant', 't_power', 'p_field', 'p_refinery', 'p_reprivatize']) {
       expect(byId.get(id)?.tab, id).toBe('production');
     }
-    for (const id of ['t_depot', 't_pipeline', 't_terminal', 't_rail', 't_railbranch', 't_exptanker', 't_azs']) {
+    for (const id of ['t_depot', 't_pipeline', 't_terminal', 't_rail', 't_railbranch', 't_exptanker', 't_azs', 't_canister', 't_tank']) {
       expect(byId.get(id)?.tab, id).toBe('sales');
     }
     expect(byId.get('d1_blade')?.tab).toBe('technical');
