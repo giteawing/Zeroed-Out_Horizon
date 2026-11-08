@@ -611,6 +611,30 @@ describe('товарная модель: сырая нефть → нефтеп�
     expect(withStock.domestic).toBeGreaterThan(0);
   });
 
+  it('не обнуляет выпуск НПЗ из-за запаса в конце окна отгрузки', () => {
+    const localContent = structuredClone(content);
+    const state = createInitialState(localContent.config, 68);
+    state.levels = { t_refinery: 1, t_depot: 1 };
+    state.wells = [{ kind: 'good', dailyTonnes: 1000 }];
+    state.products = 25_000;
+    // До отправки осталось 1 с, но пакетная отгрузка использует
+    // мощности за всё пятисекундное окно: 25 000 т запаса не занимают
+    // рынок целиком (9000 × 5 = 45 000 т).
+    state.shipTimerMs = 4_000;
+
+    const derived = computeDerived(
+      localContent.config,
+      localContent.upgrades,
+      state,
+      [],
+      localContent,
+    );
+
+    expect(derived.productCapacity).toBe(25_000);
+    expect(derived.flows.refined).toBeGreaterThan(0);
+    expect(derived.flows.productsProduced).toBeCloseTo(900 * localContent.config.oil.refineryYield, 6);
+  });
+
   it('прямой трубопровод резервирует мощность до маршрутизации остатка', () => {
     const pipeFirst = oilFlowsOf(
       limitedConfig,
