@@ -161,9 +161,14 @@ describe('HUD', () => {
     const order = [...(invoice?.querySelectorAll('.hud__row-label, .hud__profit-label') ?? [])]
       .map((n) => n.textContent ?? '');
     expect(order[0]).toBe('Доход');
-    expect(order[1]).toBe('Доход от топливного демпфера');
-    expect(order[2]).toBe('Доход от вывоза капитала');
-    expect(order[3]).toBe('Расходы');
+    expect(order[1]).toBe('Экспорт нефти');
+    expect(order[2]).toBe('Экспорт нефтепродуктов');
+    expect(order[3]).toBe('Внутренняя продажа нефти');
+    expect(order[4]).toBe('Внутренняя продажа нефтепродуктов');
+    expect(order[5]).toBe('Доход от топливного демпфера');
+    expect(order[6]).toBe('Доход от вывоза капитала');
+    expect(order[7]).toContain('Инвестиционный доход');
+    expect(order[8]).toBe('Расходы');
     expect(order).toContain('EBT');
     // Итог «Расходы» стоит перед своими статьями, статьи — перед EBT.
     expect(order.indexOf('Расходы')).toBeLessThan(order.indexOf('Зарплаты'));
@@ -233,6 +238,13 @@ describe('магазин', () => {
     expect(document.querySelector('.tab--active')?.textContent).toBe('Политика');
     expect(document.querySelector('.shop__list')?.textContent ?? '').toContain('императора');
 
+    const production = tabs.find((tab) => tab.textContent === 'Производство');
+    production?.click();
+    expect(document.querySelector('.shop__list')?.textContent ?? '').toContain('нефтеперерабатывающий завод');
+    const sales = tabs.find((tab) => tab.textContent === 'Сбыт');
+    sales?.click();
+    expect(document.querySelector('.shop__list')?.textContent ?? '').toContain('железнодорожную эстакаду');
+
     const luxury = tabs.find((tab) => tab.textContent === 'Роскошь');
     luxury?.click();
     // На старте открыты только дешёвые предметы роскоши — остальные закрыты.
@@ -263,6 +275,25 @@ describe('магазин', () => {
     for (const icon of icons) {
       expect(icon.getAttribute('src') ?? '').toMatch(/^images\/icons\/[a-z0-9-]+\.svg$/);
     }
+  });
+});
+
+describe('расшифровка собственности', () => {
+  it('агрегирует мощности и открывает подробную оценку активов', () => {
+    const property = document.querySelector('[data-group="property"]');
+    expect(property).not.toBeNull();
+    expect(property?.querySelector('[data-row="wellsCount"]')).not.toBeNull();
+    expect(property?.querySelector('[data-row="assetsExportPipe"]')).not.toBeNull();
+    expect(property?.querySelector('[data-row="assetsExportRail"]')).not.toBeNull();
+    expect(property?.querySelector('[data-row="assetsExportTanker"]')).not.toBeNull();
+    const assets = property?.querySelector<HTMLElement>('[data-row="assets"]');
+    expect(assets?.getAttribute('role')).toBe('button');
+    assets?.click();
+    const sheet = [...document.querySelectorAll<HTMLElement>('.sheet')].find((node) => node.querySelector('.assets__list'))!;
+    expect(sheet.hasAttribute('hidden')).toBe(false);
+    expect(sheet.textContent).toContain('Итого стоимость активов');
+    sheet.querySelector<HTMLButtonElement>('.btn')?.click();
+    expect(sheet.hasAttribute('hidden')).toBe(true);
   });
 });
 

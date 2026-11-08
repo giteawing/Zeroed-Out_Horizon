@@ -426,23 +426,37 @@ describe('устойчивость времени и состояния движ
     expect(state.worldPrice).toBe(atOneSecond);
   });
 
-  it('топливный демпфер платит только разницу экспортной и внутренней цены по внутренним продажам', () => {
+  it('топливный демпфер платит только разницу цен нефтепродуктов по внутренним продажам', () => {
     const content = freshContent();
     const state = rich(content, 0);
     state.wells = [{ kind: 'good', dailyTonnes: 100 }];
+    state.levels.t_refinery = 1;
     state.levels.p_fuel_damper = 1;
     const game = new Game(content, state);
     const derived = game.derived();
-    const expected = Math.max(0, derived.exportPricePerTon - derived.domesticPricePerTon) * derived.flows.domestic;
-    expect(derived.flows.domestic).toBeGreaterThan(0);
+    const expected = Math.max(0, derived.productPriceExport - derived.productPriceDomestic) * derived.flows.productsDomestic;
+    expect(derived.flows.productsDomestic).toBeGreaterThan(0);
     expect(derived.damperIncomePerSecond).toBeCloseTo(expected, 8);
     expect(derived.grossPerSecond).toBeCloseTo(
       derived.flows.domestic * derived.domesticPricePerTon +
         derived.flows.export * derived.exportPricePerTon +
         derived.flows.productsDomestic * derived.productPriceDomestic +
-        derived.flows.productsExport * derived.productPriceExport + expected,
+        derived.flows.productsExport * derived.productPriceExport + expected + derived.investmentIncomePerSecond,
       6,
     );
+  });
+
+  it('инвестиционный доход начисляется на текущий остаток счёта', () => {
+    const content = freshContent();
+    const state = rich(content, 100_000);
+    const game = new Game(content, state);
+    const before = state.coins;
+    const derived = game.derived();
+    expect(derived.investmentRatePercent).toBeGreaterThanOrEqual(1);
+    expect(derived.investmentRatePercent).toBeLessThanOrEqual(20);
+    expect(derived.investmentIncomePerSecond).toBeGreaterThan(0);
+    game.update(1000);
+    expect(state.coins).toBeGreaterThan(before);
   });
 
   it('вывоз капитала стартует с 5 млрд/с, растёт на 1% в минуту и не добавляет расходов', () => {
@@ -476,6 +490,9 @@ describe('устойчивость времени и состояния движ
       derived.exportCapacityByMode.pipeline + derived.exportCapacityByMode.rail + derived.exportCapacityByMode.tanker, 9,
     );
     expect(derived.refineryThroughputCapacity).toBeGreaterThan(0);
+    expect(derived.exportCapacityByMode.pipeline).toBeGreaterThan(0);
+    expect(derived.exportCapacityByMode.rail).toBeGreaterThan(0);
+    expect(derived.exportCapacityByMode.tanker).toBeGreaterThan(0);
   });
 
 });

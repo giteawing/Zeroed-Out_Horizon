@@ -379,8 +379,9 @@ describe('штраф за разлив', () => {
     expect(some).toBeLessThan(none);
     expect(lots).toBeLessThan(some);
     // Потолок скидки: даже при влиянии выше cap платим minFactor.
-    expect(lots).toBeCloseTo(1 - config.fines.maxRelief, 6);
-    expect(fineFactorOf(config, 100000)).toBeCloseTo(1 - config.fines.maxRelief, 6);
+    expect(lots).toBeGreaterThan(0);
+    expect(lots).toBeCloseTo(0.001, 9);
+    expect(fineFactorOf(config, 100000)).toBeCloseTo(0.001, 9);
   });
 
   it('норматив штрафа входит в расходы и виден в EBT', () => {
@@ -637,7 +638,7 @@ describe('товарная модель: сырая нефть → нефтеп�
     expect(port.capacities.export.products).toBeGreaterThan(0);
   });
 
-  it('цена канала в панели — та же, что в расчёте денег', () => {
+  it('карточки сбыта больше не повышают цену, а выручка раскрывается по потокам', () => {
     // Заказчик поймал расхождение: «внутренняя цена ₦1,37/т», а в строке
     // сбыта — «× ₦4,13/т». Надбавки сбытовых построек входили в цену продажи,
     // но не в подпись. Теперь подписанная цена и цена расчёта — одно число.
@@ -647,17 +648,34 @@ describe('товарная модель: сырая нефть → нефтеп�
     const d = computeDerived(config, content.upgrades, state, [], content);
     expect(d.domesticPricePerTon).toBeCloseTo(d.channels.contract.price, 9);
     expect(d.exportPricePerTon).toBeCloseTo(d.channels.export.price, 9);
-    // Выручка в секунду собирается из ровно этих цен и потоков.
-    expect(d.grossPerSecond).toBeCloseTo(
-      d.flows.domestic * d.domesticPricePerTon +
-        d.flows.export * d.exportPricePerTon +
-        d.flows.productsDomestic * d.productPriceDomestic +
-        d.flows.productsExport * d.productPriceExport,
-      6,
-    );
-    // Надбавки сбыта действительно поднимают цену над стартовой.
-    const basePrice = config.oil.basePricePerTon * config.oil.channels.contract.priceFactor;
-    expect(d.domesticPricePerTon).toBeGreaterThan(basePrice * 1.05);
+    const basePrice = config.oil.basePricePerTon * config.worldPrice.startPrice;
+    expect(d.domesticPricePerTon).toBeCloseTo(basePrice * config.oil.channels.contract.priceFactor, 8);
+    expect(d.crudeExportIncomePerSecond).toBeCloseTo(d.flows.export * d.exportPricePerTon, 8);
+    expect(d.productsExportIncomePerSecond).toBeCloseTo(d.flows.productsExport * d.productPriceExport, 8);
+    expect(d.crudeDomesticIncomePerSecond).toBeCloseTo(d.flows.domestic * d.domesticPricePerTon, 8);
+    expect(d.productsDomesticIncomePerSecond).toBeCloseTo(d.flows.productsDomestic * d.productPriceDomestic, 8);
+    const marketGross = d.crudeExportIncomePerSecond + d.productsExportIncomePerSecond +
+      d.crudeDomesticIncomePerSecond + d.productsDomesticIncomePerSecond;
+    expect(d.grossPerSecond).toBeCloseTo(marketGross + d.investmentIncomePerSecond, 6);
+  });
+
+  it('инвестиционная ставка зависит от влияния: от 1% до 20% годовых', () => {
+    const state = createInitialState(config, 64);
+    state.coins = 36_000;
+    const low = computeDerived(config, content.upgrades, state, [], content);
+    expect(low.investmentRatePercent).toBeCloseTo(1, 9);
+    expect(low.investmentIncomePerSecond).toBeCloseTo(36_000 * 0.01 / 100 / (360 * config.oil.wells.secondsPerDay), 9);
+
+    const maxInfluence = {
+      ...content.upgrades.find((u) => u.id === 'p_secretary')!,
+      id: 'test_max_influence',
+      type: 'passive' as const,
+      effect: { influence: config.influence.cap },
+    };
+    state.levels[maxInfluence.id] = 1;
+    const high = computeDerived(config, [...content.upgrades, maxInfluence], state, [], content);
+    expect(high.investmentRatePercent).toBeCloseTo(20, 9);
+    expect(high.investmentIncomePerSecond).toBeCloseTo(36_000 * 0.2 / 100 / (360 * config.oil.wells.secondsPerDay), 9);
   });
 
   it('мировая цена двигается во времени и тянет за собой внутреннюю', () => {

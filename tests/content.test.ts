@@ -77,8 +77,6 @@ describe('состав контента (ТЗ §6)', () => {
       'Контрабанда нефти заграницу',
       'мировой нефтяной кризис',
       'икорной вечеринкой',
-      'Отжать месторождение',
-      'Отжать нефтеперерабатывающий завод',
       'топливный кризис',
       'в правительство',
       'в сенат',
@@ -101,6 +99,16 @@ describe('состав контента (ТЗ §6)', () => {
       'экспертизу',
     ];
     expect(extra.filter(has).length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('производственные объекты и сбытовая техника разнесены по вкладкам', () => {
+    for (const id of ['t_well', 't_refinery', 't_refpipe', 't_gasplant', 't_power', 't_canister', 't_tank', 'p_field', 'p_refinery', 'p_reprivatize']) {
+      expect(byId.get(id)?.tab, id).toBe('production');
+    }
+    for (const id of ['t_depot', 't_pipeline', 't_terminal', 't_rail', 't_railbranch', 't_exptanker', 't_azs']) {
+      expect(byId.get(id)?.tab, id).toBe('sales');
+    }
+    expect(byId.get('d1_blade')?.tab).toBe('technical');
   });
 
   it('инфраструктура: все 8 объектов', () => {
