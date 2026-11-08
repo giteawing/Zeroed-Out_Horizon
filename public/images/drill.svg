@@ -79,7 +79,7 @@
 
   <!-- НЕФТЯНОЙ ФОНТАН -->
   <g id="gusher" opacity="0.95">
-    <path d="M128 236.4c4.75 5.7 6.65 8.55 6.65 10.45a6.65 6.65 0 0 1 -13.3 0c0 -1.9 1.9 -4.75 6.65 -10.45Z" fill="url(#oil)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  /><path d="M100 266.8c3.25 3.9 4.55 5.85 4.55 7.15a4.55 4.55 0 0 1 -9.1 0c0 -1.3 1.3 -3.25 4.55 -7.15Z" fill="url(#oil)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  /><path d="M158 209.6c2.75 3.3 3.85 4.95 3.85 6.05a3.85 3.85 0 0 1 -7.7 0c0 -1.1 1.1 -2.75 3.85 -6.05Z" fill="url(#oil)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  />
+    <path d="M128 236.4c4.75 5.7 6.65 8.55 6.65 10.45a6.65 6.65 0 0 1 -13.3 0c0 -1.9 1.9 -4.75 6.65 -10.45Z" fill="url(#oilGrad)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  /><path d="M100 266.8c3.25 3.9 4.55 5.85 4.55 7.15a4.55 4.55 0 0 1 -9.1 0c0 -1.3 1.3 -3.25 4.55 -7.15Z" fill="url(#oilGrad)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  /><path d="M158 209.6c2.75 3.3 3.85 4.95 3.85 6.05a3.85 3.85 0 0 1 -7.7 0c0 -1.1 1.1 -2.75 3.85 -6.05Z" fill="url(#oilGrad)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  />
   </g>
 
   <!-- ДОЛОТО: корпус -->
@@ -110,7 +110,7 @@
 
   <!-- БРЫЗГИ НЕФТИ (анимируются) -->
   <g id="splashes">
-    <path d="M148 347.6c5.25 6.3 7.35 9.45 7.35 11.55a7.35 7.35 0 0 1 -14.7 0c0 -2.1 2.1 -5.25 7.35 -11.55Z" fill="url(#oil)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  /><path d="M122 389.6c4 4.8 5.6 7.2 5.6 8.8a5.6 5.6 0 0 1 -11.2 0c0 -1.6 1.6 -4 5.6 -8.8Z" fill="url(#oil)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  /><path d="M352 350.4c4.75 5.7 6.65 8.55 6.65 10.45a6.65 6.65 0 0 1 -13.3 0c0 -1.9 1.9 -4.75 6.65 -10.45Z" fill="url(#oil)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  /><path d="M378 392.4c3.5 4.2 4.9 6.3 4.9 7.7a4.9 4.9 0 0 1 -9.8 0c0 -1.4 1.4 -3.5 4.9 -7.7Z" fill="url(#oil)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  />
+    <path d="M148 347.6c5.25 6.3 7.35 9.45 7.35 11.55a7.35 7.35 0 0 1 -14.7 0c0 -2.1 2.1 -5.25 7.35 -11.55Z" fill="url(#oilGrad)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  /><path d="M122 389.6c4 4.8 5.6 7.2 5.6 8.8a5.6 5.6 0 0 1 -11.2 0c0 -1.6 1.6 -4 5.6 -8.8Z" fill="url(#oilGrad)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  /><path d="M352 350.4c4.75 5.7 6.65 8.55 6.65 10.45a6.65 6.65 0 0 1 -13.3 0c0 -1.9 1.9 -4.75 6.65 -10.45Z" fill="url(#oilGrad)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  /><path d="M378 392.4c3.5 4.2 4.9 6.3 4.9 7.7a4.9 4.9 0 0 1 -9.8 0c0 -1.4 1.4 -3.5 4.9 -7.7Z" fill="url(#oilGrad)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  />
     <circle cx="168" cy="402" r="4.5" fill="url(#oilGrad)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><circle cx="340" cy="406" r="4" fill="url(#oilGrad)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" />
   </g>
 </svg>

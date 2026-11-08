@@ -19,6 +19,9 @@ jobs:
         run: npm run build
       - name: Юнит- и DOM-тесты (включая тест баланса 12–25 минут)
         run: npm test -- --reporter=dot
+      - name: Отчёт о балансе (в том числе при падении тестов)
+        if: always()
+        run: npm run balance:report
       - name: Playwright-браузер
         # Поддержка телефонов убрана: e2e гоняется только в настольном Chromium.
         run: npx playwright install --with-deps chromium

@@ -578,7 +578,7 @@ describe('товарная модель: сырая нефть → нефтеп�
     // безлимитный внутренний рынок съедал всю добычу раньше экспорта.
     const state = createInitialState(config, 64);
     state.wells = [{ kind: 'good', dailyTonnes: 60 }];
-    state.levels = { t_pipeline: 2, x_cistern: 2, x_tanker: 2 };
+    state.levels = { t_pipeline: 2, x_cistern: 2, t_terminal: 2 };
     const d = computeDerived(config, content.upgrades, state, [], content);
 
     expect(d.capacities.export.crude).toBeGreaterThan(0);
