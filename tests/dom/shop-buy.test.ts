@@ -26,6 +26,7 @@ describe('магазин: пакетная покупка из реальной 
       },
     });
 
+    shop.setTab('production');
     const button = shop.root.querySelector<HTMLButtonElement>('[data-id="t_well"] .card__buy')!;
     expect(button.textContent).toBe(content.texts.shop.buyMax.replace('{n}', '10'));
     expect(button.dataset.count).toBe('10');

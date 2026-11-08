@@ -664,7 +664,7 @@ describe('товарная модель: сырая нефть → нефтеп�
     state.coins = 36_000;
     const low = computeDerived(config, content.upgrades, state, [], content);
     expect(low.investmentRatePercent).toBeCloseTo(1, 9);
-    expect(low.investmentIncomePerSecond).toBeCloseTo(36_000 * 0.01 / 100 / (360 * config.oil.wells.secondsPerDay), 9);
+    expect(low.investmentIncomePerSecond).toBeCloseTo(36_000 * 0.01 / (360 * config.oil.wells.secondsPerDay), 9);
 
     const maxInfluence = {
       ...content.upgrades.find((u) => u.id === 'p_secretary')!,
@@ -675,7 +675,7 @@ describe('товарная модель: сырая нефть → нефтеп�
     state.levels[maxInfluence.id] = 1;
     const high = computeDerived(config, [...content.upgrades, maxInfluence], state, [], content);
     expect(high.investmentRatePercent).toBeCloseTo(20, 9);
-    expect(high.investmentIncomePerSecond).toBeCloseTo(36_000 * 0.2 / 100 / (360 * config.oil.wells.secondsPerDay), 9);
+    expect(high.investmentIncomePerSecond).toBeCloseTo(36_000 * 0.2 / (360 * config.oil.wells.secondsPerDay), 9);
   });
 
   it('мировая цена двигается во времени и тянет за собой внутреннюю', () => {

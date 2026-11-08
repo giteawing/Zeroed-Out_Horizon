@@ -276,7 +276,6 @@ describe('целостность данных', () => {
       'periodic',
       'oneShot',
       'gamble',
-      'priceBoost',
       'luxury',
     ]) {
       expect(types.has(type as never), `тип ${type} не используется`).toBe(true);

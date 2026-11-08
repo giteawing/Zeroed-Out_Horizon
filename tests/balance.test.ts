@@ -28,7 +28,7 @@ describe('экономическая прогрессия и баланс', () =
     const share = 1 - notBought.length / functional.length;
     expect(share, `не куплено ${notBought.length} из ${functional.length}`).toBeGreaterThan(0.45);
     // Все типы механик игрок трогает: добыча, сбыт, политика.
-    for (const tab of ['technical', 'sales', 'political'] as const) {
+    for (const tab of ['technical', 'production', 'sales', 'political'] as const) {
       expect(bought.size).toBeGreaterThan(0);
       expect(
         content.upgrades.some((u) => u.tab === tab && bought.has(u.id)),

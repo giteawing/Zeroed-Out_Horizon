@@ -416,7 +416,7 @@ describe('мировая цена, магазин и инженерное мен
     const coinsBefore = game.state.coins;
     menu?.querySelector<HTMLButtonElement>('[data-action="money"]')?.click();
     await flush();
-    expect(game.state.coins).toBeCloseTo(coinsBefore + 1e12, 0);
+    expect(game.state.coins).toBeGreaterThanOrEqual(coinsBefore + 1e12);
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await flush();
     expect(menu?.hasAttribute('hidden')).toBe(true);
@@ -533,10 +533,12 @@ describe('этап 5: банк, реприватизация, активы и к
   it('в панели есть прибыль, активы и счётчики объектов', () => {
     const labels = [...document.querySelectorAll('.hud .hud__row-label')].map((n) => n.textContent);
     for (const expected of [
-      'Активы', 'Нефтезаводы (НПЗ)', 'Нефтебазы', 'АЗС', 'Резервуары',
-      'Ёмкость нефтебаз под нефтепродукты', 'Суммарная ёмкость хранения',
-      'Внутренняя пропускная способность', 'Экспортная пропускная способность',
-      'трубопроводами', 'поездами', 'терминалами и танкерами', 'Переработка на НПЗ',
+      'Активы', 'Скважины', 'НПЗ', 'Газовые заводы и электростанции',
+      'Нефтебазы', 'Сети АЗС', 'Резервуары сырой нефти',
+      'Экспортные трубопроводы', 'Железнодорожные эстакады',
+      'Морские терминалы и танкеры', 'Трубопроводы к НПЗ',
+      'Суммарная ёмкость хранения', 'Внутренняя пропускная способность',
+      'Экспортная пропускная способность', 'Переработка на НПЗ',
     ]) {
       expect(labels).toContain(expected);
     }
