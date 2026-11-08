@@ -173,10 +173,10 @@ describe('производные показатели', () => {
     expect(taxRateOf(config, config.influence.cap)).toBeCloseTo(config.tax.minRate, 9);
   });
 
-  it('группа медиа даёт влияние по коэффициенту из конфига', () => {
+  it('принадлежность к группе не начисляет влияние без явного эффекта', () => {
     const media = makeUpgrade({ id: 'media', tab: 'political', group: 'media', type: 'priceBoost', effect: { factor: 1 } });
     const derived = computeDerived(config, [media], withUpgrades({ media: 1 }));
-    expect(derived.influence).toBe(config.influence.perGroup.media);
+    expect(derived.influence).toBe(0);
   });
 
   it('влияние продолжает расти выше базового ориентира 400', () => {
@@ -643,9 +643,13 @@ describe('товарная модель: сырая нефть → нефтеп�
     // Разбивка по транспорту сходится с общим экспортом.
     const byMode = d.flows.exportByMode;
     expect(byMode.pipeline + byMode.rail + byMode.tanker).toBeCloseTo(d.flows.export, 6);
-    expect(byMode.pipeline).toBeGreaterThan(0); // труба есть
-    expect(byMode.rail).toBeGreaterThan(0); // цистерны есть
-    expect(byMode.tanker).toBeGreaterThan(0); // танкеры есть
+    // Прямая труба имеет приоритет и забирает всю малую добычу.
+    expect(byMode.pipeline).toBeCloseTo(d.flows.export, 6);
+    expect(byMode.rail).toBe(0);
+    expect(byMode.tanker).toBe(0);
+    // Остальные виды транспорта всё равно имеют собственную пропускную способность.
+    expect(d.exportCapacityByMode.rail).toBeGreaterThan(0);
+    expect(d.exportCapacityByMode.tanker).toBeGreaterThan(0);
     expect(d.hasPipeline).toBe(true);
   });
 

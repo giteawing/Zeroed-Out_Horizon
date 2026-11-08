@@ -67,7 +67,7 @@ describe('магазин: пакетная покупка из реальной 
 });
 
 describe('HUD согласован с экономикой', () => {
-  it('показывает разлив без выручки и единую рыночную стоимость скважин', () => {
+  it('показывает складской статус и единую рыночную стоимость скважин', () => {
     const content = loadContent();
     content.config.oil.channels.contract.unlimited = false;
     content.config.oil.channels.contract.baseRate = 100;
@@ -81,8 +81,11 @@ describe('HUD согласован с экономикой', () => {
     hud.update(state, game.derived());
 
     const spill = hud.root.textContent ?? '';
-    expect(spill).toContain(content.texts.hud.productsSpill);
-    expect(game.derived().flows.productsSpill).toBeGreaterThan(0);
+    expect(spill).toContain(content.texts.hud.productStorageEtaLabel);
+    expect(game.derived().flows.productsSpill).toBe(0);
+    expect(
+      hud.root.querySelector('[data-row="productsStorageEta"]')?.textContent,
+    ).toContain(content.texts.hud.productStorageFull);
     expect(Number.isFinite(game.derived().grossPerSecond)).toBe(true);
 
     const assetsRow = [...hud.root.querySelectorAll('.hud__row')]

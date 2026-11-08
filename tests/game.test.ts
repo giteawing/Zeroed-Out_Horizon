@@ -274,35 +274,30 @@ describe('периодические бонусы', () => {
 });
 
 describe('нефтепродукты: производство сходится с продажей', () => {
-  it('излишек сверх рынка и склада разливается и штрафуется', () => {
-    const { game, state } = setup();
-    makeRich(state, 't_refinery', 60);
+  it('не перерабатывает нефть, если для продуктов нет рынка и складов', () => {
+    const localContent = structuredClone(content);
+    localContent.config.oil.channels.contract.baseRate = 0;
+    localContent.config.oil.channels.contract.unlimited = true;
+    localContent.config.oil.channels.export.baseRate = 0;
+    localContent.config.product.baseStorage = 0;
+    const state = createInitialState(localContent.config, 12345);
     state.wells = Array.from({ length: 40 }, () => ({ kind: 'unique' as const, dailyTonnes: 2500 }));
     state.levels = { t_refinery: 30 };
     state.oil = 0;
     state.products = 0;
-    game.invalidate();
-    // Нефтебаз нет вовсе — излишку некуда деваться, он выливается.
-    for (let i = 0; i < 120; i++) game.update(1000);
+    const game = new Game(localContent, state);
+    for (let i = 0; i < 20; i++) game.update(1000);
     const derived = game.derived();
+
     expect(derived.productCapacity).toBe(0);
-    expect(derived.flows.productsSpill).toBeGreaterThan(0);
-
-    // Разлив попал в журнал, с локацией и штрафом.
-    const spill = state.log.find((e) => e.kind === 'spill' && e.spill === 'products');
-    expect(spill).toBeDefined();
-    expect(spill!.tonnes).toBeGreaterThan(0);
-    expect(spill!.money).toBeGreaterThan(0);
-    expect(spill!.place).toBeTruthy();
-
-    // Норматив штрафа виден в расходах и снижается влиянием.
-    expect(derived.finePerSecond).toBeGreaterThan(0);
-    const poor = computeDerived(config, content.upgrades, { ...state, levels: {} }, [], content);
-    expect(derived.fineFactor).toBeLessThanOrEqual(poor.fineFactor + 1e-9);
-
-    // На складе не осталось того, что уже продано.
+    expect(derived.flows.refined).toBe(0);
+    expect(derived.flows.productsProduced).toBe(0);
+    expect(derived.flows.productsSpill).toBe(0);
+    expect(derived.finePerSecond).toBe(0);
+    // Сырьё уходит на внутренний контракт вместо дорогого штрафуемого разлива.
+    expect(derived.flows.domestic).toBeGreaterThan(0);
     expect(Number.isFinite(state.products)).toBe(true);
-    expect(state.products).toBeLessThanOrEqual(derived.productCapacity + 1e-6);
+    expect(state.products).toBe(0);
   });
 });
 

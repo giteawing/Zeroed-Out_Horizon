@@ -194,13 +194,22 @@ export function oilFlowsOf(
 
   const shares = options.modeShares;
   const nonPipelineShare = shares ? shares.rail + shares.tanker : 0;
-  const exportByMode: Record<ExportMode, number> = shares
+  const allModeShare = shares ? shares.pipeline + nonPipelineShare : 0;
+  const exportByMode: Record<ExportMode, number> = shares && options.pipeline === undefined
     ? {
-      pipeline: pipelineTonnes,
-      rail: nonPipelineShare > 1e-9 ? crude.byMarket.export * shares.rail / nonPipelineShare : 0,
-      tanker: nonPipelineShare > 1e-9 ? crude.byMarket.export * shares.tanker / nonPipelineShare : 0,
+      // Без отдельного прямого потока pipeline это доли распределения всего
+      // экспорта, а не резерв мощности трубы.
+      pipeline: allModeShare > 1e-9 ? exportTonnes * shares.pipeline / allModeShare : 0,
+      rail: allModeShare > 1e-9 ? exportTonnes * shares.rail / allModeShare : 0,
+      tanker: allModeShare > 1e-9 ? exportTonnes * shares.tanker / allModeShare : 0,
     }
-    : { pipeline: pipelineTonnes, rail: 0, tanker: 0 };
+    : shares
+      ? {
+        pipeline: pipelineTonnes,
+        rail: nonPipelineShare > 1e-9 ? crude.byMarket.export * shares.rail / nonPipelineShare : 0,
+        tanker: nonPipelineShare > 1e-9 ? crude.byMarket.export * shares.tanker / nonPipelineShare : 0,
+      }
+      : { pipeline: pipelineTonnes, rail: 0, tanker: 0 };
 
   return {
     produced: total,

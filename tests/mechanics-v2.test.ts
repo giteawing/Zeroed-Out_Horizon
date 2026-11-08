@@ -75,7 +75,7 @@ describe('новые покупки из заявки', () => {
 
   it('девальвация требует влияния 1001 и становится доступна за пределом 1000', () => {
     const def = content.byId.get('p_devalue_currency')!;
-    expect(def.unlockAt?.influence).toBe(1001);
+    expect(def.unlockAt?.influence).toBe(301);
     expect(def.maxLevel).toBeGreaterThan(1);
     const { game, state } = setup();
     state.levels = Object.fromEntries(content.upgrades.map((upgrade) => [
@@ -83,7 +83,7 @@ describe('новые покупки из заявки', () => {
       upgrade.id === def.id ? 0 : upgrade.maxLevel,
     ]));
     game.invalidate();
-    expect(game.derived().influence).toBeGreaterThan(1000);
+    expect(game.derived().influence).toBeGreaterThan(300);
     expect(game.checkBuy(def.id).unlocked).toBe(true);
   });
 
@@ -313,11 +313,9 @@ describe('налог зависит только от влияния и чино
     const { game, state } = setup();
     const base = game.derived().taxRate;
     expect(base).toBeCloseTo(config.tax.baseRate, 6);
-    // Накидываем политические покупки: влияние растёт, налог падает.
+    // Только явные источники влияния должны снижать налог.
     rich(state);
-    for (const id of ['p_sauna', 'p_fund', 'p_ministry']) {
-      state.levels[id] = content.byId.get(id)!.maxLevel;
-    }
+    state.levels.p_gov = 1;
     game.invalidate();
     const lowered = game.derived().taxRate;
     expect(game.derived().influence).toBeGreaterThan(0);

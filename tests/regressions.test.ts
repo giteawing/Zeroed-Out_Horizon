@@ -192,6 +192,7 @@ describe('единая финансовая модель продаж', () => {
     const content = freshContent();
     content.config.oil.channels.contract.unlimited = false;
     content.config.oil.channels.contract.baseRate = 100;
+    content.config.product.baseStorage = 0;
     const derive = (dailyTonnes: number) => {
       const state = createInitialState(content.config, 1);
       state.levels.t_refinery = 1;
@@ -200,8 +201,12 @@ describe('единая финансовая модель продаж', () => {
     };
     const crowded = derive(10_000);
     const moreCrowded = derive(20_000);
-    expect(crowded.flows.productsSpill).toBeGreaterThan(0);
-    expect(moreCrowded.flows.productsSpill).toBeCloseTo(crowded.flows.productsSpill, 6);
+    // Переработка ограничена рынком продуктов: непринимаемый выпуск не
+    // создаётся, поэтому не попадает в разлив и не увеличивает чистую прибыль.
+    expect(crowded.flows.productsSpill).toBe(0);
+    expect(moreCrowded.flows.productsSpill).toBe(0);
+    expect(crowded.flows.productsProduced).toBeCloseTo(100, 6);
+    expect(moreCrowded.flows.refined).toBeCloseTo(crowded.flows.refined, 6);
     expect(moreCrowded.grossPerSecond).toBeCloseTo(crowded.grossPerSecond, 6);
     expect(moreCrowded.netPerSecond).toBeCloseTo(crowded.netPerSecond, 6);
     expect(crowded.grossPerSecond).toBeCloseTo(
@@ -282,6 +287,7 @@ describe('сырьё, мощности и игровое время', () => {
       const content = freshContent();
       freezeWorldPrice(content);
       const state = rich(content, 0);
+      content.config.oil.wells.decline.minFactor = 1;
       state.wells = [{ kind: 'unique', dailyTonnes: 10 }];
       scenario.apply(content, state);
       const game = new Game(content, state);

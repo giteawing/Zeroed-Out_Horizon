@@ -49,7 +49,7 @@
       fill="#fdf3dd" stroke="#17110c" stroke-width="8" paint-order="stroke" letter-spacing="2">ГОРИЗОНТА</text>
 
     <!-- акценты -->
-    <path d="M268 35.2c5.5 6.6 7.7 9.9 7.7 12.1a7.7 7.7 0 0 1 -15.4 0c0 -2.2 2.2 -5.5 7.7 -12.1Z" fill="url(#oil)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  /><path d="M300 24.4c3.5 4.2 4.9 6.3 4.9 7.7a4.9 4.9 0 0 1 -9.8 0c0 -1.4 1.4 -3.5 4.9 -7.7Z" fill="url(#oil)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  /><path d="M600 260c5 6 7 9 7 11a7 7 0 0 1 -14 0c0 -2 2 -5 7 -11Z" fill="url(#oil)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  />
+    <path d="M268 35.2c5.5 6.6 7.7 9.9 7.7 12.1a7.7 7.7 0 0 1 -15.4 0c0 -2.2 2.2 -5.5 7.7 -12.1Z" fill="url(#oilGrad)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  /><path d="M300 24.4c3.5 4.2 4.9 6.3 4.9 7.7a4.9 4.9 0 0 1 -9.8 0c0 -1.4 1.4 -3.5 4.9 -7.7Z" fill="url(#oil)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  /><path d="M600 260c5 6 7 9 7 11a7 7 0 0 1 -14 0c0 -2 2 -5 7 -11Z" fill="url(#oil)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  />
     <path d="M628 48L631.36 56.64L640 60L631.36 63.36L628 72L624.64 63.36L616 60L624.64 56.64Z" fill="#ffd766" opacity="0.95" /><path d="M40 31L42.52 37.48L49 40L42.52 42.52L40 49L37.48 42.52L31 40L37.48 37.48Z" fill="#ffd766" opacity="0.95" />
   </g>
 </svg>
