@@ -213,6 +213,16 @@ describe('производные показатели', () => {
     expect(costFor(config, late, 0)).toBeLessThan(late.baseCost);
   });
 
+  it('денежные требования открытия используют ту же кривую', () => {
+    const threshold = adjustCurrencyCost(config, 1_000_000_000_000);
+    const def = makeUpgrade({ id: 'unlock-test', unlockAt: { balance: 1_000_000_000_000 } });
+    const state = createInitialState(config, 74);
+    state.totalEarned = threshold - 1;
+    expect(unlockBlocker(def, state, 0, config)).toEqual({ kind: 'balance', value: threshold });
+    state.totalEarned = threshold;
+    expect(unlockBlocker(def, state, 0, config)).toBeNull();
+  });
+
   it('чистый доход не уходит в минус даже при огромных расходах', () => {
     const bad = makeUpgrade({ id: 'bad', type: 'passive', effect: { value: 1, salaryAdd: 500 } });
     const d = computeDerived(config, [bad], withUpgrades({ bad: 10 }));

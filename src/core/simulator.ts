@@ -7,7 +7,7 @@
  * Бот детерминированный (свой ГПСЧ) — тесты не «мигают».
  */
 import { Game } from './game';
-import { bankScaleOf, computeDerived, eventPayout, isUnlocked, levelOf, unlockBlocker, wellPricePerDailyTonne, winCostOf } from './economy';
+import { adjustCurrencyCost, bankScaleOf, computeDerived, eventPayout, isUnlocked, levelOf, unlockBlocker, wellPricePerDailyTonne, winCostOf } from './economy';
 import { isRepeatable } from './game';
 import { createInitialState } from './state';
 import { Rng } from './rng';
@@ -197,7 +197,7 @@ export function decide(
   const winDef = content.upgrades.find((u) => u.win);
   const requirementsMet = (): boolean => content.config.winRequirements.every((req) => {
     if (req.upgrade && levelOf(state, req.upgrade) < (req.level ?? 1)) return false;
-    if (req.balance !== undefined && state.totalEarned < req.balance) return false;
+    if (req.balance !== undefined && state.totalEarned < adjustCurrencyCost(content.config, req.balance)) return false;
     if (req.influence !== undefined && derived.influence < req.influence) return false;
     return true;
   });

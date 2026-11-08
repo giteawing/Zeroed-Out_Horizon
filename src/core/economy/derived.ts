@@ -153,7 +153,7 @@ export function isWinReady(
       requirement.upgrade !== undefined &&
       levelOf(state, requirement.upgrade) < (requirement.level ?? 1)
     ) return false;
-    if (requirement.balance !== undefined && state.totalEarned < requirement.balance) return false;
+    if (requirement.balance !== undefined && state.totalEarned < adjustCurrencyCost(config, requirement.balance)) return false;
     if (requirement.influence !== undefined && influence < requirement.influence) return false;
   }
   return true;
