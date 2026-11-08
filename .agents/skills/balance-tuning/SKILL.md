@@ -15,7 +15,7 @@ description: Use when changing upgrade prices, production multipliers, winCost, 
 
 - `src/core/simulator.ts` — детерминированный бот; использует `Game` и
   реальные правила экономики. Сохраняй детерминированность и seed.
-- `tests/balance-profiles.test.ts` — три контрольных профиля прохождения.
+- `tests/balance-profiles.test.ts` — три контрольных профиля и профиль оптимизатора повторяемых действий.
 - `tests/balance.test.ts` — темп, выкуп контента и устойчивость роста экономики.
 - `scripts/balance-report.ts` — сравнивает кандидаты winCost с профилями:
   - ленивый: 4 тапа/с, diligence 0.70, терпение экспорта 20 с;
@@ -36,9 +36,10 @@ npm run balance:auto
 
 ## Опасная операция записи
 
-`npx tsx scripts/auto-balance.ts --write` записывает новые цены сразу в
-`src/content/upgrades.json` и `src/content/config.json`. Запускай её только
-при явной задаче на перебалансировку или после согласования владельца.
+`--write` у `auto-balance.ts`, `tune-2d.ts` и `tune-scale.ts` требует
+дополнительного `--i-know`. Даже с этим флагом запись запускай только по
+явной задаче владельца; сначала сохрани исходные JSON и проверь diff.
+`migrate-oil-model.ts` отключён как устаревший и перезаписывающий контент.
 Скрипт сериализует список покупок заново: внимательно проверь весь diff,
 включая комментарии, порядок, закреплённые цены и специальные типы покупок.
 

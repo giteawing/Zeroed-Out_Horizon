@@ -7,7 +7,7 @@
  * баланс не раскачивается.
  *
  * Запуск: npx tsx scripts/tune-scale.ts            — подобрать и показать
- *         npx tsx scripts/tune-scale.ts --write     — записать цены
+ *         npx tsx scripts/tune-scale.ts --write --i-know — записать winCost
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -20,9 +20,14 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
 const upgradesPath = resolve(root, 'src/content/upgrades.json');
 const WRITE = process.argv.includes('--write');
+const ACKNOWLEDGED = process.argv.includes('--i-know');
+if (WRITE && !ACKNOWLEDGED) {
+  console.error('Запись меняет winCost и цену финала. Повторите запуск с --write --i-know после проверки diff.');
+  process.exit(1);
+}
 /** Целевое время прохождения, минуты (ТЗ §5.3: 15–20). */
 const TARGET_MINUTES = 17.5;
-const WIN_COST = 3e12;
+const WIN_COST = loadContent().config.winCost;
 
 function contentWith(k: number): Content {
   const content = loadContent();
@@ -57,7 +62,7 @@ function minutesForWinCost(winCost: number): number {
 }
 
 let loCost = 1e6;
-let hiCost = 1e16;
+let hiCost = Math.max(1e16, WIN_COST * 100_000);
 for (let i = 0; i < 26; i++) {
   const mid = Math.sqrt(loCost * hiCost);
   const minutes = minutesForWinCost(mid);

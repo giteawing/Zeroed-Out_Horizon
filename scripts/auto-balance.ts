@@ -9,7 +9,7 @@
  *   3) повторяем, пока цены не устоятся.
  *
  * Запуск:  npx tsx scripts/auto-balance.ts            — только отчёт
- *          npx tsx scripts/auto-balance.ts --write     — записать upgrades.json + winCost
+ *          npx tsx scripts/auto-balance.ts --write --i-know — опасная запись upgrades.json + winCost
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -24,6 +24,11 @@ const upgradesPath = resolve(root, 'src/content/upgrades.json');
 const configPath = resolve(root, 'src/content/config.json');
 
 const WRITE = process.argv.includes('--write');
+const ACKNOWLEDGED = process.argv.includes('--i-know');
+if (WRITE && !ACKNOWLEDGED) {
+  console.error('Запись перезаписывает upgrades.json и config.json. Для подтверждения используйте --write --i-know и обязательно проверьте diff.');
+  process.exit(1);
+}
 const ROUNDS = WRITE ? 18 : 1;
 
 /** Первая покупка примерно на 25-й секунде, последняя (кроме победы) — на ~15,5 мин. */

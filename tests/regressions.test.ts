@@ -10,7 +10,7 @@ import {
 } from '../src/core/economy';
 import { createInitialState, normalizeState } from '../src/core/state';
 import { decide, estimatedGain } from '../src/core/simulator';
-import type { Content, GameEvent } from '../src/core/types';
+import type { Content, GameEvent, GameState } from '../src/core/types';
 
 const original = loadContent();
 function freshContent(): Content {
@@ -265,6 +265,36 @@ describe('сырьё, мощности и игровое время', () => {
     expect(Math.abs(big.coins - small.coins) / small.coins).toBeLessThan(0.01);
   });
 
+  it('расчёт потоков совпадает с кассой на сценариях трубы, НПЗ и АЗС', () => {
+    const scenarios = [
+      { name: 'без трубы', apply: (_content: Content, _state: GameState) => {} },
+      { name: 'с трубой', apply: (_content: Content, state: GameState) => { state.levels.t_pipeline = 1; } },
+      {
+        name: 'НПЗ без нефтебаз',
+        apply: (content: Content, state: GameState) => {
+          content.config.product.baseStorage = 0;
+          state.levels.t_refinery = 1;
+        },
+      },
+      { name: 'с АЗС', apply: (_content: Content, state: GameState) => { state.levels.t_azs = 1; } },
+    ];
+    for (const scenario of scenarios) {
+      const content = freshContent();
+      freezeWorldPrice(content);
+      const state = rich(content, 0);
+      state.wells = [{ kind: 'unique', dailyTonnes: 10 }];
+      scenario.apply(content, state);
+      const game = new Game(content, state);
+      const expectedNetPerSecond = game.derived().netPerSecond;
+      const before = state.totalEarned;
+      game.update(10_000);
+      const actualNetPerSecond = (state.totalEarned - before) / 10;
+      const relativeError = Math.abs(actualNetPerSecond - expectedNetPerSecond) /
+        Math.max(1, Math.abs(expectedNetPerSecond));
+      expect(relativeError, scenario.name).toBeLessThan(0.01);
+    }
+  });
+
   it('штраф от ручного переполнения не теряется до следующего финансового шага', () => {
     const content = freshContent();
     content.config.oil.channels.contract.unlimited = false;
@@ -281,6 +311,24 @@ describe('сырьё, мощности и игровое время', () => {
     expect(restored.expensesAccrued).toBeGreaterThan(0);
     expect(restored.spillCrudePerSecond).toBeGreaterThan(0);
     expect(state.coins).toBe(0);
+  });
+
+  it('за пять секунд перелива журнал и события получают агрегированную запись', () => {
+    const content = freshContent();
+    content.config.oil.channels.contract.unlimited = false;
+    content.config.oil.channels.contract.baseRate = 0;
+    content.config.product.baseStorage = 0;
+    const state = rich(content, 0);
+    state.wells = [{ kind: 'unique', dailyTonnes: 20_000 }];
+    const game = new Game(content, state);
+    const spillEvents: GameEvent[] = [];
+    game.on(event => { if (event.type === 'spill') spillEvents.push(event); });
+    game.update(5000);
+    const spillLogCount = state.log.filter(entry => entry.kind === 'spill').length;
+    expect(spillLogCount).toBeGreaterThan(0);
+    expect(spillLogCount).toBeLessThanOrEqual(2);
+    expect(spillEvents.length).toBeGreaterThan(0);
+    expect(spillEvents.length).toBeLessThanOrEqual(2);
   });
 
   it('загрузка сейва не возвращает трубе уже израсходованную мощность', () => {

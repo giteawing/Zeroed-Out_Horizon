@@ -1,5 +1,5 @@
 /**
- * Три контрольных профиля прохождения: ленивый, обычный и упорный игрок.
+ * Три базовых профиля и отдельный оптимизатор, оценивающий повторяемые действия.
  * Отделены от остальных баланс-проверок, чтобы один worker не выполнял
  * длинный синхронный файл дольше внутреннего RPC-порога Vitest.
  */
@@ -13,6 +13,7 @@ const PROFILES: Array<{ name: string; options: SimulatorOptions }> = [
   { name: 'ленивый (4 тапа/с)', options: { tapsPerSecond: 4, tapDiligence: 0.7, seed: 101 } },
   { name: 'обычный (5 тапов/с)', options: { tapsPerSecond: 5, tapDiligence: 0.85, seed: 202 } },
   { name: 'упорный (6 тапов/с)', options: { tapsPerSecond: 6, tapDiligence: 0.95, seed: 303 } },
+  { name: 'оптимизатор повторяемых действий', options: { tapsPerSecond: 5, tapDiligence: 0.85, seed: 404, strategy: 'optimizer' } },
 ];
 
 describe('профили прохождения игры', () => {

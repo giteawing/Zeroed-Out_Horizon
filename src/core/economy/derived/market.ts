@@ -134,6 +134,11 @@ export function calculateMarket(
   const productPriceDomestic = domesticOilPricePerTon * config.product.domesticPriceFactor;
   const productPriceExport = exportOilPricePerTon * config.product.exportPriceFactor;
 
+  const shipmentWindowSeconds = Math.max(
+    0.001,
+    config.oil.shipDays * config.oil.wells.secondsPerDay - state.shipTimerMs / 1000,
+  );
+  const productStorageFree = Math.max(0, productStorage - state.products);
   const flows = oilFlowsOf(config, capacities, producedPerSecond, {
     prices: {
       crudeDomestic: channels.contract.price,
@@ -143,6 +148,9 @@ export function calculateMarket(
     },
     pipeline: pipelineShare,
     productStorage,
+    productStorageFree,
+    productInventory: state.products,
+    storageHorizonSeconds: shipmentWindowSeconds,
     modeShares: exportCapacityByMode,
   });
 

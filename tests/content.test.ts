@@ -262,6 +262,18 @@ describe('целостность данных', () => {
     expect(() =>
       validateUpgrades([{ ...byId.get('t_well')!, unlockAt: { upgrade: 'нет-такой' } }]),
     ).toThrow();
+    expect(() =>
+      validateUpgrades([{ ...byId.get('t_well')!, effect: { channel: 'unknown' as never } }]),
+    ).toThrow(/канал/);
+    expect(() =>
+      validateUpgrades([{ ...byId.get('t_well')!, effect: { exportMode: 'truck' as never } }]),
+    ).toThrow(/способ экспорта/);
+    expect(() =>
+      validateUpgrades([{ ...byId.get('t_well')!, effect: { channelSplit: { crude: 1.5 } } }]),
+    ).toThrow(/channelSplit/);
+    expect(() =>
+      validateUpgrades([{ ...byId.get('t_well')!, unlockAt: { influence: -1 } }]),
+    ).toThrow(/unlockAt.influence/);
     expect(() => validateUpgrades([])).toThrow(/финальной/);
   });
 
@@ -279,6 +291,12 @@ describe('целостность данных', () => {
       'luxury',
     ]) {
       expect(types.has(type as never), `тип ${type} не используется`).toBe(true);
+    }
+  });
+
+  it('каждая покупка имеет локализованное имя в texts.upgrades', () => {
+    for (const upgrade of content.upgrades) {
+      expect(content.texts.upgrades[upgrade.id], `нет текста для ${upgrade.id}`).toBeTruthy();
     }
   });
 

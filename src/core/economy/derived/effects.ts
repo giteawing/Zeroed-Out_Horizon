@@ -8,7 +8,6 @@ import { levelOf } from '../purchases';
 
 const GROUPS_OFFICIALS = new Set(['grants', 'taxes', 'deals', 'conquest', 'favors', 'pmc']);
 const GROUPS_STAFF = new Set(['staff', 'crew']);
-const GROUPS_INFLUENCE = new Set(['grants', 'taxes', 'deals', 'conquest', 'favors', 'pmc', 'media']);
 
 export interface UpgradeEffects {
   tapFlat: number;
@@ -91,13 +90,10 @@ export function collectUpgradeEffects(
 
     if (GROUPS_STAFF.has(def.group)) result.staffLevels += level;
     if (GROUPS_OFFICIALS.has(def.group)) result.officialLevels += level;
-    if (GROUPS_INFLUENCE.has(def.group)) {
-      const perLevel = config.influence.perGroup[def.group] ?? 1;
-      result.influenceFromLevels += perLevel * level;
-      result.conquestCut += (perLevel * level) / 2000;
+    if (effect.influence) {
+      result.influenceFromLevels += effect.influence * level;
+      result.conquestCut += (effect.influence * level) / 2000;
     }
-
-    if (effect.influence) result.influenceFromLevels += effect.influence * level;
     if (effect.conquestCut) result.conquestCut += effect.conquestCut * level;
 
     switch (def.type) {

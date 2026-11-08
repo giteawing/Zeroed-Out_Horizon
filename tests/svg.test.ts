@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { Resvg } from '@resvg/resvg-js';
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -20,6 +21,8 @@ describe('целостность SVG-ресурсов', () => {
       const missing = [...new Set(refs.filter((id) => !ids.has(id)))];
       expect(missing, path).toEqual([]);
       expect(source, path).not.toContain('undefined');
+      const rendered = new Resvg(source, { fitTo: { mode: 'width', value: 128 } }).render();
+      expect(rendered.asPng().byteLength, path).toBeGreaterThan(0);
     }
   });
 });

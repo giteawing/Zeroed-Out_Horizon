@@ -539,6 +539,20 @@ describe('товарная модель: сырая нефть → нефтеп�
     );
   });
 
+  it('влияние даётся только покупками с явным effect.influence', () => {
+    const state = createInitialState(config, 62);
+    state.levels = { p_optimize: 8, pmc_chvk: 1 };
+    const derived = computeDerived(config, content.upgrades, state, [], content);
+    expect(derived.influence).toBeCloseTo(12, 9);
+  });
+
+  it('ожидаемая выплата гэмблов не превышает их стоимость', () => {
+    for (const id of ['p_crisis', 'p_fuelcrisis']) {
+      const effect = content.byId.get(id)!.effect;
+      expect((effect.chance ?? 0.5) * (effect.factor ?? 1)).toBeLessThan(1);
+    }
+  });
+
   it('мощности сбыта растут от построенных объектов', () => {
     const state = createInitialState(config, 61);
     // Добыча заведомо больше внутреннего рынка — иначе экспорту нечего брать.
@@ -571,6 +585,47 @@ describe('товарная модель: сырая нефть → нефтеп�
     expect(rest.refined).toBeCloseTo(50, 6);
     expect(rest.export).toBeCloseTo(80, 6);
     expect(rest.domestic).toBeCloseTo(70, 6);
+  });
+
+  it('запас нефтепродуктов использует рыночную мощность до свежего выхода НПЗ', () => {
+    const caps = {
+      domestic: { crude: 100, products: 10 },
+      export: { crude: 0, products: 10 },
+      refine: 1000,
+    };
+    const withoutStock = oilFlowsOf(limitedConfig, caps, 1000, {
+      prices: equalPrices,
+      productStorage: 0,
+      productStorageFree: 0,
+      storageHorizonSeconds: 5,
+    });
+    const withStock = oilFlowsOf(limitedConfig, caps, 1000, {
+      prices: equalPrices,
+      productStorage: 0,
+      productStorageFree: 0,
+      productInventory: 100,
+      storageHorizonSeconds: 5,
+    });
+    expect(withoutStock.refined).toBeGreaterThan(0);
+    expect(withStock.refined).toBe(0);
+    expect(withStock.domestic).toBeGreaterThan(0);
+  });
+
+  it('прямой трубопровод резервирует мощность до маршрутизации остатка', () => {
+    const pipeFirst = oilFlowsOf(
+      limitedConfig,
+      { domestic: { crude: 0, products: 0 }, export: { crude: 80, products: 0 }, refine: 0 },
+      50,
+      {
+        pipeline: 0.5,
+        modeShares: { pipeline: 0.5, rail: 0.5, tanker: 0 },
+        prices: { ...equalPrices, crudeExport: 10 },
+      },
+    );
+    expect(pipeFirst.export).toBeCloseTo(50, 6);
+    expect(pipeFirst.exportByMode.pipeline).toBeCloseTo(40, 6);
+    expect(pipeFirst.exportByMode.rail).toBeCloseTo(10, 6);
+    expect(pipeFirst.exportByMode.tanker).toBe(0);
   });
 
   it('экспорт забирает нефть первым и делится по видам транспорта', () => {
@@ -650,35 +705,29 @@ describe('товарная модель: сырая нефть → нефтеп�
     ).toBeCloseTo(100, 6);
   });
 
-  it('производство продуктов = продажа + склад + сверх склада', () => {
-    // Жалоба заказчика: «в нефтепродуктах не бьётся математика — производство
-    // не равно продаже на вн. рынке + экспорт». Топливо, которому не хватило
-    // рынка, остаётся на нефтебазах, а сверх их ёмкости уходит по внутренней
-    // цене. Сходиться обязано при любых мощностях.
-    const cases = [
-      { domestic: { crude: 0, products: 100 }, export: { crude: 0, products: 0 }, refine: 1000 },
-      { domestic: { crude: 0, products: 100 }, export: { crude: 0, products: 50 }, refine: 1000 },
-      { domestic: { crude: 0, products: 900 }, export: { crude: 0, products: 900 }, refine: 1000 },
-      { domestic: { crude: 0, products: 0 }, export: { crude: 0, products: 0 }, refine: 1000 },
-    ];
-    for (const caps of cases) {
-      const sold = oilFlowsOf(limitedConfig, caps, 1000, {
-        prices: equalPrices,
-        productStorage: 2000,
-      });
-      expect(
-        sold.productsDomestic + sold.productsExport + sold.productsStored + sold.productsSpill,
-      ).toBeCloseTo(sold.productsProduced, 6);
-    }
-    // Склад переполнен: излишек не исчезает, а разливается и штрафуется.
-    const cramped = oilFlowsOf(
-      config,
+  it('производство продуктов не превышает доступные рынки и свободное место складов', () => {
+    // НПЗ не должен перерабатывать нефть, если выход некуда продать или положить.
+    const noOutlet = oilFlowsOf(
+      limitedConfig,
+      { domestic: { crude: 1000, products: 0 }, export: { crude: 0, products: 0 }, refine: 1000 },
+      1000,
+      { prices: equalPrices, productStorage: 100, storageHorizonSeconds: 5, productStorageFree: 100 },
+    );
+    expect(noOutlet.refined * config.oil.refineryYield).toBeLessThanOrEqual(20 + 1e-9);
+    expect(noOutlet.productsStored).toBeCloseTo(noOutlet.productsProduced, 6);
+    expect(noOutlet.productsSpill).toBe(0);
+    expect(noOutlet.domestic).toBeGreaterThan(0);
+
+    // Поток хранения — т/с: 100 тонн свободной ёмкости на пять секунд дают 20 т/с.
+    const limitedStorage = oilFlowsOf(
+      limitedConfig,
       { domestic: { crude: 0, products: 0 }, export: { crude: 0, products: 0 }, refine: 1000 },
       1000,
-      { prices: equalPrices, productStorage: 100 },
+      { prices: equalPrices, productStorage: 100, storageHorizonSeconds: 5, productStorageFree: 100 },
     );
-    expect(cramped.productsStored).toBeCloseTo(100, 6);
-    expect(cramped.productsSpill).toBeGreaterThan(0);
+    expect(limitedStorage.productsStored).toBeLessThanOrEqual(20 + 1e-9);
+    expect(limitedStorage.productsStored + limitedStorage.productsSpill)
+      .toBeCloseTo(limitedStorage.productsProduced, 6);
   });
 
   it('у рынков свои доступные объёмы для сырья и нефтепродуктов', () => {

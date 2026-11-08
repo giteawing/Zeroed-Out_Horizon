@@ -169,6 +169,7 @@ export class Hud {
             // Нефтебазы хранят нефтепродукты: показываем, сколько их лежит
             // и сколько всего влезает.
             row('productsOnHand', texts.get('hud.productStorage'), 'hud__row-value--stored').root,
+            row('productsStorageEta', texts.get('hud.productStorageEtaLabel'), 'hud__row-value--stored').root,
             // Те же «доступные объёмы» рынков, но для нефтепродуктов.
             row('productsMarketDomestic', texts.get('hud.marketDomestic'),
               'hud__row-value--market').root,
@@ -360,6 +361,13 @@ export class Hud {
       capacity: formatNumber(derived.productCapacity),
       tonnes,
     }));
+    const storageEta = derived.productStorageSecondsToFull;
+    const storageEtaText = storageEta <= 0
+      ? this.texts.get('hud.productStorageFull')
+      : Number.isFinite(storageEta)
+        ? this.texts.get('hud.productStorageEta', { seconds: formatNumber(Math.ceil(storageEta)) })
+        : this.texts.get('hud.productStorageEtaNever');
+    set('productsStorageEta', storageEtaText);
     const moneyRate = (value: number): string => units('moneyRate', {
       value: formatMoney(value, this.currency),
       s: perSecond.replace('/', ''),

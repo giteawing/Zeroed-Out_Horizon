@@ -636,6 +636,8 @@ export interface DerivedStats {
   exportCapacityByMode: Record<ExportMode, number>;
   /** Ёмкость нефтебаз под нефтепродукты, тонн. */
   productCapacity: number;
+  /** Прогноз секунд до заполнения склада; Infinity — накопления нет. */
+  productStorageSecondsToFull: number;
   /** Есть ли трубопровод: тогда нефть уходит в трубу, минуя резервуары. */
   hasPipeline: boolean;
   /**

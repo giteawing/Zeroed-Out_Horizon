@@ -65,7 +65,7 @@
     "productStorage": "на нефтебазах",
     "marketDomestic": "доступный объём вн. рынка",
     "marketExport": "доступный объём экспорта",
-    "productsUnsold": "осталось на нефтебазах",
+    "productsUnsold": "в накопление на нефтебазах",
     "productsSpill": "сверх склада · разлив и штраф",
     "fineTitle": "Норматив штрафа",
     "fineHint": "за разлив, скидка {relief}",
@@ -96,7 +96,11 @@
     "assetsEquipment": "Оборудование",
     "assetsMedia": "Газеты и телеканалы",
     "assetsFacilities": "Принадлежащие объекты",
-    "exchangeRate": "Нефтефантиков за $1"
+    "exchangeRate": "Нефтефантиков за $1",
+    "productStorageEtaLabel": "до заполнения склада",
+    "productStorageEta": "через {seconds} с",
+    "productStorageFull": "нефтебазы заполнены",
+    "productStorageEtaNever": "склад не заполняется"
   },
   "tabs": {
     "political": "Политика",

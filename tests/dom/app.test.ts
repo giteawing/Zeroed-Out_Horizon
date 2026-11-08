@@ -149,6 +149,7 @@ describe('HUD', () => {
     expect(document.querySelector('.topbar__influence-fill')).not.toBeNull();
     // Панель империи: резервуары, сырая нефть, нефтепродукты, прибыль.
     expect(document.querySelector('.hud__oilbar')).not.toBeNull();
+    expect(document.querySelector('[data-row="productsStorageEta"]')).not.toBeNull();
     expect(document.querySelector('.hud__prices')?.textContent).toContain('мировая цена');
     const text = document.querySelector('.hud')?.textContent ?? '';
     expect(text).toContain('Сырая нефть');
@@ -199,9 +200,10 @@ describe('HUD', () => {
 
   it('панель империи стоит в правом столбце и не прячется', () => {
     const side = document.querySelector('.stage__side');
-    expect(side?.querySelector('.hud')).not.toBeNull();
+    expect(side).not.toBeNull();
+    expect(side!.querySelector('.hud')).not.toBeNull();
     // HUD внутри боковой колонки доходит до магазина, но не перекрывается им.
-    expect(side?.firstElementChild?.classList.contains('hud')).toBe(true);
+    expect(side!.firstElementChild?.classList.contains('hud')).toBe(true);
   });
 
   it('под долотом есть журнал операций', () => {
@@ -236,19 +238,23 @@ describe('магазин', () => {
   it('переключает вкладки и показывает свои покупки', () => {
     const tabs = [...document.querySelectorAll<HTMLButtonElement>('.tab')];
     const political = tabs.find((tab) => tab.textContent === 'Политика');
-    political?.click();
+    expect(political).not.toBeNull();
+    political!.click();
     expect(document.querySelector('.tab--active')?.textContent).toBe('Политика');
     expect(document.querySelector('.shop__list')?.textContent ?? '').toContain('императора');
 
     const production = tabs.find((tab) => tab.textContent === 'Добыча');
-    production?.click();
+    expect(production).not.toBeNull();
+    production!.click();
     expect(document.querySelector('.shop__list')?.textContent ?? '').toContain('нефтеперерабатывающий завод');
     const sales = tabs.find((tab) => tab.textContent === 'Сбыт');
-    sales?.click();
+    expect(sales).not.toBeNull();
+    sales!.click();
     expect(document.querySelector('.shop__list')?.textContent ?? '').toContain('железнодорожную эстакаду');
 
     const luxury = tabs.find((tab) => tab.textContent === 'Роскошь');
-    luxury?.click();
+    expect(luxury).not.toBeNull();
+    luxury!.click();
     // На старте открыты только дешёвые предметы роскоши — остальные закрыты.
     expect(document.querySelector('.shop__list')?.textContent ?? '').toContain('Подержанная иномарка');
     expect(document.querySelectorAll('.card').length).toBeGreaterThan(0);
@@ -265,7 +271,7 @@ describe('магазин', () => {
     const buy = document.querySelector<HTMLButtonElement>('.card__buy:not([disabled])');
     expect(buy).not.toBeNull();
     const purchasesBefore = game.state.totalPurchases;
-    buy?.click();
+    buy!.click();
     await flush();
     expect(game.state.totalPurchases).toBe(purchasesBefore + 1);
   });
@@ -283,13 +289,14 @@ describe('расшифровка собственности', () => {
   it('агрегирует мощности и открывает подробную оценку активов', () => {
     const property = document.querySelector('[data-group="property"]');
     expect(property).not.toBeNull();
-    expect(property?.querySelector('[data-row="wellsCount"]')).not.toBeNull();
-    expect(property?.querySelector('[data-row="assetsExportPipe"]')).not.toBeNull();
-    expect(property?.querySelector('[data-row="assetsExportRail"]')).not.toBeNull();
-    expect(property?.querySelector('[data-row="assetsExportTanker"]')).not.toBeNull();
-    const assets = property?.querySelector<HTMLElement>('[data-row="assets"]');
-    expect(assets?.getAttribute('role')).toBe('button');
-    assets?.click();
+    expect(property!.querySelector('[data-row="wellsCount"]')).not.toBeNull();
+    expect(property!.querySelector('[data-row="assetsExportPipe"]')).not.toBeNull();
+    expect(property!.querySelector('[data-row="assetsExportRail"]')).not.toBeNull();
+    expect(property!.querySelector('[data-row="assetsExportTanker"]')).not.toBeNull();
+    const assets = property!.querySelector<HTMLElement>('[data-row="assets"]');
+    expect(assets).not.toBeNull();
+    expect(assets!.getAttribute('role')).toBe('button');
+    assets!.click();
     const sheet = [...document.querySelectorAll<HTMLElement>('.sheet')].find((node) => node.querySelector('.assets__list'))!;
     expect(sheet.hasAttribute('hidden')).toBe(false);
     expect(sheet.textContent).toContain('Итого стоимость активов');
@@ -410,7 +417,8 @@ describe('мировая цена, магазин и инженерное мен
     document.querySelector<HTMLButtonElement>('.iconbtn--menu')?.click();
     const devButton = document.querySelector<HTMLButtonElement>('[data-menu="dev"]');
     expect(devButton).not.toBeNull();
-    devButton?.click();
+    expect(devButton).not.toBeNull();
+    devButton!.click();
     const menu = document.querySelector<HTMLElement>('.sheet__inner.dev')?.closest('.sheet');
     expect(menu?.hasAttribute('hidden')).toBe(false);
     const coinsBefore = game.state.coins;
@@ -483,7 +491,8 @@ describe('финал', () => {
 
   it('«Играть снова» сбрасывает прогресс', async () => {
     const again = document.querySelector<HTMLButtonElement>('.credits__actions .btn--gold');
-    again?.click();
+    expect(again).not.toBeNull();
+    again!.click();
     await flush();
     expect(game.state.won).toBe(false);
     expect(game.state.coins).toBe(0);

@@ -94,6 +94,15 @@ export class Game {
   /** Сглаженный фактический доход (то, что реально капает на счёт), ₦/с. */
   private revenueEma = 0;
   private lastSaleLogMs = 0;
+  private lastSpillLogMs: Record<'crude' | 'products', number> = {
+    crude: Number.NEGATIVE_INFINITY,
+    products: Number.NEGATIVE_INFINITY,
+  };
+  private readonly spillBuckets: Record<'crude' | 'products', {
+    tonnes: number;
+    fine: number;
+    place: string;
+  } | null> = { crude: null, products: null };
   /** Последняя целая секунда, для которой обновлена мировая котировка. */
   private lastWorldPriceSecond = 0;
   private devUnlocked = false;
@@ -118,6 +127,9 @@ export class Game {
     this.pendingSalesGross = 0;
     this.revenueEma = 0;
     this.lastSaleLogMs = 0;
+    this.lastSpillLogMs = { crude: Number.NEGATIVE_INFINITY, products: Number.NEGATIVE_INFINITY };
+    this.spillBuckets.crude = null;
+    this.spillBuckets.products = null;
     this.devUnlocked = false;
     this.invalidate();
   }
@@ -270,6 +282,7 @@ export class Game {
         fineFor(this.config, 'crude', crude, influence) +
         fineFor(this.config, 'products', products, influence);
       this.commitSpill(Math.max(0.001, this.config.fines.stormSeconds));
+      this.flushSpillBuckets();
     }
     this.settleSales();
   }
@@ -742,6 +755,7 @@ export class Game {
     }
 
     this.activeDtSeconds = 0;
+    this.flushSpillBuckets();
     this.emit({ type: 'income' });
   }
 
@@ -788,10 +802,16 @@ export class Game {
         gross = sale.money;
       }
 
-      // Закрываем завершённые окна трубы даже тогда, когда резервуар пуст.
+      // Закрываем завершённые окна трубы даже при пустом резервуаре.
+      // Учитываем только мощность завершившегося окна, остаток относится
+      // к следующему и не должен обнуляться.
       if (this.state.shipTimerMs >= periodMs) {
+        const completedWindows = Math.floor(this.state.shipTimerMs / periodMs);
+        const completedMs = completedWindows * periodMs;
+        const pipelineRate = derived.exportCapacityByMode.pipeline;
+        const usedCapacity = pipelineRate * completedMs / 1000;
+        this.state.pipeSoldSinceShip = Math.max(0, this.state.pipeSoldSinceShip - usedCapacity);
         this.state.shipTimerMs %= periodMs;
-        this.state.pipeSoldSinceShip = 0;
       }
       return gross;
     }
@@ -808,11 +828,10 @@ export class Game {
      * продавал втрое больше мелких, а остальное лилось в землю. Теперь
      * берём фактически накопленное время.
      */
-    const periodSeconds = Math.max(
-      0,
-      Math.min(periodMs, this.state.shipTimerMs) / 1000,
-    );
-    this.state.shipTimerMs = 0;
+    const elapsedWindowMs = Math.min(periodMs, this.state.shipTimerMs);
+    const remainderMs = Math.max(0, this.state.shipTimerMs - elapsedWindowMs);
+    const periodSeconds = elapsedWindowMs / 1000;
+    this.state.shipTimerMs = remainderMs;
 
     /*
      * Труба уже продала часть нефти напрямую, пока партия копилась. Её
@@ -823,13 +842,18 @@ export class Game {
 
     // Мощность экспорта, которую труба уже израсходовала за этот период,
     // пересчитываем в тонны в секунду — в таком виде её ждёт allocateBatch.
-    const pipeUsedPerSecond = this.state.pipeSoldSinceShip / Math.max(1e-9, periodSeconds);
+    const pipeUsedInWindow = Math.min(
+      this.state.pipeSoldSinceShip,
+      derived.exportCapacityByMode.pipeline * periodSeconds,
+    );
+    const pipeUsedPerSecond = pipeUsedInWindow / Math.max(1e-9, periodSeconds);
     const exportCapacity = {
       crude: Math.max(0, derived.capacities.export.crude - pipeUsedPerSecond),
       // Сырая нефть в трубе не занимает продуктовые танкеры и эстакады.
       products: derived.capacities.export.products,
     };
-    this.state.pipeSoldSinceShip = 0;
+    // Объём трубы сверх закрытого окна принадлежит следующему окну.
+    this.state.pipeSoldSinceShip = Math.max(0, this.state.pipeSoldSinceShip - pipeUsedInWindow);
 
     // Партия больше, чем «одна секунда потоков», — в `shipBatch` разбиваем
     // её по секциям, чтобы ни один канал не получил больше своей мощности.
@@ -859,7 +883,7 @@ export class Game {
       crudeExport: derived.channels.export.price,
       productDomestic: derived.productPriceDomestic,
       productExport: derived.productPriceExport,
-    });
+    }, Math.max(0, derived.productCapacity - stockProducts), stockProducts);
 
     // Сырьё: деньги по ценам своих каналов. За продукты платит shipProducts —
     // он же решает, сколько топлива рынки реально взяли.
@@ -976,15 +1000,36 @@ export class Game {
      * и касса вычитает их каждый шаг. Раньше здесь стояло ещё одно списание,
      * и один и тот же разлив оплачивался дважды.
      */
-    const place = this.rng.pick(SPILL_PLACES);
-    this.pushLog({
-      kind: 'spill',
-      tonnes,
-      money: fine,
-      spill: kind,
-      place,
-    });
-    this.emit({ type: 'spill', kind, tonnes, fine, place });
+    const bucket = this.spillBuckets[kind];
+    if (bucket) {
+      bucket.tonnes += tonnes;
+      bucket.fine += fine;
+    } else {
+      this.spillBuckets[kind] = {
+        tonnes,
+        fine,
+        place: this.rng.pick(SPILL_PLACES),
+      };
+    }
+    this.flushSpillBuckets();
+  }
+
+  /** Не чаще раза в три секунды пишем/отправляем сводку разлива каждого типа. */
+  private flushSpillBuckets(): void {
+    for (const kind of ['crude', 'products'] as const) {
+      const bucket = this.spillBuckets[kind];
+      if (!bucket || this.state.clockMs - this.lastSpillLogMs[kind] < 3000) continue;
+      this.pushLog({
+        kind: 'spill',
+        tonnes: bucket.tonnes,
+        money: bucket.fine,
+        spill: kind,
+        place: bucket.place,
+      });
+      this.emit({ type: 'spill', kind, tonnes: bucket.tonnes, fine: bucket.fine, place: bucket.place });
+      this.lastSpillLogMs[kind] = this.state.clockMs;
+      this.spillBuckets[kind] = null;
+    }
   }
 
   /** Фактический доход в секунду: сглаженное среднее по начислениям. */

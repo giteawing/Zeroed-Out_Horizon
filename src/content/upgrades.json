@@ -1138,9 +1138,9 @@
       "maxLevel": 1,
       "cooldownSeconds": 30,
       "effect": {
-        "factor": 10,
+        "factor": 2,
         "seconds": 30,
-        "chance": 0.55
+        "chance": 0.48
       },
       "unlockAt": {
         "balance": 150000
@@ -1159,9 +1159,9 @@
       "maxLevel": 1,
       "cooldownSeconds": 25,
       "effect": {
-        "factor": 12,
+        "factor": 2,
         "seconds": 18,
-        "chance": 0.5
+        "chance": 0.45
       },
       "unlockAt": {
         "balance": 15000
@@ -2146,7 +2146,7 @@
       "description": "Полный контроль над империей. Требуются Насос-Гигант (уровень 5) и Умная скважина (уровень 3).",
       "icon": "win-pump",
       "type": "win",
-      "baseCost": 60000000000000000,
+      "baseCost": 1e+22,
       "maxLevel": 1,
       "win": true,
       "tag": "strict",
@@ -2790,7 +2790,7 @@
       "baseCost": 0,
       "maxLevel": 1,
       "effect": {
-        "value": 90,
+        "value": 15,
         "launder": true,
         "bankScale": 1
       },
@@ -2812,7 +2812,7 @@
       "baseCost": 0,
       "maxLevel": 1,
       "effect": {
-        "value": 160,
+        "value": 25,
         "launder": true,
         "bankScale": 1
       },
@@ -2834,7 +2834,7 @@
       "baseCost": 0,
       "maxLevel": 1,
       "effect": {
-        "value": 420,
+        "value": 40,
         "launder": true,
         "bankScale": 1
       },

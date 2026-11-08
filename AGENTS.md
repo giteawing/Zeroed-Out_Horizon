@@ -199,3 +199,26 @@ production-сборки, а не только dev-сервера. В CI посл
 - Не переименовывай SVG-слои `#cones`, `#btn-body`, `#splashes`,
   `#casing`, `#rig`, `#strata` в `drill.svg`: на них завязана анимация.
 
+
+
+## 9. Контент, скрипты и проверки
+
+- Каждая новая покупка обязана иметь имя в `src/content/texts.json → upgrades`
+  и существующий SVG в `public/images/icons/`. `loadContent()` проверяет
+  локализацию, тип канала, способ экспорта, диапазоны `channelSplit` и
+  `unlockAt.influence`.
+- DOM-тест после `querySelector()` сначала явно проверяет элемент через
+  `expect(element).not.toBeNull()`, затем использует его без optional chaining.
+  Не допускай тестов вида `expect(element?.querySelector(...)).not.toBeNull()`:
+  `undefined` тоже проходит эту проверку.
+- `scripts/migrate-oil-model.ts` отключён. `tune-2d.ts`,
+  `tune-scale.ts` и `auto-balance.ts` могут записывать изменённые цены
+  только с парой флагов `--write --i-know`; перед запуском обязательно
+  проверяй diff. Не используй `npm run art` при исправлении SVG.
+- `grantCoins()` предназначен для внешних и игровых выплат (периодика,
+  результат гэмбла, льгота/разовая акция с явным `launder: true`), но не
+  для коммерческой продажи нефти или продуктов. Продажа проходит через
+  общую кассу `gross → расходы → EBT → налог → net`; исключение `launder`
+  должно быть явным свойством эффекта и покрываться отдельным тестом.
+- Статус полного аудита и отложенные пункты ведутся в
+  [docs/AUDIT-STATUS.md](docs/AUDIT-STATUS.md).

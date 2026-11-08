@@ -81,6 +81,12 @@ export function oilFlowsOf(
   options: {
     pipeline?: number;
     productStorage?: number;
+    /** Свободное место в нефтебазах на начало окна, тонн. */
+    productStorageFree?: number;
+    /** Нефтепродукты, уже лежащие на складах и конкурирующие за рынки. */
+    productInventory?: number;
+    /** Секунд до следующей отгрузки: ёмкость переводится в т/с. */
+    storageHorizonSeconds?: number;
     modeShares?: Record<ExportMode, number>;
     prices?: {
       crudeDomestic: number;
@@ -111,63 +117,90 @@ export function oilFlowsOf(
     (config.oil.channels.refine.priceFactor /
       Math.max(1e-9, config.oil.channels.export.priceFactor));
 
-  const crude = allocateByPrice(total, [
+  // Труба продаёт добычу напрямую до пакетной маршрутизации. Сначала
+  // резервируем её мощность, а остаток распределяем между другими каналами.
+  const pipelineShare = Math.max(0, Math.min(1, options.pipeline ?? 0));
+  const pipelineCapacity = safe(capacities.export.crude) * pipelineShare;
+  const pipelineTonnes = Math.min(total, pipelineCapacity);
+  const exportCapacityRemaining = config.oil.channels.export.unlimited
+    ? Number.MAX_SAFE_INTEGER
+    : Math.max(0, safe(capacities.export.crude) - pipelineCapacity);
+
+  const productCapacity = Math.max(0, options.productStorage ?? config.product.baseStorage);
+  const productStorageFree = Math.max(0, options.productStorageFree ?? productCapacity);
+  const storageHorizonSeconds = Math.max(
+    0.001,
+    options.storageHorizonSeconds ?? config.oil.shipDays * config.oil.wells.secondsPerDay,
+  );
+  const productStorageRate = productStorageFree / storageHorizonSeconds;
+  // Старый складской запас занимает часть рыночной мощности раньше свежего
+  // выхода НПЗ: повторно продавать его объём нельзя.
+  const inventoryPlan = allocateByPrice(Math.max(0, options.productInventory ?? 0), [
     {
       key: 'export',
-      price: prices.crudeExport,
-      capacity: config.oil.channels.export.unlimited
-        ? Number.MAX_SAFE_INTEGER
-        : safe(capacities.export.crude),
-    },
-    {
-      key: 'refine',
-      price: refinePrice,
-      capacity: config.oil.channels.refine.unlimited
-        ? Number.MAX_SAFE_INTEGER
-        : safe(capacities.refine),
+      price: prices.productExport,
+      capacity: safe(capacities.export.products) * storageHorizonSeconds,
     },
     {
       key: 'domestic',
+      price: prices.productDomestic,
+      capacity: safe(capacities.domestic.products) * storageHorizonSeconds,
+    },
+  ]);
+  const exportProductMarketRate = Math.max(
+    0,
+    safe(capacities.export.products) -
+      inventoryPlan.byMarket.export / storageHorizonSeconds,
+  );
+  const domesticProductMarketRate = Math.max(
+    0,
+    safe(capacities.domestic.products) -
+      inventoryPlan.byMarket.domestic / storageHorizonSeconds,
+  );
+  const productMarketRate = exportProductMarketRate + domesticProductMarketRate;
+  // Не перерабатываем сырьё, если продукты нельзя продать или разместить.
+  const refineryCapacity = Math.min(
+    config.oil.channels.refine.unlimited ? Number.MAX_SAFE_INTEGER : safe(capacities.refine),
+    (productMarketRate + productStorageRate) / Math.max(1e-9, config.oil.refineryYield),
+  );
+
+  const crude = allocateByPrice(total - pipelineTonnes, [
+    { key: 'export', price: prices.crudeExport, capacity: exportCapacityRemaining },
+    { key: 'refine', price: refinePrice, capacity: refineryCapacity },
+    {
+      key: 'domestic',
       price: prices.crudeDomestic,
-      capacity: config.oil.channels.contract.unlimited
-        ? Number.MAX_SAFE_INTEGER
-        : safe(capacities.domestic.crude),
+      capacity: config.oil.channels.contract.unlimited ? Number.MAX_SAFE_INTEGER : safe(capacities.domestic.crude),
     },
   ]);
 
-  const exportTonnes = crude.byMarket.export;
+  const exportTonnes = pipelineTonnes + crude.byMarket.export;
   const refined = crude.byMarket.refine;
   const domestic = crude.byMarket.domestic;
   const stored = crude.remaining;
 
   const productsProduced = refined * config.oil.refineryYield;
   const products = allocateByPrice(productsProduced, [
-    { key: 'export', price: prices.productExport, capacity: safe(capacities.export.products) },
-    { key: 'domestic', price: prices.productDomestic, capacity: safe(capacities.domestic.products) },
+    { key: 'export', price: prices.productExport, capacity: exportProductMarketRate },
+    { key: 'domestic', price: prices.productDomestic, capacity: domesticProductMarketRate },
   ]);
   const productsDomestic = products.byMarket.domestic;
   const productsExport = products.byMarket.export;
 
-  // Не проданные продукты хранятся в нефтебазах; превышение становится разливом.
-  const productCapacity = Math.max(0, options.productStorage ?? config.product.baseStorage);
-  const productsStored = Math.min(products.remaining, productCapacity);
-  const productsSpill = products.remaining - productsStored;
+  // Накопление продуктов — поток в т/с. Ёмкость в тоннах распределяем
+  // на время до следующей отгрузки, не сравнивая разные единицы измерения.
+  const productsStored = Math.min(products.remaining, productStorageRate);
+  const productsSpill = Math.max(0, products.remaining - productsStored);
 
   const shares = options.modeShares;
-  const shareSum = shares
-    ? shares.pipeline + shares.rail + shares.tanker
-    : 0;
-  const exportByMode: Record<ExportMode, number> = shares && shareSum > 1e-9
+  const nonPipelineShare = shares ? shares.rail + shares.tanker : 0;
+  const exportByMode: Record<ExportMode, number> = shares
     ? {
-      pipeline: exportTonnes * (shares.pipeline / shareSum),
-      rail: exportTonnes * (shares.rail / shareSum),
-      tanker: exportTonnes * (shares.tanker / shareSum),
+      pipeline: pipelineTonnes,
+      rail: nonPipelineShare > 1e-9 ? crude.byMarket.export * shares.rail / nonPipelineShare : 0,
+      tanker: nonPipelineShare > 1e-9 ? crude.byMarket.export * shares.tanker / nonPipelineShare : 0,
     }
-    : {
-      pipeline: exportTonnes * Math.max(0, Math.min(1, options.pipeline ?? 0)),
-      rail: 0,
-      tanker: 0,
-    };
+    : { pipeline: pipelineTonnes, rail: 0, tanker: 0 };
 
   return {
     produced: total,
@@ -182,7 +215,7 @@ export function oilFlowsOf(
     productsStored,
     productsSpill,
     backlog: stored,
-    refineCapacity: safe(capacities.refine),
+    refineCapacity: refineryCapacity,
     domesticCapacity: safe(capacities.domestic.crude),
     exportCapacity: safe(capacities.export.crude),
     productCapacity,
@@ -208,6 +241,8 @@ export function allocateBatch(
     productDomestic: number;
     productExport: number;
   } = { crudeDomestic: 1, crudeExport: 1, productDomestic: 1, productExport: 1 },
+  productStorageFree = config.product.baseStorage,
+  productStock = 0,
 ): {
   domestic: number;
   export: number;
@@ -230,6 +265,29 @@ export function allocateBatch(
     (config.oil.channels.refine.priceFactor /
       Math.max(1e-9, config.oil.channels.export.priceFactor));
 
+  const productStockPlan = allocateByPrice(Math.max(0, productStock), [
+    {
+      key: 'export',
+      price: prices.productExport,
+      capacity: limit(capacities.export.products),
+    },
+    {
+      key: 'domestic',
+      price: prices.productDomestic,
+      capacity: limit(capacities.domestic.products),
+    },
+  ]);
+  const productMarketCapacity =
+    Math.max(0, limit(capacities.export.products) - productStockPlan.byMarket.export) +
+    Math.max(0, limit(capacities.domestic.products) - productStockPlan.byMarket.domestic);
+  const refineBatchCapacity = Math.min(
+    config.oil.channels.refine.unlimited
+      ? Number.MAX_SAFE_INTEGER
+      : limit(capacities.refine),
+    (productMarketCapacity + Math.max(0, productStorageFree)) /
+      Math.max(1e-9, config.oil.refineryYield),
+  );
+
   const crude = allocateByPrice(batch, [
     {
       key: 'export',
@@ -238,13 +296,7 @@ export function allocateBatch(
         ? Number.MAX_SAFE_INTEGER
         : limit(capacities.export.crude),
     },
-    {
-      key: 'refine',
-      price: refinePrice,
-      capacity: config.oil.channels.refine.unlimited
-        ? Number.MAX_SAFE_INTEGER
-        : limit(capacities.refine),
-    },
+    { key: 'refine', price: refinePrice, capacity: refineBatchCapacity },
     {
       key: 'domestic',
       price: prices.crudeDomestic,

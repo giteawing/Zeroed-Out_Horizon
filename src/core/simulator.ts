@@ -14,6 +14,8 @@ import { Rng } from './rng';
 import type { Content, GameState, UpgradeDef } from './types';
 
 export interface SimulatorOptions {
+  /** Стандартная стратегия игнорирует cooldown-действия; optimizer оценивает и использует их. */
+  strategy?: 'standard' | 'optimizer';
   /** Тапов в секунду (ТЗ: 4–6). */
   tapsPerSecond?: number;
   /** Доля тапов, которые игрок реально делает (устаёт, отвлекается). */
@@ -72,6 +74,7 @@ export function runSimulation(content: Content, options: SimulatorOptions = {}):
   const opts: Required<SimulatorOptions> = {
     tapsPerSecond: 5,
     tapDiligence: 0.85,
+    strategy: 'standard',
     decisionIntervalSeconds: 1.5,
     maxSeconds: 60 * 30,
     seed: 20240601,
@@ -109,7 +112,13 @@ export function runSimulation(content: Content, options: SimulatorOptions = {}):
 
     if (elapsed >= nextDecisionMs) {
       nextDecisionMs = elapsed + opts.decisionIntervalSeconds * 1000;
-      decide(game, content, purchased, opts.tapsPerSecond * opts.tapDiligence);
+      decide(
+        game,
+        content,
+        purchased,
+        opts.tapsPerSecond * opts.tapDiligence,
+        opts.strategy === 'optimizer',
+      );
     }
 
     // Экспортная акция продаёт нефть со склада: ждём, пока резервуары
@@ -190,6 +199,7 @@ export function decide(
   content: Content,
   purchased: Set<string>,
   manualTapsPerSecond = SIMULATED_MANUAL_TAPS,
+  allowRepeatables = false,
 ): boolean {
   const state = game.state;
   const derived = game.derived();
@@ -241,16 +251,18 @@ export function decide(
 
   const candidates: Array<{ def: UpgradeDef; score: number }> = [];
   for (const def of content.upgrades) {
-    if (def.win || isRepeatable(def)) continue;
+    if (def.win || (isRepeatable(def) && (!allowRepeatables || def.id === 'p_export'))) continue;
     const level = levelOf(state, def.id);
-    if (level >= def.maxLevel) continue;
+    if (level >= def.maxLevel && !isRepeatable(def)) continue;
     const check = game.checkBuy(def.id);
     if (!check.unlocked || check.cooldownMs > 0) continue;
     const cost = check.cost;
     if (cost > state.coins) continue;
+    const gain = estimatedGain(game, def, cost, manualTapsPerSecond);
+    if (allowRepeatables && isRepeatable(def) && gain <= 0) continue;
     candidates.push({
       def,
-      score: estimatedGain(game, def, cost, manualTapsPerSecond) / Math.max(1, cost),
+      score: gain / Math.max(1, cost),
     });
   }
 
@@ -348,6 +360,9 @@ export function estimatedGain(
     ...game.state,
     levels: { ...game.state.levels, [def.id]: level + 1 },
     wells: game.state.wells.map((well) => ({ ...well })),
+    capitalFlightStartedAtMs: e.capitalFlightPerSecond && game.state.capitalFlightStartedAtMs === null
+      ? game.state.clockMs
+      : game.state.capitalFlightStartedAtMs,
   };
   if (def.type === 'well' || def.type === 'field') {
     const daily = def.id === 't_well'

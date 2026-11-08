@@ -12,10 +12,11 @@ const profiles = [
   { name: 'ленивый', tapsPerSecond: 4, tapDiligence: 0.7, exportPatienceSeconds: 20 },
   { name: 'обычный', tapsPerSecond: 5, tapDiligence: 0.85, exportPatienceSeconds: 40 },
   { name: 'упорный', tapsPerSecond: 6, tapDiligence: 0.95, exportPatienceSeconds: 60 },
+  { name: 'оптимизатор', tapsPerSecond: 5, tapDiligence: 0.85, strategy: 'optimizer' as const },
 ];
 
 const winCosts = [
-  1e12, 1e13, 1e14, 1e15, 1e16, 3e16, 6e16, 1e17, 1e18,
+  1e12, 1e13, 1e14, 1e15, 1e16, 3e16, 6e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22,
 ];
 
 for (const profile of profiles) {

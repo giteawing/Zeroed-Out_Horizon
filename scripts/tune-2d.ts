@@ -1,7 +1,7 @@
 /**
  * Двумерный подбор масштабов: добыча × сбыт.
  * Цель — прохождение за 15–20 минут при фиксированной цене финала.
- * Запуск: npx tsx scripts/tune-2d.ts [--write]
+ * Запуск: npx tsx scripts/tune-2d.ts [--write --i-know] (опасная запись)
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -10,7 +10,12 @@ import { loadContent } from '../src/core/content';
 import { runSimulation } from '../src/core/simulator';
 
 const WRITE = process.argv.includes('--write');
-const WIN_COST = 3e12;
+const ACKNOWLEDGED = process.argv.includes('--i-know');
+if (WRITE && !ACKNOWLEDGED) {
+  console.error('Запись изменяет цены добычи и сбыта. Повторите запуск с --write --i-know после проверки diff.');
+  process.exit(1);
+}
+const WIN_COST = loadContent().config.winCost;
 const PROD_IDS = ['t_well','s_geonav','s_geolog','s_operator','s_engineer','s_brigade','p_field','p_reprivatize','t_pump4'];
 const target = 17;
 

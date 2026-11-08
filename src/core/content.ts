@@ -20,6 +20,9 @@ const TYPES = new Set([
   'perTap', 'well', 'passive', 'multiplier', 'taxCut', 'costCut', 'periodic',
   'oneShot', 'gamble', 'priceBoost', 'luxury', 'autoTap', 'sell', 'storage', 'field', 'win',
 ]);
+const CHANNELS = new Set(['contract', 'export', 'refine']);
+const EXPORT_MODES = new Set(['pipeline', 'rail', 'tanker']);
+const PRODUCTS = new Set(['crude', 'products']);
 
 /** Плейсхолдер из ТЗ (§7.4): пока владелец не положил стихотворение. */
 const CREDITS_PLACEHOLDER_MARKER = 'Здесь будет стихотворение';
@@ -39,7 +42,7 @@ export function loadContent(options: LoadOptions = {}): Content {
   );
   const achievements = (achievementsJson as unknown as AchievementsFile).achievements;
 
-  validateUpgrades(upgrades);
+  validateUpgrades(upgrades, texts);
 
   return {
     config,
@@ -52,7 +55,7 @@ export function loadContent(options: LoadOptions = {}): Content {
 }
 
 /** Проверка целостности контента: падаем громко и понятно, а не молча. */
-export function validateUpgrades(upgrades: UpgradeDef[]): void {
+export function validateUpgrades(upgrades: UpgradeDef[], texts?: TextsFile): void {
   const seen = new Set<string>();
   for (const u of upgrades) {
     if (!u.id) throw new Error('upgrades.json: покупка без id');
@@ -71,6 +74,31 @@ export function validateUpgrades(upgrades: UpgradeDef[]): void {
     }
     if (!Number.isInteger(u.maxLevel) || u.maxLevel < 1) {
       throw new Error(`upgrades.json: некорректный maxLevel у ${u.id}`);
+    }
+    if (u.effect.channel && !CHANNELS.has(u.effect.channel)) {
+      throw new Error(`upgrades.json: неизвестный канал ${u.effect.channel} у ${u.id}`);
+    }
+    if (u.effect.exportMode && !EXPORT_MODES.has(u.effect.exportMode)) {
+      throw new Error(`upgrades.json: неизвестный способ экспорта ${u.effect.exportMode} у ${u.id}`);
+    }
+    if (u.effect.channelSplit) {
+      const entries = Object.entries(u.effect.channelSplit);
+      const total = entries.reduce((sum, [product, share]) => {
+        if (!PRODUCTS.has(product) || !Number.isFinite(share) || share < 0 || share > 1) {
+          throw new Error(`upgrades.json: некорректный channelSplit у ${u.id}`);
+        }
+        return sum + share;
+      }, 0);
+      if (entries.length === 0 || total <= 0 || total > 2) {
+        throw new Error(`upgrades.json: пустой или некорректный channelSplit у ${u.id}`);
+      }
+    }
+    if (u.unlockAt?.influence !== undefined &&
+      (!Number.isFinite(u.unlockAt.influence) || u.unlockAt.influence < 0)) {
+      throw new Error(`upgrades.json: некорректное unlockAt.influence у ${u.id}`);
+    }
+    if (texts && !texts.upgrades[u.id]?.trim()) {
+      throw new Error(`texts.json: нет названия покупки ${u.id} в texts.upgrades`);
     }
     if (u.unlockAt?.upgrade && !upgrades.some((o) => o.id === u.unlockAt?.upgrade)) {
       throw new Error(

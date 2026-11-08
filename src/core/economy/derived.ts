@@ -56,6 +56,12 @@ export function computeDerived(
   const oilCapacity = content
     ? oilCapacityOf(config, content, state)
     : config.oil.baseCapacity + effects.capacityBonus;
+  const productStorageFree = Math.max(0, market.productStorage - state.products);
+  const productStorageSecondsToFull = productStorageFree <= 1e-9
+    ? 0
+    : market.flows.productsStored > 1e-9
+      ? productStorageFree / market.flows.productsStored
+      : Number.POSITIVE_INFINITY;
 
   return {
     tapValue: market.tapValue,
@@ -76,6 +82,7 @@ export function computeDerived(
     exportCapacityByMode: market.exportCapacityByMode,
     hasPipeline: market.hasPipeline,
     productCapacity: market.productStorage,
+    productStorageSecondsToFull,
     capacities: market.capacities,
     productPriceDomestic: market.productPriceDomestic,
     productPriceExport: market.productPriceExport,
