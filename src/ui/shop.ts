@@ -297,7 +297,7 @@ export class Shop {
       case 'gamble':
         return t('effectGamble', { seconds: e.seconds ?? 0, value: e.factor ?? 2 });
       case 'periodic':
-        return t('effectPeriodic', { seconds: e.seconds ?? 0, value: e.value ?? 0 });
+        return t('effectPeriodic', { seconds: e.seconds ?? 0, value: (e.value ?? 0) * Math.max(1, level) });
       case 'autoTap':
         return t('effectAutoTap', { value: formatNumber(e.value ?? 0) });
       case 'sell': {

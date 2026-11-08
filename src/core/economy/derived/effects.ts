@@ -126,7 +126,8 @@ export function collectUpgradeEffects(
             if (share > 0) result.rateByProduct[channel][product] += effect.value * level * share;
           }
           if (channel === 'export') {
-            result.exportRateByMode[exportModeOf(def)] += effect.value * level;
+            // Транспортная мощность сырого экспорта не включает налив продуктов.
+            result.exportRateByMode[exportModeOf(def)] += effect.value * level * (effect.channelSplit?.crude ?? 1);
           }
         }
         if (effect.costCut) result.costCutFraction += effect.costCut * level;

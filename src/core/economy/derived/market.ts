@@ -92,49 +92,41 @@ export function calculateMarket(
 
   // Базовая мощность распределяется по transportSplit; бонусы покупок уже
   // размечены по товарам и прибавляются только к назначенному рынку.
-  const domesticBase = Math.max(
-    0,
-    channels.contract.rate -
-      effects.rateByProduct.contract.crude -
-      effects.rateByProduct.contract.products,
-  );
-  const exportBase = Math.max(
-    0,
-    channels.export.rate -
-      effects.rateByProduct.export.crude -
-      effects.rateByProduct.export.products,
-  );
+  // Базовая мощность — отдельная величина. Не вычитаем из неё бонусы,
+  // потому что одна покупка может расширять оба товарных потока.
+  const domesticBase = Math.max(0, config.oil.channels.contract.baseRate);
+  const exportBase = Math.max(0, config.oil.channels.export.baseRate);
+  const domesticScale = 1 + effects.throughputBonus.contract;
+  const exportScale = (1 + effects.throughputBonus.export) * effects.exportMultiplier;
 
   const capacities = {
     domestic: {
       crude: config.oil.channels.contract.unlimited
         ? Number.POSITIVE_INFINITY
-        : domesticBase * split.crude + effects.rateByProduct.contract.crude,
-      products: domesticBase * split.productDomestic + effects.rateByProduct.contract.products,
+        : (domesticBase * split.crude + effects.rateByProduct.contract.crude) * domesticScale,
+      products: (domesticBase * split.productDomestic + effects.rateByProduct.contract.products) * domesticScale,
     },
     export: {
-      crude: exportBase * split.crude + effects.rateByProduct.export.crude,
-      products: exportBase * split.productExport + effects.rateByProduct.export.products,
+      crude: (exportBase * split.crude + effects.rateByProduct.export.crude) * exportScale,
+      products: (exportBase * split.productExport + effects.rateByProduct.export.products) * exportScale,
     },
     refine: channels.refine.rate,
   };
 
-  const pipelineShare = channels.export.rate > 0
-    ? effects.exportRateByMode.pipeline / channels.export.rate
-    : 0;
-  const hasPipeline = effects.exportRateByMode.pipeline > 0;
-  const rawModes = Math.max(
-    1e-9,
-    effects.exportRateByMode.pipeline +
-      effects.exportRateByMode.rail +
-      effects.exportRateByMode.tanker,
-  );
-  const modeScale = channels.export.rate / rawModes;
+  // Способы доставки нормируются только на мощность вывоза сырой нефти.
+  // Наливные терминалы продуктов не создают фиктивные танкеры для нефти.
+  const rawModes = effects.exportRateByMode.pipeline +
+    effects.exportRateByMode.rail + effects.exportRateByMode.tanker;
+  const modeScale = rawModes > 1e-9 ? capacities.export.crude / rawModes : 0;
   const exportCapacityByMode: Record<ExportMode, number> = {
     pipeline: effects.exportRateByMode.pipeline * modeScale,
     rail: effects.exportRateByMode.rail * modeScale,
     tanker: effects.exportRateByMode.tanker * modeScale,
   };
+  const pipelineShare = capacities.export.crude > 0
+    ? exportCapacityByMode.pipeline / capacities.export.crude
+    : 0;
+  const hasPipeline = exportCapacityByMode.pipeline > 0;
 
   const productStorage = content
     ? productCapacityOf(config, content, state)

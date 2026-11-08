@@ -465,6 +465,8 @@ export interface ReprivatizationPrize {
   wells: number;
   /** Суммарный суточный дебит этих скважин, т/сут. */
   dailyTonnes: number;
+  /** Точный дебит каждой скважины; сумма равна dailyTonnes. */
+  shares: number[];
   /** Сколько стоило бы построить столько же самому, ₦. */
   marketValue: number;
 }

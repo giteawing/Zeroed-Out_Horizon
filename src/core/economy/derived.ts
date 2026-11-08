@@ -176,7 +176,8 @@ export function eventPayout(
   if (effect.factor !== undefined && paidCost > 0) {
     return Math.max(1, Math.round(paidCost * Math.pow(effect.factor, Math.max(1, level))));
   }
-  return Math.max(1, Math.round(payoutBase(derived) * (effect.value ?? 1)));
+  const levelScale = def.type === 'periodic' ? Math.max(1, level) : 1;
+  return Math.max(1, Math.round(payoutBase(derived) * (effect.value ?? 1) * levelScale));
 }
 
 /** Нефть за один тап с небольшим случайным разбросом. */

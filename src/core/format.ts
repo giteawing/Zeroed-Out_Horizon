@@ -15,15 +15,25 @@ const UNITS: Array<[number, string]> = [
 export function formatMoney(value: number, currency = '₦'): string {
   if (!Number.isFinite(value)) return '∞';
   const abs = Math.abs(value);
-  if (abs < 1000) {
+  const small = Number(formatSmall(value).replace(',', '.'));
+  if (abs < 1000 && Math.abs(small) < 1000) {
     return `${currency}${formatSmall(value)}`;
   }
-  for (const [threshold, suffix] of UNITS) {
-    if (abs >= threshold) {
-      const scaled = value / threshold;
-      const digits = Math.abs(scaled) >= 100 ? 0 : Math.abs(scaled) >= 10 ? 1 : 2;
-      return `${currency}${scaled.toFixed(digits).replace('.', ',')} ${suffix}`;
+
+  // Округление может пересечь границу единиц: 999,6 тыс. → 1 млн,
+  // а 999,5 → 1 тыс. Не оставляем значения вида «1000 тыс.».
+  let unitIndex = UNITS.findIndex(([threshold]) => abs >= threshold);
+  if (unitIndex < 0) unitIndex = UNITS.length - 1;
+  while (unitIndex >= 0) {
+    const [threshold, suffix] = UNITS[unitIndex];
+    const scaled = value / threshold;
+    const digits = Math.abs(scaled) >= 100 ? 0 : Math.abs(scaled) >= 10 ? 1 : 2;
+    const rounded = Number(scaled.toFixed(digits));
+    if (Math.abs(rounded) >= 1000 && unitIndex > 0) {
+      unitIndex -= 1;
+      continue;
     }
+    return `${currency}${trimZeros(scaled.toFixed(digits)).replace('.', ',')} ${suffix}`;
   }
   return `${currency}${formatSmall(value)}`;
 }

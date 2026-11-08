@@ -294,6 +294,7 @@ export class Game {
     this.state.won = true;
     this.state.wonAtMs = this.state.playtimeMs;
     this.invalidate();
+    this.grantAchievement('a_win');
     this.emit({ type: 'win' });
     return true;
   }
@@ -342,7 +343,7 @@ export class Game {
       : Math.min(wanted, Math.max(0, def.maxLevel - level));
     const rawCost = def.win
       ? winCostOf(this.config, this.content.upgrades)
-      : this.priceOfLevels(def, level, buyCount, derived.exchangeRate);
+      : this.priceOfLevels(def, repeatable ? 0 : level, buyCount, derived.exchangeRate);
     // «Отжать» дешевле, чем построить: скидка растёт от влияния и ЧВК.
     const cost = def.conquest
       ? Math.round(rawCost * (1 - derived.conquestCut))
@@ -469,10 +470,7 @@ export class Game {
       this.derived().exchangeRate,
     );
     // Разбиваем суммарный дебит на скважины разных классов — «месторождение».
-    let left = prize.dailyTonnes;
-    for (let i = 0; i < prize.wells; i++) {
-      const share = i === prize.wells - 1 ? left : Math.max(1, Math.round(left * (0.3 + this.rng.next() * 0.4)));
-      left = Math.max(0, left - share);
+    for (const share of prize.shares) {
       const kind: Well['kind'] = share >= 500 ? 'unique' : share >= 50 ? 'good' : 'ordinary';
       this.state.wells.push({ kind, dailyTonnes: share });
     }
@@ -598,17 +596,23 @@ export class Game {
       const amount = def.effect.bankScale
         ? Math.round(base * this.bankScale())
         : base;
-      // Отмывание через убыточный банк проходит мимо налогового ведомства:
-      // деньги те же, но налог с них не берут (это и есть «уход от налогов»).
       const gross = amount;
-      this.grantCoins(gross);
+      // Отмывание проходит мимо налоговой, обычные выплаты — через общую
+      // финансовую кассу с расходами и налогом на прибыль.
+      let credited = gross;
+      if (def.effect.launder) {
+        this.grantCoins(gross);
+      } else {
+        this.pendingSalesGross += gross;
+        credited = this.settleSales().net;
+      }
       this.pushLog({
         kind: def.effect.launder ? 'launder' : 'event',
         upgradeId: def.id,
         money: gross,
       });
-      payouts.push({ id: def.id, amount: gross });
-      this.emit({ type: 'oneShot', id: def.id, amount: gross });
+      payouts.push({ id: def.id, amount: credited });
+      this.emit({ type: 'oneShot', id: def.id, amount: credited });
     }
 
     if (def.type === 'gamble') {

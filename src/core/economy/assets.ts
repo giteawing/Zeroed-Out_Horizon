@@ -137,19 +137,28 @@ export function reprivatizationPrize(
   const count = countMin + Math.round(rand() * (countMax - countMin));
   // Сколько тонн в сутки «умещается» в бюджет: делим на всё месторождение.
   const totalTonnes = budget / perTonne;
+  const dailyTonnes = Math.max(count, Math.round(totalTonnes));
   const weights: number[] = [];
   for (let i = 0; i < count; i++) weights.push(0.5 + rand());
   const weightSum = weights.reduce((a, b) => a + b, 0);
-  let dailyTonnes = 0;
-  for (const weight of weights) {
-    const share = (weight / weightSum) * totalTonnes;
-    // Даже самая мелкая скважина месторождения что-то качает.
-    dailyTonnes += Math.max(1, Math.round(share));
-  }
+
+  // Сначала гарантируем по одной тонне на скважину, затем распределяем
+  // остаток пропорционально весам методом наибольших остатков.
+  const distributable = dailyTonnes - count;
+  const quotas = weights.map((weight) => (weight / weightSum) * distributable);
+  const shares = quotas.map((quota) => 1 + Math.floor(quota));
+  const floorSum = quotas.reduce((sum, quota) => sum + Math.floor(quota), 0);
+  const remainder = distributable - floorSum;
+  const remainders = quotas
+    .map((quota, index) => ({ index, fraction: quota - Math.floor(quota) }))
+    .sort((a, b) => b.fraction - a.fraction);
+  for (let i = 0; i < remainder; i++) shares[remainders[i].index] += 1;
+
   return {
     wells: count,
     dailyTonnes,
-    marketValue: Math.round(totalTonnes * perTonne),
+    shares,
+    marketValue: Math.round(dailyTonnes * perTonne),
   };
 }
 
@@ -162,6 +171,8 @@ export function bankScaleOf(upgrades: UpgradeDef[], state: GameState): number {
   for (const def of upgrades) {
     const level = levelOf(state, def.id);
     if (level <= 0) continue;
+    // bankScale — множитель банка, а не признак банковской операции.
+    if (def.type !== 'taxCut') continue;
     const per = def.effect.bankScale;
     if (!per) continue;
     scale += per * level;

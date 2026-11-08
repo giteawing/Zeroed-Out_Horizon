@@ -3,6 +3,8 @@ import {
   adjustCurrencyCost,
   allocateBatch,
   assetValueBreakdownOf,
+  bankScaleOf,
+  reprivatizationPrize,
   fineFactorOf,
   fineFor,
   oilFlowsOf,
@@ -831,5 +833,53 @@ describe('потолок добычи и состав собственности
     state.wells = [{ kind: 'unique', dailyTonnes: 1_000_000_000_000 }];
     const derived = computeDerived(config, content.upgrades, state, [], content);
     expect(derived.oilPerSecond).toBe(config.oil.maxProductionPerSecond);
+  });
+});
+
+
+describe('регрессии аудита: периодика, банк, рынки и скважины', () => {
+  it('уровни периодической покупки масштабируют фактическую выплату', () => {
+    const def = content.byId.get('t_core')!;
+    const derived = computeDerived(config, content.upgrades, withUpgrades());
+    const first = eventPayout(def, derived, 1, 0);
+    const fifth = eventPayout(def, derived, 5, 0);
+    expect(fifth).toBeGreaterThan(first);
+    expect(fifth).toBe(first * 5);
+  });
+
+  it('операции банка не увеличивают bankScale — это делает только покупка масштаба', () => {
+    const state = withUpgrades({
+      p_bank_scale: 2,
+      p_launder: 1,
+      p_hideprofit: 1,
+      p_tranche: 1,
+    });
+    expect(bankScaleOf(content.upgrades, state)).toBeCloseTo(1 + 0.35 * 2, 9);
+  });
+
+  it('АЗС добавляет мощность нефтепродуктов поверх базовой мощности внутреннего рынка', () => {
+    const state = withUpgrades();
+    const before = computeDerived(config, content.upgrades, state, [], content);
+    const azs = content.byId.get('t_azs')!;
+    state.levels.t_azs = 1;
+    const after = computeDerived(config, content.upgrades, state, [], content);
+    expect(config.oil.channels.contract.baseRate).toBeGreaterThan(0);
+    expect(after.capacities.domestic.products - before.capacities.domestic.products)
+      .toBeCloseTo(azs.effect.value ?? 0, 8);
+  });
+
+  it('терминал нефтепродуктов не создаёт мощность танкерного экспорта сырой нефти', () => {
+    const state = withUpgrades({ t_exptanker: 1 });
+    const derived = computeDerived(config, content.upgrades, state, [], content);
+    expect(derived.capacities.export.products).toBeGreaterThan(0);
+    expect(derived.capacities.export.crude).toBe(0);
+    expect(derived.exportCapacityByMode.tanker).toBe(0);
+  });
+
+  it('реприватизация возвращает точные положительные доли дебита скважин', () => {
+    const prize = reprivatizationPrize(config, 1_000_000, config.oil.basePricePerTon, () => 0.5);
+    expect(prize.shares).toHaveLength(prize.wells);
+    expect(prize.shares.every((share) => share >= 1)).toBe(true);
+    expect(prize.shares.reduce((sum, share) => sum + share, 0)).toBe(prize.dailyTonnes);
   });
 });

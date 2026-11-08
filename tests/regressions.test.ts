@@ -521,6 +521,7 @@ describe('победа, события и единая оценка активо
     forced.update(60_000);
     expect(forcedState.wonAtMs).toBe(7000);
     expect(forcedState.playtimeMs).toBe(7000);
+    expect(forcedState.achievements).toContain('a_win');
   });
 
   it('25 одновременных гэмбла дают ровно 25 результатов и не теряются', () => {
@@ -552,6 +553,64 @@ describe('победа, события и единая оценка активо
   });
 });
 
+
+
+describe('выплаты разовых операций проходят через финансовую кассу', () => {
+  it('обычный oneShot облагается расходами и налогом, launder — нет', () => {
+    const run = (launder: boolean) => {
+      const content = freshContent();
+      const def = {
+        id: 'test_one_shot',
+        tab: 'political' as const,
+        group: 'test',
+        name: 'Проверочная выплата',
+        description: 'Тест',
+        icon: 'well',
+        type: 'oneShot' as const,
+        baseCost: 1,
+        maxLevel: 1,
+        cooldownSeconds: 10,
+        repeatable: true,
+        effect: { factor: 100, launder },
+      };
+      content.upgrades = [def];
+      content.byId = new Map([[def.id, def]]);
+      const state = rich(content, 1000);
+      state.expensesAccrued = 25;
+      const game = new Game(content, state);
+      expect(game.buy(def.id).ok).toBe(true);
+      return state.coins;
+    };
+    expect(run(true)).toBeGreaterThan(run(false));
+  });
+
+  it('повторяемая покупка сохраняет исходную цену на следующих использованиях', () => {
+    const content = freshContent();
+    const def = {
+      id: 'test_repeatable',
+      tab: 'political' as const,
+      group: 'test',
+      name: 'Повторяемое действие',
+      description: 'Тест',
+      icon: 'well',
+      type: 'oneShot' as const,
+      baseCost: 100,
+      maxLevel: 1,
+      cooldownSeconds: 1,
+      repeatable: true,
+      effect: { value: 1 },
+    };
+    content.upgrades = [def];
+    content.byId = new Map([[def.id, def]]);
+    const state = rich(content, 100_000);
+    const game = new Game(content, state);
+    const first = game.checkBuy(def.id).cost;
+    expect(game.buy(def.id).ok).toBe(true);
+    delete state.cooldowns[def.id];
+    const second = game.checkBuy(def.id).cost;
+    expect(second).toBe(first);
+  });
+});
 
 describe('симулятор использует правила живой игры', () => {
   it('учитывает влияние для p_reprivatize и p_refinery', () => {
