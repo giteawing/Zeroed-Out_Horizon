@@ -91,8 +91,6 @@ export class Game {
   private activeDtSeconds = 0;
   /** Выручка текущей финансовой сделки, ещё не прошедшая расходы и налог. */
   private pendingSalesGross = 0;
-  /** Внешний доход накапливается отдельно и закрывается вместе с продажей. */
-  private pendingExternalGross = 0;
   /** Сглаженный фактический доход (то, что реально капает на счёт), ₦/с. */
   private revenueEma = 0;
   private lastSaleLogMs = 0;
@@ -127,7 +125,6 @@ export class Game {
     this.spillProductsThisStep = 0;
     this.activeDtSeconds = 0;
     this.pendingSalesGross = 0;
-    this.pendingExternalGross = 0;
     this.revenueEma = 0;
     this.lastSaleLogMs = 0;
     this.lastSpillLogMs = { crude: Number.NEGATIVE_INFINITY, products: Number.NEGATIVE_INFINITY };
@@ -721,10 +718,9 @@ export class Game {
     // 2. Отгрузка лишь читает накопленный таймер и добавляет валовую
     // выручку в общий финансовый расчёт.
     this.pendingSalesGross += this.tickShipping(derived, dtSeconds);
-    // Внешние выплаты поступают непрерывно и не ждут отгрузки партии.
-    // Внешний доход не должен сам по себе закрывать кассу каждые 50 мс:
-    // иначе мелкий процент обнуляет накопленные операционные расходы до отгрузки.
-    this.pendingExternalGross += (
+    // Внешние выплаты входят в общую налоговую базу, но не добавляют
+    // операционных расходов сверх уже начисляемых за этот интервал.
+    this.pendingSalesGross += (
       derived.damperIncomePerSecond +
       derived.capitalFlightIncomePerSecond +
       derived.investmentIncomePerSecond
@@ -766,22 +762,22 @@ export class Game {
 
   /** Единая касса для нефти, продуктов, трубы и экспортной акции. */
   private settleSales(dtSeconds = 0): { gross: number; expenses: number; tax: number; net: number } {
-    const commercialGross = this.pendingSalesGross;
-    if (!(commercialGross > 1e-9)) {
+    const gross = this.pendingSalesGross;
+    if (!(gross > 1e-9)) {
       if (dtSeconds > 0) this.trackRevenue(0, dtSeconds);
       return { gross: 0, expenses: 0, tax: 0, net: 0 };
     }
-    // Внешний доход включается в ту же налоговую базу, но не инициирует
-    // закрытие периода и не сбрасывает расходы до реальной продажи.
-    const gross = commercialGross + this.pendingExternalGross;
+    const accruedExpenses = this.state.expensesAccrued;
     const settlement = calculateSaleSettlement(
       gross,
       this.state.expensesAccrued,
       this.derived().taxRate,
     );
     this.pendingSalesGross = 0;
-    this.pendingExternalGross = 0;
-    this.state.expensesAccrued = 0;
+    // Если текущая выплата меньше накопленных расходов, остаток не исчезает:
+    // он будет вычтен из следующих продаж. Так мелкие внешние выплаты не
+    // обнуляют расходы, начисленные в ожидании основной отгрузки.
+    this.state.expensesAccrued = Math.max(0, accruedExpenses - Math.min(gross, accruedExpenses));
     if (settlement.net > 0) this.grantCoins(settlement.net);
     if (dtSeconds > 0) this.trackRevenue(settlement.net, dtSeconds);
     return settlement;
