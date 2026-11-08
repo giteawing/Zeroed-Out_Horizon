@@ -85,7 +85,7 @@ export function oilFlowsOf(
     productStorageFree?: number;
     /** Нефтепродукты, уже лежащие на складах и конкурирующие за рынки. */
     productInventory?: number;
-    /** Секунд до следующей отгрузки: ёмкость переводится в т/с. */
+    /** Длительность окна пакетной отгрузки: ёмкость переводится в т/с. */
     storageHorizonSeconds?: number;
     modeShares?: Record<ExportMode, number>;
     prices?: {
