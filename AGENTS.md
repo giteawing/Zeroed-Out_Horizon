@@ -112,9 +112,9 @@ production-сборки, а не только dev-сервера. В CI посл
 
 **Осторожно с изменяющими файлы скриптами:**
 
-- `npx tsx scripts/auto-balance.ts --write` перезаписывает
-  `src/content/upgrades.json` и `src/content/config.json`. Запускай только
-  при явной задаче на перекалибровку и внимательно проверяй diff.
+- `npx tsx scripts/auto-balance.ts` по умолчанию строит только отчёт; запись
+  в `src/content/upgrades.json` и `src/content/config.json` требует обоих флагов
+  `--write --i-know`. Не запускай запись без явной задачи на перекалибровку.
 - `npm run art` перезаписывает SVG в `public/images/`. Не запускай просто
   «для проверки», если задача не связана с генерацией графики.
 - Не меняй lockfile вручную; при изменении зависимостей используй npm и
