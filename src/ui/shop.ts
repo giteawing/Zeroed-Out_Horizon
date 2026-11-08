@@ -275,10 +275,21 @@ export class Shop {
       }
       case 'costCut':
         return t('effectCostCut', { value: (e.percent ?? 0).toFixed(0) });
-      case 'priceBoost':
-        return t('effectPriceBoost', {
+      case 'priceBoost': {
+        const parts: string[] = [];
+        if (e.domesticPriceMultiplier && e.domesticPriceMultiplier > 1) {
+          parts.push(t('effectDomesticPrice', { value: formatPercent(e.domesticPriceMultiplier - 1, 1) }));
+        }
+        if (e.exportPriceMultiplier && e.exportPriceMultiplier > 1) {
+          parts.push(t('effectExportPrice', { value: formatPercent(e.exportPriceMultiplier - 1, 1) }));
+        }
+        if (e.exchangeRateDevaluation && e.exchangeRateDevaluation > 0) {
+          parts.push(t('effectDevaluation', { value: formatPercent(e.exchangeRateDevaluation, 1) }));
+        }
+        return parts.join(' · ') || t('effectPriceBoost', {
           value: `+${formatPercent(Math.pow(e.factor ?? 1, Math.max(1, level)) - 1, 1)}`,
         });
+      }
       case 'oneShot':
         // Точная выплата зависит от текущего темпа империи и мировой цены,
         // поэтому в карточке показываем понятное описание, а не фиктивное число.

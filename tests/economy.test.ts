@@ -177,6 +177,52 @@ describe('производные показатели', () => {
     expect(derived.influence).toBe(config.influence.perGroup.media);
   });
 
+  it('влияние продолжает расти выше базового ориентира 400', () => {
+    const influence = makeUpgrade({
+      id: 'influence-stack',
+      effect: { influence: config.influence.cap + 750 },
+    });
+    const derived = computeDerived(config, [influence], withUpgrades({ 'influence-stack': 1 }));
+    expect(derived.influence).toBe(config.influence.cap + 750);
+  });
+
+  it('монопольный сговор повышает только внутренние цены один раз', () => {
+    const cartel = makeUpgrade({ id: 'domestic-cartel', type: 'priceBoost', effect: { domesticPriceMultiplier: 1.12 } });
+    const state = withUpgrades();
+    const before = computeDerived(config, [], state);
+    state.levels[cartel.id] = 1;
+    const after = computeDerived(config, [cartel], state);
+    expect(after.domesticPricePerTon).toBeCloseTo(before.domesticPricePerTon * 1.12, 8);
+    expect(after.productPriceDomestic).toBeCloseTo(before.productPriceDomestic * 1.12, 8);
+    expect(after.exportPricePerTon).toBeCloseTo(before.exportPricePerTon, 8);
+    expect(after.productPriceExport).toBeCloseTo(before.productPriceExport, 8);
+  });
+
+  it('международный картель повышает только экспортные цены один раз', () => {
+    const cartel = makeUpgrade({ id: 'export-cartel', type: 'priceBoost', effect: { exportPriceMultiplier: 1.18 } });
+    const state = withUpgrades();
+    const before = computeDerived(config, [], state);
+    state.levels[cartel.id] = 1;
+    const after = computeDerived(config, [cartel], state);
+    expect(after.exportPricePerTon).toBeCloseTo(before.exportPricePerTon * 1.18, 8);
+    expect(after.productPriceExport).toBeCloseTo(before.productPriceExport * 1.18, 8);
+    expect(after.domesticPricePerTon).toBeCloseTo(before.domesticPricePerTon, 8);
+    expect(after.productPriceDomestic).toBeCloseTo(before.productPriceDomestic, 8);
+  });
+
+  it('девальвация повышает экспортную выручку, но не внутренние цены', () => {
+    const devalue = makeUpgrade({ id: 'devalue', type: 'priceBoost', effect: { exchangeRateDevaluation: 0.05 } });
+    const state = withUpgrades();
+    const before = computeDerived(config, [], state);
+    state.levels[devalue.id] = 2;
+    const after = computeDerived(config, [devalue], state);
+    expect(after.exchangeRate).toBeCloseTo(config.exchangeRate.initial * 1.05 ** 2, 10);
+    expect(after.exportPricePerTon).toBeCloseTo(before.exportPricePerTon * 1.05 ** 2, 8);
+    expect(after.productPriceExport).toBeCloseTo(before.productPriceExport * 1.05 ** 2, 8);
+    expect(after.domesticPricePerTon).toBeCloseTo(before.domesticPricePerTon, 8);
+    expect(after.productPriceDomestic).toBeCloseTo(before.productPriceDomestic, 8);
+  });
+
   it('волна мировой цены начинается с заданной цены и остаётся в границах', () => {
     const settings = config.worldPrice;
     expect(worldPriceAt(settings, 1234, 0)).toBeCloseTo(settings.startPrice, 12);
@@ -211,6 +257,15 @@ describe('производные показатели', () => {
     expect(costFor(config, early, 0)).toBe(50_000);
     expect(costFor(config, late, 0)).toBe(adjustCurrencyCost(config, late.baseCost));
     expect(costFor(config, late, 0)).toBeLessThan(late.baseCost);
+  });
+
+  it('девальвация индексирует только строительные активы', () => {
+    const factory = makeUpgrade({ id: 'factory', type: 'sell', assetKind: 'refinery', baseCost: 100_000 });
+    const well = makeUpgrade({ id: 'well', type: 'well', baseCost: 100_000 });
+    const political = makeUpgrade({ id: 'bribe', type: 'oneShot', baseCost: 100_000 });
+    expect(costFor(config, factory, 0, 2)).toBeGreaterThan(costFor(config, factory, 0, 1));
+    expect(costFor(config, well, 0, 2)).toBeGreaterThan(costFor(config, well, 0, 1));
+    expect(costFor(config, political, 0, 2)).toBe(costFor(config, political, 0, 1));
   });
 
   it('денежные требования открытия используют ту же кривую', () => {

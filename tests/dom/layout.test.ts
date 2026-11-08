@@ -117,6 +117,8 @@ describe('раскладка', () => {
     ]) {
       expect(labels).toContain(expected);
     }
+    expect([... (hud?.querySelectorAll('.hud__price-label') ?? [])].map(n => n.textContent))
+      .toContain('Нефтефантиков за $1');
     const propertyRows = hud?.querySelector('[data-group="property"] .hud__rows');
     expect(propertyRows?.classList.contains('hud__rows--property')).toBe(true);
     // Денежная таблица идёт в порядке применения: доход → расходы → EBT →

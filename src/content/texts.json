@@ -95,7 +95,8 @@
     "assetsRefineryPipe": "Трубопроводы к НПЗ",
     "assetsEquipment": "Оборудование",
     "assetsMedia": "Газеты и телеканалы",
-    "assetsFacilities": "Принадлежащие объекты"
+    "assetsFacilities": "Принадлежащие объекты",
+    "exchangeRate": "Нефтефантиков за $1"
   },
   "tabs": {
     "political": "Политика",
@@ -158,7 +159,10 @@
     "effectCapitalFlight": "{value}/с на старте; рост на {growth} от начальной суммы каждую минуту",
     "effectThroughputBonus": "Пропускная способность +{value}% за уровень",
     "effectSellThroughput": "пропускная способность +{value}",
-    "effectSellVolume": "объём реализации +{value}"
+    "effectSellVolume": "объём реализации +{value}",
+    "effectDomesticPrice": "Внутренние цены +{value} навсегда",
+    "effectExportPrice": "Экспортные цены +{value} навсегда",
+    "effectDevaluation": "Курс растёт на {value} за уровень; CAPEX дорожает"
   },
   "panel": {
     "shop": "Магазин",

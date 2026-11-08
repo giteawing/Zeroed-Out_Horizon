@@ -35,7 +35,8 @@ export class AssetDetails {
   get visible(): boolean { return !this.root.hidden; }
 
   render(): void {
-    const lines = assetValueBreakdownOf(this.game.config, this.game.content.upgrades, this.game.state);
+    const exchangeRate = this.game.derived().exchangeRate;
+    const lines = assetValueBreakdownOf(this.game.config, this.game.content.upgrades, this.game.state, exchangeRate);
     const nodes = lines.map((line) => {
       const name = line.kind === 'wells'
         ? this.texts.get('panel.assetsWells')
@@ -51,7 +52,7 @@ export class AssetDetails {
     this.list.replaceChildren(...nodes);
     if (nodes.length === 0) this.list.append(el('p', { class: 'assets__empty' }, this.texts.get('panel.assetsEmpty')));
     this.total.textContent = formatMoney(
-      assetsValueOf(this.game.config, this.game.content.upgrades, this.game.state), this.currency,
+      assetsValueOf(this.game.config, this.game.content.upgrades, this.game.state, exchangeRate), this.currency,
     );
   }
 }

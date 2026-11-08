@@ -1169,6 +1169,60 @@
       "repeatable": true
     },
     {
+      "id": "p_domestic_cartel",
+      "tab": "political",
+      "group": "deals",
+      "name": "Устроить монопольный сговор на внутреннем рынке",
+      "description": "Однократный сговор с крупнейшими покупателями: внутренние цены на нефть и нефтепродукты навсегда повышаются на 12%. Экспортные цены не меняются.",
+      "icon": "domestic-cartel",
+      "type": "priceBoost",
+      "baseCost": 22000000,
+      "maxLevel": 1,
+      "effect": {
+        "domesticPriceMultiplier": 1.12
+      },
+      "unlockAt": {
+        "balance": 5000000,
+        "influence": 120
+      }
+    },
+    {
+      "id": "p_export_cartel",
+      "tab": "political",
+      "group": "deals",
+      "name": "Создать международный нефтяной картель",
+      "description": "Однократное соглашение экспортёров: экспортные цены нефти и нефтепродуктов для империи навсегда повышаются на 18%. Внутренние цены не меняются.",
+      "icon": "export-cartel",
+      "type": "priceBoost",
+      "baseCost": 250000000,
+      "maxLevel": 1,
+      "effect": {
+        "exportPriceMultiplier": 1.18
+      },
+      "unlockAt": {
+        "balance": 100000000,
+        "influence": 250
+      }
+    },
+    {
+      "id": "p_devalue_currency",
+      "tab": "political",
+      "group": "deals",
+      "name": "Девальвировать нефтефантики",
+      "description": "Каждый уровень ослабляет нефтефантик на 5%: за доллар дают больше нефтефантиков, поэтому экспорт приносит больше местной валюты. Строительство заводов, скважин, нефтебаз, эстакад и трубопроводов постепенно дорожает. Внутренние цены не меняются. Требуется влияние строго выше 1000.",
+      "icon": "devalue",
+      "type": "priceBoost",
+      "baseCost": 50000000000,
+      "maxLevel": 20,
+      "effect": {
+        "exchangeRateDevaluation": 0.05
+      },
+      "unlockAt": {
+        "influence": 1001
+      },
+      "costGrowth": 1.18
+    },
+    {
       "id": "p_field",
       "tab": "production",
       "group": "conquest",

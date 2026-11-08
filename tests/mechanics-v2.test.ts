@@ -60,6 +60,33 @@ describe('новые покупки из заявки', () => {
   const has = (needle: string) =>
     content.upgrades.some((u) => u.name.toLowerCase().includes(needle.toLowerCase()));
 
+  it('политические картели одноразовые и влияют только на свою группу цен', () => {
+    const domestic = content.byId.get('p_domestic_cartel')!;
+    const international = content.byId.get('p_export_cartel')!;
+    expect(domestic.type).toBe('priceBoost');
+    expect(domestic.maxLevel).toBe(1);
+    expect(domestic.effect.domesticPriceMultiplier).toBeGreaterThan(1);
+    expect(domestic.effect.exportPriceMultiplier).toBeUndefined();
+    expect(international.type).toBe('priceBoost');
+    expect(international.maxLevel).toBe(1);
+    expect(international.effect.exportPriceMultiplier).toBeGreaterThan(1);
+    expect(international.effect.domesticPriceMultiplier).toBeUndefined();
+  });
+
+  it('девальвация требует влияния 1001 и становится доступна за пределом 1000', () => {
+    const def = content.byId.get('p_devalue_currency')!;
+    expect(def.unlockAt?.influence).toBe(1001);
+    expect(def.maxLevel).toBeGreaterThan(1);
+    const { game, state } = setup();
+    state.levels = Object.fromEntries(content.upgrades.map((upgrade) => [
+      upgrade.id,
+      upgrade.id === def.id ? 0 : upgrade.maxLevel,
+    ]));
+    game.invalidate();
+    expect(game.derived().influence).toBeGreaterThan(1000);
+    expect(game.checkBuy(def.id).unlocked).toBe(true);
+  });
+
   it('реприватизация месторождения со скважинами конкурента', () => {
     const def = content.byId.get('p_reprivatize');
     expect(def).toBeDefined();
