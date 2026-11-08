@@ -26,7 +26,7 @@
     "oilPerTon": 0.45,
     "productPerTon": 1.1,
     "influenceReliefPerPoint": 0.003,
-    "maxRelief": 0.9,
+    "maxRelief": 0.999,
     "stormSeconds": 2.5
   },
   "worldPrice": {

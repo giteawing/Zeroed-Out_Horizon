@@ -2,7 +2,7 @@
   "upgrades": [
     {
       "id": "t_well",
-      "tab": "technical",
+      "tab": "production",
       "group": "infrastructure",
       "name": "Пробурить скважину",
       "description": "Дебит выпадает случайно: обычная скважина — 8–10 т/сут, хорошая — около 60, уникальная — сотни и тысячи.",
@@ -15,7 +15,7 @@
     },
     {
       "id": "t_refinery",
-      "tab": "technical",
+      "tab": "production",
       "group": "infrastructure",
       "name": "Построить нефтеперерабатывающий завод",
       "description": "Свой завод: гонит мазут в бензин и приносит втрое больше, чем сырая нефть.",
@@ -36,7 +36,7 @@
     },
     {
       "id": "t_depot",
-      "tab": "technical",
+      "tab": "sales",
       "group": "infrastructure",
       "name": "Построить нефтебазу",
       "description": "Резервуарный парк. Больше ёмкость — больше нефти можно накопить и продать в удачный момент.",
@@ -57,7 +57,7 @@
     },
     {
       "id": "t_productdom",
-      "tab": "technical",
+      "tab": "sales",
       "group": "infrastructure",
       "name": "Построить сеть сбыта нефтепродуктов",
       "description": "Склады, оптовые базы и заправки под бензин с мазутом. Расширяет внутренний рынок только для нефтепродуктов, нефть не трогает.",
@@ -81,7 +81,7 @@
     },
     {
       "id": "t_productport",
-      "tab": "technical",
+      "tab": "sales",
       "group": "infrastructure",
       "name": "Построить наливной терминал под нефтепродукты",
       "description": "Отдельная эстакада для бензина и мазута: мощность для морского экспорта продуктов растёт отдельно, и труба, загруженная сырьём, уже не мешает.",
@@ -102,11 +102,11 @@
         "balance": 30000000
       },
       "costGrowth": 1.18,
-      "assetKind": "depot"
+      "assetKind": "exportTanker"
     },
     {
       "id": "t_azs",
-      "tab": "technical",
+      "tab": "sales",
       "group": "infrastructure",
       "name": "Построить сеть АЗС",
       "description": "Заправки по всему региону. Бензин — по цене совести, а совести нет.",
@@ -130,7 +130,7 @@
     },
     {
       "id": "t_pipeline",
-      "tab": "technical",
+      "tab": "sales",
       "group": "infrastructure",
       "name": "Проложить трубопровод «Чёрная змея»",
       "description": "Пассивный доход и минус логистика. Змея ползёт сама.",
@@ -155,7 +155,7 @@
     },
     {
       "id": "t_terminal",
-      "tab": "technical",
+      "tab": "sales",
       "group": "infrastructure",
       "name": "Построить морской терминал с собственным танкером",
       "description": "Усиливает «пихнуть нефть заграницу». Танкер гудит на удачу.",
@@ -176,11 +176,12 @@
       "unlockAt": {
         "balance": 80000
       },
-      "costGrowth": 1.18
+      "costGrowth": 1.18,
+      "assetKind": "exportTanker"
     },
     {
       "id": "t_rail",
-      "tab": "technical",
+      "tab": "sales",
       "group": "infrastructure",
       "name": "Построить железнодорожную эстакаду",
       "description": "Налив цистерн: быстро, громко, с матом.",
@@ -200,11 +201,12 @@
       "unlockAt": {
         "balance": 400000
       },
-      "costGrowth": 1.18
+      "costGrowth": 1.18,
+      "assetKind": "exportRail"
     },
     {
       "id": "t_railbranch",
-      "tab": "technical",
+      "tab": "sales",
       "group": "infrastructure",
       "name": "Построить ж/д ветку к месторождению",
       "description": "Ветка длиной «всего двадцать километров» по цене трёх городов: зато цистерны теперь не носят на руках.",
@@ -224,11 +226,12 @@
       },
       "unlockAt": {
         "balance": 600000
-      }
+      },
+      "assetKind": "exportRail"
     },
     {
       "id": "t_fieldpipe",
-      "tab": "technical",
+      "tab": "sales",
       "group": "infrastructure",
       "name": "Построить трубопровод к месторождению",
       "description": "Труба от куста до нефтебазы: нефть больше не ждёт цистерн и не греется на солнце.",
@@ -248,11 +251,12 @@
       },
       "unlockAt": {
         "balance": 90000
-      }
+      },
+      "assetKind": "exportPipe"
     },
     {
       "id": "t_refpipe",
-      "tab": "technical",
+      "tab": "production",
       "group": "infrastructure",
       "name": "Построить трубопровод к НПЗ",
       "description": "Короткая труба до собственного завода: переработка перестаёт ждать, пока нефть приедет.",
@@ -272,7 +276,7 @@
     },
     {
       "id": "t_exppipe",
-      "tab": "technical",
+      "tab": "sales",
       "group": "infrastructure",
       "name": "Построить экспортный трубопровод",
       "description": "Труба через три границы и один «суверенный» участок. Экспорт идёт мимо посредников.",
@@ -298,7 +302,7 @@
     },
     {
       "id": "t_exptanker",
-      "tab": "technical",
+      "tab": "sales",
       "group": "infrastructure",
       "name": "Построить экспортный наливной терминал",
       "description": "Причал, эстакада и очередь из танкеров. Налив круглосуточный, погода «лето».",
@@ -319,11 +323,12 @@
       },
       "unlockAt": {
         "balance": 400000000
-      }
+      },
+      "assetKind": "exportTanker"
     },
     {
       "id": "t_gasplant",
-      "tab": "technical",
+      "tab": "production",
       "group": "infrastructure",
       "name": "Построить газоперерабатывающий завод",
       "description": "Попутный газ больше не сгорает в факеле. Теперь он сгорает в кассе.",
@@ -338,11 +343,12 @@
       "unlockAt": {
         "balance": 2000000
       },
-      "costGrowth": 1.18
+      "costGrowth": 1.18,
+      "assetKind": "gasPlant"
     },
     {
       "id": "t_power",
-      "tab": "technical",
+      "tab": "production",
       "group": "infrastructure",
       "name": "Построить электростанцию на попутном газе",
       "description": "Электричество своё, счётчики чужие. Счётчики не согласны.",
@@ -358,7 +364,8 @@
       "unlockAt": {
         "balance": 8000000
       },
-      "costGrowth": 1.18
+      "costGrowth": 1.18,
+      "assetKind": "powerPlant"
     },
     {
       "id": "d1_blade",
@@ -1145,7 +1152,7 @@
     },
     {
       "id": "p_field",
-      "tab": "political",
+      "tab": "production",
       "group": "conquest",
       "name": "Отжать месторождение у конкурентов",
       "description": "Целое месторождение: от 5 до 50 скважин за раз. Сколько даст каждая — как повезёт: от 8 т/сут до тысяч.",
@@ -1162,7 +1169,7 @@
     },
     {
       "id": "p_refinery",
-      "tab": "political",
+      "tab": "production",
       "group": "conquest",
       "name": "Отжать нефтеперерабатывающий завод у конкурентов",
       "description": "Тот же завод, только прежний владелец пишет жалобы. Дешевле, но нужно влияние и своя ЧВК.",
@@ -1222,13 +1229,12 @@
       "tab": "political",
       "group": "conquest",
       "name": "Пропихнуть своего человека в правительство",
-      "description": "Цены на «мою» нефть и нефтепродукты всегда высокие.",
+      "description": "Своего человека в правительстве достаточно, чтобы укрепить влияние.",
       "icon": "gov",
-      "type": "priceBoost",
+      "type": "passive",
       "baseCost": 251347,
       "maxLevel": 6,
       "effect": {
-        "factor": 1.15,
         "influence": 10
       },
       "unlockAt": {
@@ -1278,13 +1284,12 @@
       "tab": "political",
       "group": "conquest",
       "name": "Купить местную газету",
-      "description": "Теперь хорошие новости пишутся по вашему заказу. И по вашему прайсу.",
+      "description": "Хорошие новости теперь пишутся по вашему заказу. Влияние растёт.",
       "icon": "newspaper",
-      "type": "priceBoost",
+      "type": "passive",
       "baseCost": 11799,
       "maxLevel": 5,
       "effect": {
-        "factor": 1.08,
         "influence": 3
       },
       "unlockAt": {
@@ -1296,15 +1301,13 @@
       "tab": "political",
       "group": "media",
       "name": "Купить телеканал имперского значения",
-      "description": "Новости, погода и видение императора в каждом доме. Цена тонны растёт вместе с рейтингом.",
+      "description": "Новости, погода и видение императора в каждом доме. Вы контролируете повестку.",
       "icon": "tv-channel",
-      "type": "priceBoost",
+      "type": "passive",
       "baseCost": 15000000000,
       "maxLevel": 5,
       "costGrowth": 1.7,
-      "effect": {
-        "factor": 1.1
-      },
+      "effect": {},
       "unlockAt": {
         "balance": 4000000000
       }
@@ -2077,7 +2080,7 @@
     },
     {
       "id": "t_canister",
-      "tab": "technical",
+      "tab": "production",
       "group": "infrastructure",
       "name": "Прицепить цистерну",
       "description": "Старая цистерна на телеге. Ёмкость сразу заметная: место под нефть кончается быстро.",
@@ -2091,11 +2094,12 @@
       "unlockAt": {
         "balance": 900
       },
-      "costGrowth": 1.3
+      "costGrowth": 1.3,
+      "assetKind": "crudeTank"
     },
     {
       "id": "t_tank",
-      "tab": "technical",
+      "tab": "production",
       "group": "infrastructure",
       "name": "Поставить клёпаный резервуар",
       "description": "Клёпаный резервуар на двадцать тысяч тонн. Нефть больше не льётся через край.",
@@ -2109,7 +2113,8 @@
       "unlockAt": {
         "balance": 60000
       },
-      "costGrowth": 1.3
+      "costGrowth": 1.3,
+      "assetKind": "crudeTank"
     },
     {
       "id": "s_geolog",
@@ -2163,7 +2168,6 @@
       "effect": {
         "channel": "contract",
         "value": 2160,
-        "percent": 6,
         "channelSplit": {
           "crude": 1,
           "products": 0
@@ -2179,7 +2183,7 @@
       "tab": "sales",
       "group": "contracts",
       "name": "Нанять трейдера-брокера",
-      "description": "Знает всех, кому нужна нефть. Контракты растут и дорожают.",
+      "description": "Знает всех, кому нужна нефть. Контрактов становится больше.",
       "icon": "lawyer",
       "type": "sell",
       "baseCost": 9000,
@@ -2187,7 +2191,6 @@
       "effect": {
         "channel": "contract",
         "value": 7200,
-        "percent": 9,
         "channelSplit": {
           "crude": 1,
           "products": 0
@@ -2211,7 +2214,6 @@
       "effect": {
         "channel": "contract",
         "value": 25200,
-        "percent": 12,
         "channelSplit": {
           "crude": 1,
           "products": 0
@@ -2227,7 +2229,7 @@
       "tab": "sales",
       "group": "contracts",
       "name": "Подписать долгосрочные контракты с «друзьями»",
-      "description": "Цена фиксируется на десять лет. Как всегда, не в вашу пользу.",
+      "description": "Контракт фиксирует поставки на десять лет. Как всегда, не в вашу пользу.",
       "icon": "ministry",
       "type": "sell",
       "baseCost": 6800000,
@@ -2235,7 +2237,6 @@
       "effect": {
         "channel": "contract",
         "value": 82800,
-        "percent": 15,
         "channelSplit": {
           "crude": 1,
           "products": 0
@@ -2259,7 +2260,6 @@
       "effect": {
         "channel": "contract",
         "value": 252000,
-        "percent": 20,
         "channelSplit": {
           "crude": 1,
           "products": 0
@@ -2283,7 +2283,6 @@
       "effect": {
         "channel": "export",
         "value": 1440,
-        "percent": 8,
         "exportMode": "rail",
         "channelSplit": {
           "crude": 1,
@@ -2293,7 +2292,8 @@
       "unlockAt": {
         "balance": 90000
       },
-      "costGrowth": 1.15
+      "costGrowth": 1.15,
+      "assetKind": "exportRail"
     },
     {
       "id": "x_tanker",
@@ -2308,7 +2308,6 @@
       "effect": {
         "channel": "export",
         "value": 4800,
-        "percent": 10,
         "exportMode": "tanker",
         "channelSplit": {
           "crude": 0,
@@ -2318,7 +2317,8 @@
       "unlockAt": {
         "balance": 5000000
       },
-      "costGrowth": 1.15
+      "costGrowth": 1.15,
+      "assetKind": "exportTanker"
     },
     {
       "id": "x_nordstream",
@@ -2333,7 +2333,6 @@
       "effect": {
         "channel": "export",
         "value": 14400,
-        "percent": 14,
         "exportMode": "pipeline",
         "channelSplit": {
           "crude": 1,
@@ -2343,7 +2342,8 @@
       "unlockAt": {
         "balance": 20000000
       },
-      "costGrowth": 1.15
+      "costGrowth": 1.15,
+      "assetKind": "exportPipe"
     },
     {
       "id": "x_offtake",
@@ -2358,7 +2358,6 @@
       "effect": {
         "channel": "export",
         "value": 43200,
-        "percent": 18,
         "exportMode": "tanker",
         "channelSplit": {
           "crude": 0,
@@ -2383,7 +2382,6 @@
       "effect": {
         "channel": "export",
         "value": 124800,
-        "percent": 22,
         "exportMode": "tanker",
         "channelSplit": {
           "crude": 0,
@@ -2393,7 +2391,8 @@
       "unlockAt": {
         "balance": 12000000000
       },
-      "costGrowth": 1.15
+      "costGrowth": 1.15,
+      "assetKind": "exportTanker"
     },
     {
       "id": "r_uzine",
@@ -2407,8 +2406,7 @@
       "maxLevel": 16,
       "effect": {
         "channel": "refine",
-        "value": 3360,
-        "percent": 10
+        "value": 3360
       },
       "unlockAt": {
         "balance": 3000000000
@@ -2427,8 +2425,7 @@
       "maxLevel": 14,
       "effect": {
         "channel": "refine",
-        "value": 11040,
-        "percent": 14
+        "value": 11040
       },
       "unlockAt": {
         "balance": 25000000000
@@ -2447,8 +2444,7 @@
       "maxLevel": 12,
       "effect": {
         "channel": "refine",
-        "value": 36000,
-        "percent": 18
+        "value": 36000
       },
       "unlockAt": {
         "balance": 300000000000
@@ -2467,8 +2463,7 @@
       "maxLevel": 10,
       "effect": {
         "channel": "refine",
-        "value": 100800,
-        "percent": 25
+        "value": 100800
       },
       "unlockAt": {
         "balance": 6000000000000
@@ -2497,7 +2492,8 @@
       "unlockAt": {
         "balance": 6000000
       },
-      "costGrowth": 1.15
+      "costGrowth": 1.15,
+      "assetKind": "exportRail"
     },
     {
       "id": "s_metering",
@@ -2512,7 +2508,6 @@
       "effect": {
         "channel": "contract",
         "value": 16200,
-        "percent": 6,
         "channelSplit": {
           "crude": 1,
           "products": 0
@@ -2617,7 +2612,7 @@
     },
     {
       "id": "p_reprivatize",
-      "tab": "political",
+      "tab": "production",
       "group": "conquest",
       "name": "Устроить реприватизацию месторождения со скважинами конкурента",
       "description": "Забираем месторождение конкурента: случайное число скважин, но их стоимость всегда в 5–10 раз больше, чем заплатили за акцию.",

@@ -55,8 +55,8 @@
     "exportPrice": "экспортная цена",
     "productPriceDomestic": "продукты, внутр. цена",
     "productPriceExport": "продукты, экспорт",
-    "priceNoteBase": "базовая, без надбавок",
-    "priceNoteMarkup": "к базовой ×{markup}",
+    "priceNoteBase": "базовая цена",
+    "priceNoteMarkup": "базовая цена",
     "exportPipeline": "трубопроводом",
     "exportRail": "поездами",
     "exportTanker": "танкерами",
@@ -77,14 +77,30 @@
     "exportPipelineCapacity": "трубопроводами",
     "exportRailCapacity": "поездами",
     "exportTankerCapacity": "терминалами и танкерами",
-    "refineryThroughput": "Переработка на НПЗ"
+    "refineryThroughput": "Переработка на НПЗ",
+    "crudeExportIncome": "Экспорт нефти",
+    "productsExportIncome": "Экспорт нефтепродуктов",
+    "crudeDomesticIncome": "Внутренняя продажа нефти",
+    "productsDomesticIncome": "Внутренняя продажа нефтепродуктов",
+    "investmentIncome": "Инвестиционный доход · {rate}% годовых",
+    "assetsWells": "Скважины",
+    "assetsRefinery": "НПЗ",
+    "assetsGas": "Газовые заводы и электростанции",
+    "assetsDepot": "Нефтебазы",
+    "assetsAzs": "Сети АЗС",
+    "assetsCrudeTank": "Резервуары сырой нефти",
+    "assetsExportPipe": "Экспортные трубопроводы",
+    "assetsExportRail": "Железнодорожные эстакады",
+    "assetsExportTanker": "Морские терминалы и танкеры",
+    "assetsRefineryPipe": "Трубопроводы к НПЗ"
   },
   "tabs": {
     "political": "Политика",
     "technical": "Техника",
     "sales": "Сбыт",
     "luxury": "Роскошь",
-    "goals": "Цель"
+    "goals": "Цель",
+    "production": "Производство"
   },
   "shop": {
     "buy": "Купить",
@@ -101,7 +117,7 @@
     "effectMultiplier": "×{value} к добыче",
     "effectTaxCut": "−{value} налога",
     "effectCostCut": "−{value}% расходов",
-    "effectPriceBoost": "Цена нефти +{value}",
+    "effectPriceBoost": "Влияние растёт",
     "effectOneShot": "Разовая выплата",
     "effectGamble": "Через {seconds} с: ×{value} или ничего",
     "effectPeriodic": "Раз в {seconds} с: выплата ×{value} от базового дохода",
@@ -149,7 +165,13 @@
     "collapse": "Свернуть",
     "log": "Журнал операций",
     "hint": "Империя",
-    "dev": "Инженерное меню"
+    "dev": "Инженерное меню",
+    "assets": "Состав активов",
+    "assetsTotal": "Итого стоимость активов",
+    "assetsWells": "Скважины и месторождения",
+    "assetsLuxury": "Предметы роскоши",
+    "assetsEmpty": "Пока нет активов для оценки",
+    "assetsCount": "Количество: {count}"
   },
   "stats": {
     "title": "Статистика империи",
