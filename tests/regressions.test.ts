@@ -297,7 +297,12 @@ describe('сырьё, мощности и игровое время', () => {
       const actualNetPerSecond = (state.totalEarned - before) / 10;
       const relativeError = Math.abs(actualNetPerSecond - expectedNetPerSecond) /
         Math.max(1, Math.abs(expectedNetPerSecond));
-      expect(relativeError, scenario.name).toBeLessThan(0.01);
+      expect(
+        relativeError,
+        `${scenario.name}: expected=${expectedNetPerSecond.toFixed(6)}, actual=${actualNetPerSecond.toFixed(6)}, ` +
+          `earned=${(state.totalEarned - before).toFixed(6)}, sold=${state.totalSold.toFixed(6)}, ` +
+          `oil=${state.oil.toFixed(6)}, expensesAccrued=${state.expensesAccrued.toFixed(6)}`,
+      ).toBeLessThan(0.01);
     }
   });
 
