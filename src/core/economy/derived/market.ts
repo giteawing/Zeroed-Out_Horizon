@@ -58,7 +58,8 @@ export function calculateMarket(
 
   for (const channel of CHANNELS) {
     const channelConfig = config.oil.channels[channel];
-    const rate = Math.max(0, channelConfig.baseRate + effects.rateFlat[channel]);
+    const rate = Math.max(0, channelConfig.baseRate + effects.rateFlat[channel]) *
+      (1 + effects.throughputBonus[channel]);
     const price = oilPricePerTon * channelConfig.priceFactor * (1 + effects.priceBonus[channel]);
     const boostedRate = channel === 'export' ? rate * effects.exportMultiplier : rate;
     channels[channel] = { rate: boostedRate, price, sold: boostedRate };

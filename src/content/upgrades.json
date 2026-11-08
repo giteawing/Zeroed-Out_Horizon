@@ -2160,7 +2160,7 @@
       "tab": "sales",
       "group": "contracts",
       "name": "Договориться с местным трестом",
-      "description": "Скупают всё, что льётся, по грабительской цене. Зато стабильно.",
+      "description": "Повышает пропускную способность внутреннего рынка на 6% за уровень. Цена за тонну не меняется.",
       "icon": "contractor",
       "type": "sell",
       "baseCost": 540,
@@ -2171,7 +2171,8 @@
         "channelSplit": {
           "crude": 1,
           "products": 0
-        }
+        },
+        "percent": 6
       },
       "unlockAt": {
         "balance": 3000
@@ -2183,7 +2184,7 @@
       "tab": "sales",
       "group": "contracts",
       "name": "Нанять трейдера-брокера",
-      "description": "Знает всех, кому нужна нефть. Контрактов становится больше.",
+      "description": "Повышает пропускную способность внутреннего рынка на 9% за уровень. Цена за тонну не меняется.",
       "icon": "lawyer",
       "type": "sell",
       "baseCost": 9000,
@@ -2194,7 +2195,8 @@
         "channelSplit": {
           "crude": 1,
           "products": 0
-        }
+        },
+        "percent": 9
       },
       "unlockAt": {
         "balance": 100000
@@ -2206,7 +2208,7 @@
       "tab": "sales",
       "group": "contracts",
       "name": "Пробить место на нефтяной бирже",
-      "description": "Без места на бирже на вас смотрят как на ларёк.",
+      "description": "Повышает пропускную способность внутреннего рынка на 12% за уровень. Цена за тонну не меняется.",
       "icon": "expertise",
       "type": "sell",
       "baseCost": 260000,
@@ -2217,7 +2219,8 @@
         "channelSplit": {
           "crude": 1,
           "products": 0
-        }
+        },
+        "percent": 12
       },
       "unlockAt": {
         "balance": 3000000
@@ -2229,7 +2232,7 @@
       "tab": "sales",
       "group": "contracts",
       "name": "Подписать долгосрочные контракты с «друзьями»",
-      "description": "Контракт фиксирует поставки на десять лет. Как всегда, не в вашу пользу.",
+      "description": "Повышает пропускную способность внутреннего рынка на 15% за уровень. Цена за тонну не меняется.",
       "icon": "ministry",
       "type": "sell",
       "baseCost": 6800000,
@@ -2240,7 +2243,8 @@
         "channelSplit": {
           "crude": 1,
           "products": 0
-        }
+        },
+        "percent": 15
       },
       "unlockAt": {
         "balance": 80000000
@@ -2252,7 +2256,7 @@
       "tab": "sales",
       "group": "contracts",
       "name": "Выиграть все госконтракты сразу",
-      "description": "Конкурс из одного участника. Победа единогласная.",
+      "description": "Повышает пропускную способность внутреннего рынка на 20% за уровень. Цена за тонну не меняется.",
       "icon": "gov",
       "type": "sell",
       "baseCost": 190000000,
@@ -2263,7 +2267,8 @@
         "channelSplit": {
           "crude": 1,
           "products": 0
-        }
+        },
+        "percent": 20
       },
       "unlockAt": {
         "balance": 2000000000
@@ -2275,7 +2280,7 @@
       "tab": "sales",
       "group": "export",
       "name": "Гонять нефть за границу цистернами",
-      "description": "Железная дорога, таможня, «ускорение оформления».",
+      "description": "Повышает экспортную логистику на 8% за уровень. Цена за тонну не меняется.",
       "icon": "export",
       "type": "sell",
       "baseCost": 8200,
@@ -2287,7 +2292,8 @@
         "channelSplit": {
           "crude": 1,
           "products": 0
-        }
+        },
+        "percent": 8
       },
       "unlockAt": {
         "balance": 90000
@@ -2300,7 +2306,7 @@
       "tab": "sales",
       "group": "export",
       "name": "Фрахтовать танкер «на один рейс» (навсегда)",
-      "description": "Судно старое, трюмы большие. Капитан подписывает всё.",
+      "description": "Повышает экспортную логистику на 10% за уровень. Цена за тонну не меняется.",
       "icon": "terminal",
       "type": "sell",
       "baseCost": 410000,
@@ -2312,7 +2318,8 @@
         "channelSplit": {
           "crude": 0,
           "products": 1
-        }
+        },
+        "percent": 10
       },
       "unlockAt": {
         "balance": 5000000
@@ -2325,7 +2332,7 @@
       "tab": "sales",
       "group": "export",
       "name": "Провести трубу по дну холодного моря",
-      "description": "Экологическое заключение уже готово. Осталось найти море.",
+      "description": "Повышает экспортную логистику на 14% за уровень. Цена за тонну не меняется.",
       "icon": "pipeline",
       "type": "sell",
       "baseCost": 1400000,
@@ -2337,7 +2344,8 @@
         "channelSplit": {
           "crude": 1,
           "products": 0
-        }
+        },
+        "percent": 14
       },
       "unlockAt": {
         "balance": 20000000
@@ -2350,7 +2358,7 @@
       "tab": "sales",
       "group": "export",
       "name": "Взять offtake-контракт на всю добычу",
-      "description": "Покупатель обязуется брать всё. Продавать больше некому.",
+      "description": "Повышает экспортную логистику на 18% за уровень. Цена за тонну не меняется.",
       "icon": "contractor",
       "type": "sell",
       "baseCost": 46000000,
@@ -2362,7 +2370,8 @@
         "channelSplit": {
           "crude": 0,
           "products": 1
-        }
+        },
+        "percent": 18
       },
       "unlockAt": {
         "balance": 600000000
@@ -2374,7 +2383,7 @@
       "tab": "sales",
       "group": "export",
       "name": "Купить собственный танкерный флот",
-      "description": "Пять танкеров, два из них ещё даже на плаву.",
+      "description": "Повышает экспортную логистику на 22% за уровень. Цена за тонну не меняется.",
       "icon": "lux-yacht",
       "type": "sell",
       "baseCost": 900000000,
@@ -2386,7 +2395,8 @@
         "channelSplit": {
           "crude": 0,
           "products": 1
-        }
+        },
+        "percent": 22
       },
       "unlockAt": {
         "balance": 12000000000
@@ -2399,14 +2409,15 @@
       "tab": "production",
       "group": "refine",
       "name": "Добавить на НПЗ установку каталитического крекинга",
-      "description": "Из мазута получается бензин, из бензина — деньги.",
+      "description": "Повышает мощность переработки на 10% за уровень. Цена за тонну не меняется.",
       "icon": "refinery",
       "type": "sell",
       "baseCost": 210000000,
       "maxLevel": 16,
       "effect": {
         "channel": "refine",
-        "value": 3360
+        "value": 3360,
+        "percent": 10
       },
       "unlockAt": {
         "balance": 3000000000
@@ -2418,14 +2429,15 @@
       "tab": "production",
       "group": "refine",
       "name": "Наладить алкилирование и висбрекинг",
-      "description": "Названия страшные, маржа прекрасная.",
+      "description": "Повышает мощность переработки на 14% за уровень. Цена за тонну не меняется.",
       "icon": "refinery",
       "type": "sell",
       "baseCost": 1900000000,
       "maxLevel": 14,
       "effect": {
         "channel": "refine",
-        "value": 11040
+        "value": 11040,
+        "percent": 14
       },
       "unlockAt": {
         "balance": 25000000000
@@ -2437,14 +2449,15 @@
       "tab": "production",
       "group": "refine",
       "name": "Гнать ароматику прямо в пластмассу",
-      "description": "Нефть превращается в тазики. Тазики дороже нефти.",
+      "description": "Повышает мощность переработки на 18% за уровень. Цена за тонну не меняется.",
       "icon": "refinery",
       "type": "sell",
       "baseCost": 25000000000,
       "maxLevel": 12,
       "effect": {
         "channel": "refine",
-        "value": 36000
+        "value": 36000,
+        "percent": 18
       },
       "unlockAt": {
         "balance": 300000000000
@@ -2456,14 +2469,15 @@
       "tab": "production",
       "group": "refine",
       "name": "Стать нефтехимическим комбинатом",
-      "description": "Мазут → полимеры → всё, что можно продать в розницу.",
+      "description": "Повышает мощность переработки на 25% за уровень. Цена за тонну не меняется.",
       "icon": "refinery",
       "type": "sell",
       "baseCost": 450000000000,
       "maxLevel": 10,
       "effect": {
         "channel": "refine",
-        "value": 100800
+        "value": 100800,
+        "percent": 25
       },
       "unlockAt": {
         "balance": 6000000000000
@@ -2500,7 +2514,7 @@
       "tab": "sales",
       "group": "infrastructure",
       "name": "Поставить узлы учёта расхода нефти",
-      "description": "Считать то, что продаёшь. Революционная идея.",
+      "description": "Повышает пропускную способность внутреннего рынка на 6% за уровень. Цена за тонну не меняется.",
       "icon": "dashboard",
       "type": "sell",
       "baseCost": 4300000,
@@ -2511,7 +2525,8 @@
         "channelSplit": {
           "crude": 1,
           "products": 0
-        }
+        },
+        "percent": 6
       },
       "unlockAt": {
         "balance": 40000000

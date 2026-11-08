@@ -32,6 +32,7 @@ export interface UpgradeEffects {
   capitalFlightGrowthPerMinute: number;
   luxuries: string[];
   rateFlat: Record<Channel, number>;
+  throughputBonus: Record<Channel, number>;
   priceBonus: Record<Channel, number>;
   rateByProduct: Record<Channel, Record<Product, number>>;
   exportRateByMode: Record<ExportMode, number>;
@@ -64,6 +65,7 @@ export function collectUpgradeEffects(
     capitalFlightGrowthPerMinute: 0,
     luxuries: [],
     rateFlat: { contract: 0, export: 0, refine: 0 },
+    throughputBonus: { contract: 0, export: 0, refine: 0 },
     priceBonus: { contract: 0, export: 0, refine: 0 },
     rateByProduct: {
       contract: { crude: 0, products: 0 },
@@ -122,6 +124,8 @@ export function collectUpgradeEffects(
           }
         }
         if (effect.costCut) result.costCutFraction += effect.costCut * level;
+        // Контракты и логистика увеличивают пропускную способность, а не цену за тонну.
+        if (effect.percent) result.throughputBonus[channel] += (effect.percent / 100) * level;
         break;
       }
       case 'multiplier': {
