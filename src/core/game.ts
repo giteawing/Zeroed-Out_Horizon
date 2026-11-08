@@ -330,7 +330,7 @@ export class Game {
     }
     const level = this.level(id);
     const derived = this.derived();
-    const unlocked = isUnlocked(def, this.state, derived.influence);
+    const unlocked = isUnlocked(def, this.state, derived.influence, this.config);
     const cooldownMs = this.state.cooldowns[id] ?? 0;
     const repeatable = isRepeatable(def);
     const requested = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1;
@@ -383,7 +383,7 @@ export class Game {
       count: buyCount,
       unlocked,
       cooldownMs,
-      blocker: unlockBlocker(def, this.state, derived.influence),
+      blocker: unlockBlocker(def, this.state, derived.influence, this.config),
     };
   }
 

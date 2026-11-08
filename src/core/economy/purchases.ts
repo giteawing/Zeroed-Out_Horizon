@@ -61,8 +61,13 @@ export function affordableLevels(
 }
 
 /** Выполнены ли требования разблокировки (деньги здесь не учитываются). */
-export function isUnlocked(def: UpgradeDef, state: GameState, influence = 0): boolean {
-  return unlockBlocker(def, state, influence) === null;
+export function isUnlocked(
+  def: UpgradeDef,
+  state: GameState,
+  influence = 0,
+  config?: GameConfig,
+): boolean {
+  return unlockBlocker(def, state, influence, config) === null;
 }
 
 /** Чего не хватает для открытия покупки — для подсказки в интерфейсе. */
@@ -70,6 +75,7 @@ export function unlockBlocker(
   def: UpgradeDef,
   state: GameState,
   influence = 0,
+  config?: GameConfig,
 ):
   | { kind: 'balance'; value: number }
   | { kind: 'upgrade'; id: string; level: number }
@@ -78,7 +84,7 @@ export function unlockBlocker(
   const req = def.unlockAt;
   if (!req) return null;
   if (req.balance !== undefined) {
-    const requiredBalance = adjustCurrencyCost(config, req.balance);
+    const requiredBalance = config ? adjustCurrencyCost(config, req.balance) : req.balance;
     if (state.totalEarned < requiredBalance) {
       return { kind: 'balance', value: requiredBalance };
     }

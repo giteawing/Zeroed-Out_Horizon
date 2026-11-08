@@ -115,7 +115,7 @@ export function runSimulation(content: Content, options: SimulatorOptions = {}):
     // Экспортная акция продаёт нефть со склада: ждём, пока резервуары
     // наполнятся хотя бы наполовину, и смотрим на мировую цену.
     const exportDef = content.byId.get('p_export');
-    if (exportDef && (state.cooldowns.p_export ?? 0) <= 0 && isUnlocked(exportDef, state, game.derived().influence)) {
+    if (exportDef && (state.cooldowns.p_export ?? 0) <= 0 && isUnlocked(exportDef, state, game.derived().influence, content.config)) {
       const derived = game.derived();
       const full = derived.oilCapacity > 0 ? state.oil / derived.oilCapacity : 0;
       if (full >= 0.5 && state.worldPrice >= opts.exportPriceThreshold) {
@@ -203,7 +203,7 @@ export function decide(
   });
 
   if (winDef) {
-    const blocker = unlockBlocker(winDef, state, derived.influence);
+    const blocker = unlockBlocker(winDef, state, derived.influence, content.config);
     if (game.checkBuy(winDef.id).ok) {
       const res = game.buy(winDef.id);
       if (res.ok) purchased.add(winDef.id);
@@ -223,7 +223,7 @@ export function decide(
 
   for (const id of needed) {
     const reqDef = content.byId.get(id);
-    if (!reqDef || !isUnlocked(reqDef, state, derived.influence)) continue;
+    if (!reqDef || !isUnlocked(reqDef, state, derived.influence, content.config)) continue;
     const check = game.checkBuy(id);
     if (!check.unlocked || check.cooldownMs > 0) continue;
     if (check.cost <= state.coins) {
