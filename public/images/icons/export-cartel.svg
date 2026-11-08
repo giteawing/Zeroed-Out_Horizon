@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img">
+  <defs>
+    <linearGradient id="sea" x2="0" y2="1"><stop stop-color="#bfe9ff"/><stop offset="1" stop-color="#6ec6f0"/></linearGradient>
+    <linearGradient id="gold" x2="0" y2="1"><stop stop-color="#ffd766"/><stop offset="1" stop-color="#c8860f"/></linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="47" fill="#fdf3dd" stroke="#17110c" stroke-width="2.5"/>
+  <circle cx="50" cy="42" r="25" fill="url(#sea)" stroke="#17110c" stroke-width="3"/>
+  <path d="M25 42h50M50 17c-8 8-12 16-12 25s4 17 12 25M50 17c8 8 12 16 12 25s-4 17-12 25" fill="none" stroke="#1d7048" stroke-width="2.5"/>
+  <path d="M22 71h56l-8 12H30Z" fill="url(#gold)" stroke="#17110c" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M39 70V58h12v12M53 70V53h10v17" fill="#4a4a52" stroke="#17110c" stroke-width="2.5"/>
+  <path d="M17 89h66" stroke="#17110c" stroke-width="3" stroke-linecap="round"/>
+</svg>

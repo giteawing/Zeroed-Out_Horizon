@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img">
+  <defs>
+    <linearGradient id="gold" x2="0" y2="1"><stop stop-color="#ffd766"/><stop offset="1" stop-color="#c8860f"/></linearGradient>
+    <linearGradient id="oil" x2="0" y2="1"><stop stop-color="#4a4a52"/><stop offset="1" stop-color="#202026"/></linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="47" fill="#fdf3dd" stroke="#17110c" stroke-width="2.5"/>
+  <path d="M50 18 27 78h46L50 18Z" fill="url(#oil)" stroke="#17110c" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M38 48h24M34 60h32M30 72h40M50 21v57M38 35l24 25M62 35 38 60" fill="none" stroke="#f2b430" stroke-width="3" stroke-linecap="round"/>
+  <path d="M18 28h17M65 28h17M22 22l-4 6 4 6M78 22l4 6-4 6" fill="none" stroke="#b3243b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M17 83h66" stroke="#17110c" stroke-width="4" stroke-linecap="round"/>
+</svg>
