@@ -690,7 +690,9 @@ export class Game {
     this.pendingSalesGross += this.tickShipping(derived, dtSeconds);
     // Внешние выплаты поступают непрерывно и не ждут отгрузки партии.
     this.pendingSalesGross += (
-      derived.damperIncomePerSecond + derived.capitalFlightIncomePerSecond
+      derived.damperIncomePerSecond +
+      derived.capitalFlightIncomePerSecond +
+      derived.investmentIncomePerSecond
     ) * dtSeconds;
 
     const fineNow =
@@ -705,8 +707,10 @@ export class Game {
     const current = this.derived();
     const expensesWithoutFine =
       (current.expensesPerSecond - current.finePerSecond) * dtSeconds;
-    this.state.expensesAccrued +=
-      Math.max(0, expensesWithoutFine) + fineNow * current.fineFactor;
+    const fineCharge = fineNow > 0
+      ? Math.max(1e-6 * dtSeconds, fineNow * current.fineFactor)
+      : 0;
+    this.state.expensesAccrued += Math.max(0, expensesWithoutFine) + fineCharge;
     this.settleSales(dtSeconds);
 
     this.tickCooldowns(dtMs);
@@ -925,7 +929,7 @@ export class Game {
     const apply = (tonnes: number, key: 'spillCrudePerSecond' | 'spillProductsPerSecond') => {
       const instant = tonnes / Math.max(1e-9, dtSeconds);
       const next = this.state[key] + (instant - this.state[key]) * alpha;
-      this.state[key] = next < 1e-6 ? 0 : next;
+      this.state[key] = next < 1e-12 ? 0 : next;
     };
     apply(this.spillCrudeThisStep, 'spillCrudePerSecond');
     apply(this.spillProductsThisStep, 'spillProductsPerSecond');

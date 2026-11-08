@@ -60,9 +60,11 @@ export function calculateFinancialRates(
   const officials = rawOfficials * overheadScale;
 
   const fineFactor = fineFactorOf(config, influence);
-  const finePerSecond =
+  const rawFinePerSecond =
     Math.max(0, state.spillCrudePerSecond) * config.fines.oilPerTon * fineFactor +
     Math.max(0, state.spillProductsPerSecond) * config.fines.productPerTon * fineFactor;
+  const hasSpill = state.spillCrudePerSecond > 0 || state.spillProductsPerSecond > 0;
+  const finePerSecond = hasSpill ? Math.max(1e-6, rawFinePerSecond) : 0;
   const expensesPerSecond = salaries + officials + finePerSecond;
   // Внешние выплаты не увеличивают эксплуатационные расходы, но входят в EBT.
   const ebtPerSecond = Math.max(0, grossPerSecond + Math.max(0, additionalIncomePerSecond) - expensesPerSecond);

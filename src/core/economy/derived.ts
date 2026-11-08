@@ -24,8 +24,9 @@ export function computeDerived(
 
   const effects = collectUpgradeEffects(config, upgrades, state);
   const market = calculateMarket(config, state, effects, content);
+  // Демпфер компенсирует разницу цен нефтепродуктов, проданных внутри страны.
   const damperIncomePerSecond = effects.fuelDamperEnabled
-    ? Math.max(0, market.exportPricePerTon - market.domesticPricePerTon) * market.flows.domestic
+    ? Math.max(0, market.productPriceExport - market.productPriceDomestic) * market.flows.productsDomestic
     : 0;
   const capitalFlightElapsedMinutes = state.capitalFlightStartedAtMs === null
     ? 0
@@ -33,7 +34,16 @@ export function computeDerived(
   const capitalFlightIncomePerSecond = effects.capitalFlightPerSecond > 0 && state.capitalFlightStartedAtMs !== null
     ? effects.capitalFlightPerSecond * (1 + capitalFlightElapsedMinutes * effects.capitalFlightGrowthPerMinute)
     : 0;
-  const additionalIncomePerSecond = damperIncomePerSecond + capitalFlightIncomePerSecond;
+  // Годовая ставка — 1–20% в зависимости от влияния; начисление ежедневно.
+  // Игровой день занимает config.oil.wells.secondsPerDay реальных секунд.
+  const baseExternalIncome = damperIncomePerSecond + capitalFlightIncomePerSecond;
+  const baseFinance = calculateFinancialRates(config, state, effects, market.grossPerSecond, baseExternalIncome);
+  const influenceShare = Math.min(1, Math.max(0, baseFinance.influence / Math.max(1, config.influence.cap)));
+  const investmentRatePercent = 1 + 19 * influenceShare;
+  const investmentIncomePerSecond = Math.max(0, state.coins) *
+    (investmentRatePercent / 100) /
+    (360 * Math.max(1e-6, config.oil.wells.secondsPerDay));
+  const additionalIncomePerSecond = baseExternalIncome + investmentIncomePerSecond;
   const finance = calculateFinancialRates(config, state, effects, market.grossPerSecond, additionalIncomePerSecond);
   const winCost = winCostOf(config, upgrades);
   const oilCapacity = content
@@ -73,6 +83,12 @@ export function computeDerived(
     grossPerSecond: market.grossPerSecond + additionalIncomePerSecond,
     damperIncomePerSecond,
     capitalFlightIncomePerSecond,
+    investmentRatePercent,
+    investmentIncomePerSecond,
+    crudeExportIncomePerSecond: market.flows.export * market.channels.export.price,
+    productsExportIncomePerSecond: market.flows.productsExport * market.productPriceExport,
+    crudeDomesticIncomePerSecond: market.flows.domestic * market.channels.contract.price,
+    productsDomesticIncomePerSecond: market.flows.productsDomestic * market.productPriceDomestic,
     totalStorageCapacity: oilCapacity + market.productStorage,
     domesticThroughputCapacity: market.channels.contract.rate,
     exportThroughputCapacity: market.exportCapacityByMode.pipeline + market.exportCapacityByMode.rail + market.exportCapacityByMode.tanker,

@@ -10,7 +10,8 @@ export function fineFactorOf(config: GameConfig, influence: number): number {
     config.fines.maxRelief,
     Math.max(0, influence) * config.fines.influenceReliefPerPoint,
   );
-  return 1 - relief;
+  // Влияние снижает штраф почти до нуля, но не отменяет его полностью.
+  return Math.max(0.001, 1 - relief);
 }
 
 /** Штраф за указанное количество разлитого, ₦ (с учётом влияния). */
@@ -22,7 +23,7 @@ export function fineFor(
 ): number {
   if (!(tonnes > 0)) return 0;
   const rate = kind === 'crude' ? config.fines.oilPerTon : config.fines.productPerTon;
-  return tonnes * rate * fineFactorOf(config, influence);
+  return Math.max(1e-6, tonnes * rate * fineFactorOf(config, influence));
 }
 
 export function oilCapacityOf(config: GameConfig, content: Content | null, state: GameState): number {

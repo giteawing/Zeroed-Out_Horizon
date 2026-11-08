@@ -15,7 +15,7 @@ import type {
   UpgradesFile,
 } from './types';
 
-const TABS = new Set(['political', 'technical', 'sales', 'luxury', 'goals']);
+const TABS = new Set(['political', 'technical', 'production', 'sales', 'luxury', 'goals']);
 const TYPES = new Set([
   'perTap', 'well', 'passive', 'multiplier', 'taxCut', 'costCut', 'periodic',
   'oneShot', 'gamble', 'priceBoost', 'luxury', 'autoTap', 'sell', 'storage', 'field', 'win',

@@ -7,7 +7,7 @@
  * переработка на НПЗ (дороже всего).
  */
 
-export type Tab = 'political' | 'technical' | 'sales' | 'luxury' | 'goals';
+export type Tab = 'political' | 'technical' | 'production' | 'sales' | 'luxury' | 'goals';
 
 export type UpgradeType =
   | 'perTap'
@@ -46,6 +46,10 @@ export type AssetKind =
   | 'refineryPipe'
   /** Резервуары сырой нефти. */
   | 'crudeTank'
+  | 'exportRail'
+  | 'exportTanker'
+  | 'gasPlant'
+  | 'powerPlant'
   /** Экспорт нефтепродуктов: наливные терминалы, танкеры. */
   | 'productExport';
 
@@ -652,6 +656,15 @@ export interface DerivedStats {
   damperIncomePerSecond: number;
   /** Доход от вывоза капитала, ₦/с. */
   capitalFlightIncomePerSecond: number;
+  /** Процентная ставка по текущему счёту, годовых: от 1 до 20%. */
+  investmentRatePercent: number;
+  /** Начисленные проценты на текущий баланс, ₦/с. */
+  investmentIncomePerSecond: number;
+  /** Выручка по четырём фактическим товарным потокам, ₦/с. */
+  crudeExportIncomePerSecond: number;
+  productsExportIncomePerSecond: number;
+  crudeDomesticIncomePerSecond: number;
+  productsDomesticIncomePerSecond: number;
   /** Суммарная ёмкость сырьевых и продуктовых хранилищ, тонн. */
   totalStorageCapacity: number;
   /** Внутренняя пропускная способность, т/с. */

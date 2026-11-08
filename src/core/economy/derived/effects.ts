@@ -121,7 +121,6 @@ export function collectUpgradeEffects(
             result.exportRateByMode[exportModeOf(def)] += effect.value * level;
           }
         }
-        if (effect.percent) result.priceBonus[channel] += (effect.percent / 100) * level;
         if (effect.costCut) result.costCutFraction += effect.costCut * level;
         break;
       }
@@ -139,7 +138,7 @@ export function collectUpgradeEffects(
         result.costCutFraction += ((effect.percent ?? 0) * level) / 100;
         break;
       case 'priceBoost':
-        result.priceMultiplier *= Math.pow(effect.factor ?? 1, level);
+        // Legacy type retained for compatibility; purchase cards no longer change market prices.
         break;
       case 'autoTap':
         result.autoTaps += (effect.value ?? 0) * level;

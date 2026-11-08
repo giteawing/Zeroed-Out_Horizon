@@ -14,6 +14,10 @@ export function assetCountsOf(upgrades: UpgradeDef[], state: GameState): Record<
     exportPipe: 0,
     refineryPipe: 0,
     crudeTank: 0,
+    exportRail: 0,
+    exportTanker: 0,
+    gasPlant: 0,
+    powerPlant: 0,
     productExport: 0,
   };
   for (const def of upgrades) {
@@ -23,33 +27,37 @@ export function assetCountsOf(upgrades: UpgradeDef[], state: GameState): Record<
   return counts;
 }
 
-/**
- * Стоимость всей собственности империи: построенное (по цене следующего
- * уровня — примерно столько объект стоил) плюс скважины по их дебиту
- * плюс потраченное на роскошь. Это «Активы» в панели: сколько всего стоит
- * то, чем игрок владеет, а не сколько у него денег на счету.
- */
-export function assetsValueOf(
-  config: GameConfig,
-  upgrades: UpgradeDef[],
-  state: GameState,
-): number {
-  let total = state.luxurySpent;
+export interface AssetValueLine {
+  id: string;
+  kind: 'upgrade' | 'wells' | 'luxury';
+  name?: string;
+  count: number;
+  value: number;
+}
+
+/** Подробная оценка собственности; строки складываются в общую стоимость. */
+export function assetValueBreakdownOf(config: GameConfig, upgrades: UpgradeDef[], state: GameState): AssetValueLine[] {
+  const lines: AssetValueLine[] = [];
   for (const def of upgrades) {
     const level = levelOf(state, def.id);
-    if (level <= 0) continue;
-    if (def.type === 'luxury') continue; // уже учтено через luxurySpent
-    if (def.type === 'well') continue; // скважины считаем по дебиту
-    if (def.type === 'win') continue;
-    // Цена следующего уровня ≈ цена текущего объекта с учётом роста.
+    if (level <= 0 || def.type === 'luxury' || def.type === 'well' || def.type === 'win') continue;
     const growth = def.costGrowth ?? config.costGrowth;
-    total += costFor(config, def, 0) * ((Math.pow(growth, level) - 1) / Math.max(1e-9, growth - 1));
+    const value = costFor(config, def, 0) *
+      ((Math.pow(growth, level) - 1) / Math.max(1e-9, growth - 1));
+    lines.push({ id: def.id, kind: 'upgrade', name: def.name, count: level, value });
   }
-  // Единая рыночная оценка дебита: та же функция используется и для
-  // реприватизации, поэтому панель и приз не оценивают одну скважину дважды
-  // по разным правилам.
-  const daily = wellsDailyTonnes(state, config);
-  total += daily * wellPricePerDailyTonne(config);
+  const wellsCount = (state.wells ?? []).length;
+  const wellsValue = wellsDailyTonnes(state, config) * wellPricePerDailyTonne(config);
+  if (wellsCount > 0) lines.push({ id: 'wells', kind: 'wells', count: wellsCount, value: wellsValue });
+  const luxuryCount = upgrades.reduce((sum, def) =>
+    def.type === 'luxury' ? sum + levelOf(state, def.id) : sum, 0);
+  if (state.luxurySpent > 0) lines.push({ id: 'luxury', kind: 'luxury', count: luxuryCount, value: state.luxurySpent });
+  return lines.sort((a, b) => b.value - a.value);
+}
+
+/** Общая стоимость собственности — сумма строк подробной расшифровки. */
+export function assetsValueOf(config: GameConfig, upgrades: UpgradeDef[], state: GameState): number {
+  const total = assetValueBreakdownOf(config, upgrades, state).reduce((sum, line) => sum + line.value, 0);
   return Math.max(0, Math.round(total));
 }
 
