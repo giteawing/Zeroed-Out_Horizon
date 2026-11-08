@@ -147,5 +147,9 @@
       "productDomestic": 1,
       "productExport": 0.6
     }
+  },
+  "currencyCostCurve": {
+    "anchor": 100000,
+    "exponent": 0.5
   }
 }

@@ -269,6 +269,8 @@ export interface GameConfig {
   currency: string;
   startCoins: number;
   costGrowth: number;
+  /** Единая кривая стоимости всех карточек и денежных требований. */
+  currencyCostCurve: { anchor: number; exponent: number };
   maxBuyLevels: number;
   tickMs: number;
   offline: { capSeconds: number; efficiency: number };

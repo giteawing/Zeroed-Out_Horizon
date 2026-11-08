@@ -7,7 +7,7 @@
  * Бот детерминированный (свой ГПСЧ) — тесты не «мигают».
  */
 import { Game } from './game';
-import { bankScaleOf, computeDerived, eventPayout, isUnlocked, levelOf, unlockBlocker, wellPricePerDailyTonne } from './economy';
+import { bankScaleOf, computeDerived, eventPayout, isUnlocked, levelOf, unlockBlocker, wellPricePerDailyTonne, winCostOf } from './economy';
 import { isRepeatable } from './game';
 import { createInitialState } from './state';
 import { Rng } from './rng';
@@ -211,7 +211,7 @@ export function decide(
     }
     // Копить на финал имеет смысл только после выполнения его обязательных
     // условий: иначе бот откладывал деньги и никогда не покупал Насос-Гигант.
-    if (!blocker && requirementsMet() && state.coins >= winDef.baseCost * savingShare) return false;
+    if (!blocker && requirementsMet() && state.coins >= winCostOf(content.config, content.upgrades) * savingShare) return false;
   }
 
   // Что нужно для финала: бот покупает эти покупки, даже если они «дорогие».

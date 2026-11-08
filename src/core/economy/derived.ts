@@ -4,7 +4,7 @@
  */
 import type { AssetKind, Content, DerivedStats, GameConfig, GameState, UpgradeDef } from '../types';
 import { type TaxBuff } from './definitions';
-import { levelOf } from './purchases';
+import { adjustCurrencyCost, levelOf } from './purchases';
 import { oilCapacityOf } from './production';
 import { assetCountsOf, assetsValueOf } from './assets';
 import { collectUpgradeEffects } from './derived/effects';
@@ -136,7 +136,7 @@ export function freeOilSpace(derived: DerivedStats): number {
 /** Цена финальной покупки: сначала проверяется определение win, затем config. */
 export function winCostOf(config: GameConfig, upgrades: UpgradeDef[]): number {
   const winDef = upgrades.find((upgrade) => upgrade.win);
-  return winDef ? winDef.baseCost : config.winCost;
+  return adjustCurrencyCost(config, winDef ? winDef.baseCost : config.winCost);
 }
 
 /** Проверяет все требования победы. */

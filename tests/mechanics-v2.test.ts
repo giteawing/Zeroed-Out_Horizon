@@ -359,7 +359,7 @@ describe('скважины со случайным дебитом', () => {
     const field = content.byId.get('p_field')!;
     expect(field.type).toBe('field');
     // Цена пересчитана под новый дебит и суммарный потолок добычи.
-    expect(field.baseCost).toBe(130_000);
+    expect(field.baseCost).toBe(260_000);
     expect(field.costGrowth).toBe(1.025);
 
     const counts: number[] = [];

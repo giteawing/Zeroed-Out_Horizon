@@ -3,7 +3,7 @@
  * Цена скважины едина для оценки активов и стоимости месторождения.
  */
 import type { AssetKind, GameConfig, GameState, ReprivatizationPrize, UpgradeDef } from '../types';
-import { costFor, levelOf } from './purchases';
+import { levelOf, totalCostFor } from './purchases';
 import { wellsDailyTonnes } from './production';
 
 export function assetCountsOf(upgrades: UpgradeDef[], state: GameState): Record<AssetKind, number> {
@@ -46,9 +46,7 @@ export function assetValueBreakdownOf(config: GameConfig, upgrades: UpgradeDef[]
     // Только явно классифицированная собственность. Политические действия,
     // взятки, найм, договоры, финансовые операции и прочие эффекты не активы.
     if (level <= 0 || !def.assetKind || def.type === 'luxury' || def.type === 'well' || def.type === 'win') continue;
-    const growth = def.costGrowth ?? config.costGrowth;
-    const value = costFor(config, def, 0) *
-      ((Math.pow(growth, level) - 1) / Math.max(1e-9, growth - 1));
+    const value = totalCostFor(config, def, 0, level);
     lines.push({ id: def.id, kind: 'upgrade', name: def.name, count: level, value });
   }
   const wellsCount = (state.wells ?? []).length;

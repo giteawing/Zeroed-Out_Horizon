@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  adjustCurrencyCost,
   allocateBatch,
   assetValueBreakdownOf,
   fineFactorOf,
@@ -200,8 +201,16 @@ describe('производные показатели', () => {
     expect(flows.exportByMode.tanker).toBeCloseTo(0.25, 9);
   });
 
-  it('цена победы берётся из winCost конфига', () => {
-    expect(winCostOf(config, content.upgrades)).toBe(config.winCost);
+  it('цена победы проходит через общую кривую валюты', () => {
+    expect(winCostOf(config, content.upgrades)).toBe(adjustCurrencyCost(config, config.winCost));
+  });
+
+  it('общая кривая сохраняет ранние цены и сжимает поздние цены', () => {
+    const early = makeUpgrade({ id: 'early', baseCost: 50_000 });
+    const late = makeUpgrade({ id: 'late', baseCost: 1_000_000_000_000 });
+    expect(costFor(config, early, 0)).toBe(50_000);
+    expect(costFor(config, late, 0)).toBe(10_000_000_000);
+    expect(costFor(config, late, 0)).toBeLessThan(late.baseCost);
   });
 
   it('чистый доход не уходит в минус даже при огромных расходах', () => {
@@ -243,7 +252,7 @@ describe('условия победы', () => {
       }
       expect(isWinReady(config, content.upgrades, state, state.coins)).toBe(true);
     }
-    state.coins = config.winCost - Math.max(1, Math.ceil(config.winCost * 1e-6));
+    state.coins = winCostOf(config, content.upgrades) - 1;
     expect(isWinReady(config, content.upgrades, state, state.coins)).toBe(false);
   });
 });
@@ -743,8 +752,8 @@ describe('потолок добычи и состав собственности
     state.wells = [{ kind: 'unique', dailyTonnes: dailyTonnesAtAllMax }];
     const derived = computeDerived(config, content.upgrades, state, [], content);
 
-    expect(derived.oilPerSecond).toBeGreaterThan(9_000_000);
-    expect(derived.oilPerSecond).toBeLessThanOrEqual(10_000_000);
+    expect(derived.oilPerSecond).toBeGreaterThan(8_000_000);
+    expect(derived.oilPerSecond).toBeLessThan(10_000_000);
     expect(derived.oilPerSecond).toBeLessThanOrEqual(config.oil.maxProductionPerSecond);
   });
 

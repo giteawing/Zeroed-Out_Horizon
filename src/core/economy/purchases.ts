@@ -8,11 +8,24 @@ export function levelOf(state: GameState, id: string): number {
   return state.levels[id] ?? 0;
 }
 
-/** Цена следующего уровня: baseCost · growth^level. */
+/**
+ * Сжимает денежные значения по общей кривой:
+ * значения до anchor не меняются, поздние цены растут степенно.
+ * Это сохраняет стартовую экономику и делает финальные покупки достижимыми.
+ */
+export function adjustCurrencyCost(config: GameConfig, value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  const anchor = Math.max(1, config.currencyCostCurve?.anchor ?? 100_000);
+  const exponent = Math.min(1, Math.max(0.01, config.currencyCostCurve?.exponent ?? 1));
+  if (value <= anchor) return Math.round(value);
+  return Math.max(1, Math.round(anchor * Math.pow(value / anchor, exponent)));
+}
+
+/** Цена следующего уровня: nominal baseCost · growth^level, затем общая кривая. */
 export function costFor(config: GameConfig, def: UpgradeDef, level: number): number {
   if (def.baseCost <= 0) return 0;
   const growth = def.costGrowth ?? config.costGrowth;
-  return Math.round(def.baseCost * Math.pow(growth, level));
+  return adjustCurrencyCost(config, def.baseCost * Math.pow(growth, level));
 }
 
 /** Суммарная цена count уровней подряд, начиная с текущего level. */
@@ -64,8 +77,11 @@ export function unlockBlocker(
   | null {
   const req = def.unlockAt;
   if (!req) return null;
-  if (req.balance !== undefined && state.totalEarned < req.balance) {
-    return { kind: 'balance', value: req.balance };
+  if (req.balance !== undefined) {
+    const requiredBalance = adjustCurrencyCost(config, req.balance);
+    if (state.totalEarned < requiredBalance) {
+      return { kind: 'balance', value: requiredBalance };
+    }
   }
   if (req.upgrade !== undefined) {
     const need = req.level ?? 1;

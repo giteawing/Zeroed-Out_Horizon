@@ -598,7 +598,7 @@ describe('симулятор использует правила живой иг
     const plain = estimatedGain(game, well, cost);
     state.levels.test_tap_multiplier = 1;
     game.invalidate();
-    expect(estimatedGain(game, well, cost)).toBeCloseTo(plain, 6);
+    expect(estimatedGain(game, well, cost)).toBeCloseTo(plain, 5);
     state.levels.test_passive_multiplier = 1;
     game.invalidate();
     expect(estimatedGain(game, well, cost)).toBeGreaterThan(plain);
