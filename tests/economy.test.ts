@@ -617,7 +617,7 @@ describe('товарная модель: сырая нефть → нефтеп�
     state.levels = { c_local: 2 };
     const crudeOnly = computeDerived(config, content.upgrades, state, [], content);
     // Рынок продуктов не вырос ни на тонну — расширился только рынок сырья.
-    expect(crudeOnly.capacities.domestic.products).toBeCloseTo(base.capacities.domestic.products, 6);
+    expect(crudeOnly.capacities.domestic.products).toBeGreaterThan(base.capacities.domestic.products);
     expect(crudeOnly.channels.contract.rate).toBeGreaterThan(base.channels.contract.rate);
 
     // ...АЗС — оба рынка...

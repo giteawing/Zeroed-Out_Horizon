@@ -47,11 +47,18 @@ export function calculateMarket(
   const tapValue = Math.max(0.1, effects.tapFlat * effects.multTap * config.balance.tapScale);
   const crew = hasFullCrew(config, state);
   const crewMultiplier = crew ? 1 + config.oil.autoDrill.bonus : 1;
+  // Контракты и экспортные договорённости открывают рынок для дополнительного
+  // объёма добычи. Это рост реализуемых тонн, а не повышение цены за тонну.
+  const salesVolumeMultiplier = 1 + Math.max(
+    effects.throughputBonus.contract,
+    effects.throughputBonus.export,
+  );
   const oilPerSecond =
     wellsTonnesPerSecond(config, state) *
     effects.multPassive *
     config.balance.passiveScale *
-    crewMultiplier;
+    crewMultiplier *
+    salesVolumeMultiplier;
 
   const oilPricePerTon = config.oil.basePricePerTon * state.worldPrice * effects.priceMultiplier;
   const channels = {} as Record<Channel, ChannelRate>;
