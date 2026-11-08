@@ -430,7 +430,7 @@ export class Hud {
       price: formatMoney(derived.productPriceExport, this.currency),
       tonnes,
     }));
-    set('exchangeRate', derived.exchangeRate.toFixed(2) + ' ' + this.currency + '/
+    set('exchangeRate', derived.exchangeRate.toFixed(2));
     /*
      * Пометка под ценой — это отношение к СТАРТОВОЙ цене канала
      * (basePricePerTon · priceFactor). Так видно, сколько дают постройки и
@@ -460,97 +460,6 @@ export class Hud {
     if (this.profitValue.textContent !== profitText) this.profitValue.textContent = profitText;
     this.profitValue.dataset.negative = derived.profitPerSecond <= 0 ? '1' : '0';
     // Числовой счётчик влияния не ограничен; полоса насыщается на базовом ориентире.
-    const influenceText = String(derived.influence);
-    if (this.influenceValue.textContent !== influenceText) {
-      this.influenceValue.textContent = influenceText;
-    }
-    const share = Math.min(1, derived.influence / Math.max(1, this.config.influence.cap));
-    this.influenceFill.style.width = `${(share * 100).toFixed(1)}%`;
-    set('assetsRefinery', assetLine(derived.assetCounts.refinery, derived.refineryThroughputCapacity));
-    set('assetsGas', assetLine(
-      derived.assetCounts.gasPlant + derived.assetCounts.powerPlant,
-      (derived.assetThroughputByKind.gasPlant ?? 0) + (derived.assetThroughputByKind.powerPlant ?? 0),
-    ));
-    set('assetsDepot', storageLine(derived.assetCounts.depot, derived.productCapacity));
-    set('assetsAzs', assetLine(derived.assetCounts.azs, derived.assetThroughputByKind.azs ?? 0));
-    set('assetsCrudeTank', storageLine(derived.assetCounts.crudeTank, derived.oilCapacity));
-    set('assetsExportPipe', assetLine(derived.assetCounts.exportPipe, derived.exportCapacityByMode.pipeline));
-    set('assetsExportRail', assetLine(derived.assetCounts.exportRail, derived.exportCapacityByMode.rail));
-    set('assetsExportTanker', assetLine(derived.assetCounts.exportTanker, derived.exportCapacityByMode.tanker));
-    set('assetsRefineryPipe', assetLine(derived.assetCounts.refineryPipe, derived.assetThroughputByKind.refineryPipe ?? 0));
-    set('assetsEquipment', formatNumber(derived.assetCounts.equipment));
-    set('assetsMedia', formatNumber(derived.assetCounts.media));
-    set('assetsFacilities', formatNumber(derived.assetCounts.facility));
-    set('assets', formatMoney(derived.assetsValue, this.currency));
-    set('perTap', units('tonnesValue', { value: formatNumber(derived.tapValue), tonnes }));
-    // Автодобыча — одной фразой на всю ширину: подпись и статус слиты.
-    set('autoDrill', derived.autoDrill
-      ? this.texts.get('hud.autoDrillOn')
-      : this.texts.get('hud.autoDrillOff'));
-    set('expenses', units('minusRate', {
-      value: formatMoney(derived.expensesPerSecond, this.currency),
-      s: perSecond.replace('/', ''),
-    }));
-    set('salaries', units('minusRate', {
-      value: formatMoney(derived.salaries, this.currency),
-      s: perSecond.replace('/', ''),
-    }));
-    set('officials', units('minusRate', {
-      value: formatMoney(derived.officials, this.currency),
-      s: perSecond.replace('/', ''),
-    }));
-    set('totalStorageCapacity', units('tonnesValue', {
-      value: formatNumber(derived.totalStorageCapacity),
-      tonnes,
-    }));
-    set('domesticThroughput', rate(derived.domesticThroughputCapacity));
-    set('exportThroughput', rate(derived.exportThroughputCapacity));
-    set('exportPipelineCapacity', rate(derived.exportCapacityByMode.pipeline));
-    set('exportRailCapacity', rate(derived.exportCapacityByMode.rail));
-    set('exportTankerCapacity', rate(derived.exportCapacityByMode.tanker));
-    set('refineryThroughput', rate(derived.refineryThroughputCapacity));
-
-    const fill = Math.max(0, Math.min(1, derived.oilCapacity > 0 ? state.oil / derived.oilCapacity : 0));
-    this.oilFill.style.width = `${(fill * 100).toFixed(1)}%`;
-    this.oilFill.dataset.level = fill > 0.97 ? 'full' : fill > 0.75 ? 'high' : 'ok';
-
-    // Мировая цена в нефтефаниках за тонну — рядом с внутренней.
-    set('worldPrice', units('pricePerTon', {
-      price: formatMoney(derived.oilPricePerTon, this.currency),
-      tonnes,
-    }));
-  }
-}
-);
-    /*
-     * Пометка под ценой — это отношение к СТАРТОВОЙ цене канала
-     * (basePricePerTon · priceFactor). Так видно, сколько дают постройки и
-     * политика: «×2,35 к базовой». Мировая цена — базовая по определению.
-     */
-    const base = this.config.oil.basePricePerTon;
-    const markups: Record<string, number> = {
-      world: 1,
-      contract: derived.domesticPricePerTon / (base * this.config.oil.channels.contract.priceFactor),
-      export: derived.exportPricePerTon / (base * this.config.oil.channels.export.priceFactor),
-      productDomestic: derived.productPriceDomestic / (base * this.config.product.domesticPriceFactor),
-      productExport: derived.productPriceExport / (base * this.config.product.exportPriceFactor),
-    };
-    for (const [kind, node] of this.priceNotes) {
-      const ratio = markups[kind] ?? 1;
-      const text = kind === 'world' || ratio <= 1.005
-        ? this.texts.get('hud.priceNoteBase')
-        : this.texts.get('hud.priceNoteMarkup', {
-          markup: formatNumber(Math.round(ratio * 100) / 100),
-        });
-      if (node.textContent !== text) node.textContent = text;
-    }
-    const profitText = units('moneyRate', {
-      value: formatMoney(derived.profitPerSecond, this.currency),
-      s: perSecond.replace('/', ''),
-    });
-    if (this.profitValue.textContent !== profitText) this.profitValue.textContent = profitText;
-    this.profitValue.dataset.negative = derived.profitPerSecond <= 0 ? '1' : '0';
-    // Влияние — в шапке: значение и шкала до потолка из конфига.
     const influenceText = String(derived.influence);
     if (this.influenceValue.textContent !== influenceText) {
       this.influenceValue.textContent = influenceText;
