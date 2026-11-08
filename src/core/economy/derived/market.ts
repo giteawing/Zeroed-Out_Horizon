@@ -21,6 +21,7 @@ export interface MarketStats {
   crew: boolean;
   oilPerSecond: number;
   oilPricePerTon: number;
+  exchangeRate: number;
   channels: Record<Channel, ChannelRate>;
   domesticPricePerTon: number;
   exportPricePerTon: number;
@@ -63,14 +64,20 @@ export function calculateMarket(
   const productionLimit = Math.max(0, config.oil.maxProductionPerSecond);
   const oilPerSecond = Math.min(productionLimit, rawOilPerSecond);
 
+  // Мировая котировка остаётся базовой. Внутренний рынок получает только
+  // внутреннюю надбавку; экспорт пересчитывается в нефтефантики по курсу.
   const oilPricePerTon = config.oil.basePricePerTon * state.worldPrice * effects.priceMultiplier;
+  const exchangeRate = config.exchangeRate.initial * effects.exchangeRateMultiplier;
+  const domesticOilPricePerTon = oilPricePerTon * effects.domesticPriceMultiplier;
+  const exportOilPricePerTon = oilPricePerTon * exchangeRate * effects.exportPriceMultiplier;
   const channels = {} as Record<Channel, ChannelRate>;
 
   for (const channel of CHANNELS) {
     const channelConfig = config.oil.channels[channel];
     const rate = Math.max(0, channelConfig.baseRate + effects.rateFlat[channel]) *
       (1 + effects.throughputBonus[channel]);
-    const price = oilPricePerTon * channelConfig.priceFactor * (1 + effects.priceBonus[channel]);
+    const channelOilPrice = channel === 'export' ? exportOilPricePerTon : domesticOilPricePerTon;
+    const price = channelOilPrice * channelConfig.priceFactor * (1 + effects.priceBonus[channel]);
     const boostedRate = channel === 'export' ? rate * effects.exportMultiplier : rate;
     channels[channel] = { rate: boostedRate, price, sold: boostedRate };
   }
@@ -132,8 +139,8 @@ export function calculateMarket(
   const productStorage = content
     ? productCapacityOf(config, content, state)
     : config.product.baseStorage;
-  const productPriceDomestic = oilPricePerTon * config.product.domesticPriceFactor;
-  const productPriceExport = oilPricePerTon * config.product.exportPriceFactor;
+  const productPriceDomestic = domesticOilPricePerTon * config.product.domesticPriceFactor;
+  const productPriceExport = exportOilPricePerTon * config.product.exportPriceFactor;
 
   const flows = oilFlowsOf(config, capacities, producedPerSecond, {
     prices: {
@@ -158,6 +165,7 @@ export function calculateMarket(
     crew,
     oilPerSecond,
     oilPricePerTon,
+    exchangeRate,
     channels,
     domesticPricePerTon,
     exportPricePerTon,

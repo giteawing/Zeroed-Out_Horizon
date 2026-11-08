@@ -17,6 +17,9 @@ export interface UpgradeEffects {
   taxCutPoints: number;
   costCutFraction: number;
   priceMultiplier: number;
+  domesticPriceMultiplier: number;
+  exportPriceMultiplier: number;
+  exchangeRateMultiplier: number;
   exportMultiplier: number;
   autoTaps: number;
   salariesGrowth: number;
@@ -50,6 +53,9 @@ export function collectUpgradeEffects(
     taxCutPoints: 0,
     costCutFraction: 0,
     priceMultiplier: 1,
+    domesticPriceMultiplier: 1,
+    exportPriceMultiplier: 1,
+    exchangeRateMultiplier: 1,
     exportMultiplier: 1,
     autoTaps: 0,
     salariesGrowth: 0,
@@ -142,7 +148,15 @@ export function collectUpgradeEffects(
         result.costCutFraction += ((effect.percent ?? 0) * level) / 100;
         break;
       case 'priceBoost':
-        // Legacy type retained for compatibility; purchase cards no longer change market prices.
+        if (effect.domesticPriceMultiplier && effect.domesticPriceMultiplier > 0) {
+          result.domesticPriceMultiplier *= Math.pow(effect.domesticPriceMultiplier, level);
+        }
+        if (effect.exportPriceMultiplier && effect.exportPriceMultiplier > 0) {
+          result.exportPriceMultiplier *= Math.pow(effect.exportPriceMultiplier, level);
+        }
+        if (effect.exchangeRateDevaluation && effect.exchangeRateDevaluation > 0) {
+          result.exchangeRateMultiplier *= Math.pow(1 + effect.exchangeRateDevaluation, level);
+        }
         break;
       case 'autoTap':
         result.autoTaps += (effect.value ?? 0) * level;

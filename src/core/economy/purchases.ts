@@ -21,11 +21,29 @@ export function adjustCurrencyCost(config: GameConfig, value: number): number {
   return Math.max(1, Math.round(anchor * Math.pow(value / anchor, exponent)));
 }
 
-/** Цена следующего уровня: nominal baseCost · growth^level, затем общая кривая. */
-export function costFor(config: GameConfig, def: UpgradeDef, level: number): number {
+/** Строительный CAPEX дорожает при девальвации; политические услуги не индексируются. */
+export function constructionCostMultiplier(
+  config: GameConfig,
+  def: UpgradeDef,
+  exchangeRate = config.exchangeRate.initial,
+): number {
+  const isCapitalAsset = Boolean(def.assetKind) || def.type === 'well' || def.type === 'field';
+  if (!isCapitalAsset) return 1;
+  const elasticity = Math.max(0, config.exchangeRate.constructionCostElasticity);
+  return Math.pow(Math.max(config.exchangeRate.initial, exchangeRate), elasticity);
+}
+
+/** Цена следующего уровня: nominal baseCost · growth^level, общая кривая и индекс CAPEX. */
+export function costFor(
+  config: GameConfig,
+  def: UpgradeDef,
+  level: number,
+  exchangeRate = config.exchangeRate.initial,
+): number {
   if (def.baseCost <= 0) return 0;
   const growth = def.costGrowth ?? config.costGrowth;
-  return adjustCurrencyCost(config, def.baseCost * Math.pow(growth, level));
+  const curved = adjustCurrencyCost(config, def.baseCost * Math.pow(growth, level));
+  return Math.round(curved * constructionCostMultiplier(config, def, exchangeRate));
 }
 
 /** Суммарная цена count уровней подряд, начиная с текущего level. */
@@ -34,9 +52,10 @@ export function totalCostFor(
   def: UpgradeDef,
   level: number,
   count: number,
+  exchangeRate = config.exchangeRate.initial,
 ): number {
   let sum = 0;
-  for (let i = 0; i < count; i++) sum += costFor(config, def, level + i);
+  for (let i = 0; i < count; i++) sum += costFor(config, def, level + i, exchangeRate);
   return sum;
 }
 
@@ -46,13 +65,14 @@ export function affordableLevels(
   def: UpgradeDef,
   level: number,
   coins: number,
+  exchangeRate = config.exchangeRate.initial,
 ): number {
   if (level >= def.maxLevel) return 0;
   if (def.baseCost <= 0) return Math.min(1, config.maxBuyLevels, def.maxLevel - level);
   let count = 0;
   let spent = 0;
   while (level + count < def.maxLevel && count < config.maxBuyLevels) {
-    const next = costFor(config, def, level + count);
+    const next = costFor(config, def, level + count, exchangeRate);
     if (spent + next > coins) break;
     spent += next;
     count++;

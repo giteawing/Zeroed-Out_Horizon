@@ -39,18 +39,23 @@ export interface AssetValueLine {
 }
 
 /** Подробная оценка собственности; строки складываются в общую стоимость. */
-export function assetValueBreakdownOf(config: GameConfig, upgrades: UpgradeDef[], state: GameState): AssetValueLine[] {
+export function assetValueBreakdownOf(
+  config: GameConfig,
+  upgrades: UpgradeDef[],
+  state: GameState,
+  exchangeRate = config.exchangeRate.initial,
+): AssetValueLine[] {
   const lines: AssetValueLine[] = [];
   for (const def of upgrades) {
     const level = levelOf(state, def.id);
     // Только явно классифицированная собственность. Политические действия,
     // взятки, найм, договоры, финансовые операции и прочие эффекты не активы.
     if (level <= 0 || !def.assetKind || def.type === 'luxury' || def.type === 'well' || def.type === 'win') continue;
-    const value = totalCostFor(config, def, 0, level);
+    const value = totalCostFor(config, def, 0, level, exchangeRate);
     lines.push({ id: def.id, kind: 'upgrade', name: def.name, count: level, value });
   }
   const wellsCount = (state.wells ?? []).length;
-  const wellsValue = wellsDailyTonnes(state, config) * wellPricePerDailyTonne(config);
+  const wellsValue = wellsDailyTonnes(state, config) * wellPricePerDailyTonne(config, undefined, exchangeRate);
   if (wellsCount > 0) lines.push({ id: 'wells', kind: 'wells', count: wellsCount, value: wellsValue });
   const luxuryCount = upgrades.reduce((sum, def) =>
     def.type === 'luxury' ? sum + levelOf(state, def.id) : sum, 0);
@@ -59,8 +64,13 @@ export function assetValueBreakdownOf(config: GameConfig, upgrades: UpgradeDef[]
 }
 
 /** Общая стоимость собственности — сумма строк подробной расшифровки. */
-export function assetsValueOf(config: GameConfig, upgrades: UpgradeDef[], state: GameState): number {
-  const total = assetValueBreakdownOf(config, upgrades, state).reduce((sum, line) => sum + line.value, 0);
+export function assetsValueOf(
+  config: GameConfig,
+  upgrades: UpgradeDef[],
+  state: GameState,
+  exchangeRate = config.exchangeRate.initial,
+): number {
+  const total = assetValueBreakdownOf(config, upgrades, state, exchangeRate).reduce((sum, line) => sum + line.value, 0);
   return Math.max(0, Math.round(total));
 }
 
@@ -87,9 +97,17 @@ export const REPRIVAT_PRIZE_MAX = 10;
  * Старый необязательный аргумент сохранён для совместимости вызовов, но
  * намеренно игнорируется.
  */
-export function wellPricePerDailyTonne(config: GameConfig, _pricePerTon?: number): number {
+export function wellPricePerDailyTonne(
+  config: GameConfig,
+  _pricePerTon?: number,
+  exchangeRate = config.exchangeRate.initial,
+): number {
   void _pricePerTon;
-  return Math.max(1, config.oil.basePricePerTon * config.oil.wells.priceSeconds);
+  const capexIndex = Math.pow(
+    Math.max(config.exchangeRate.initial, exchangeRate),
+    Math.max(0, config.exchangeRate.constructionCostElasticity),
+  );
+  return Math.max(1, config.oil.basePricePerTon * config.oil.wells.priceSeconds * capexIndex);
 }
 
 /**
@@ -101,10 +119,11 @@ export function reprivatizationPrize(
   paid: number,
   pricePerTon: number,
   rand: () => number,
+  exchangeRate = config.exchangeRate.initial,
 ): ReprivatizationPrize {
   const factor = REPRIVAT_PRIZE_MIN + rand() * (REPRIVAT_PRIZE_MAX - REPRIVAT_PRIZE_MIN);
   const budget = Math.max(0, paid) * factor;
-  const perTonne = wellPricePerDailyTonne(config, pricePerTon);
+  const perTonne = wellPricePerDailyTonne(config, pricePerTon, exchangeRate);
   /*
    * Сколько скважин достаётся покупателю.
    *

@@ -151,5 +151,9 @@
   "currencyCostCurve": {
     "anchor": 100000,
     "exponent": 0.5
+  },
+  "exchangeRate": {
+    "initial": 1,
+    "constructionCostElasticity": 0.18
   }
 }

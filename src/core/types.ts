@@ -208,6 +208,12 @@ export interface UpgradeEffect {
   capitalFlightPerSecond?: number;
   /** Рост дохода за игровую минуту, доля от базового потока. */
   capitalFlightGrowthPerMinute?: number;
+  /** Однократная надбавка к внутренним ценам нефти и нефтепродуктов. */
+  domesticPriceMultiplier?: number;
+  /** Однократная надбавка к экспортным ценам нефти и нефтепродуктов. */
+  exportPriceMultiplier?: number;
+  /** Девальвация за уровень: 0.05 означает +5% нефтефантиков за доллар. */
+  exchangeRateDevaluation?: number;
 }
 
 export interface UnlockRequirement {
@@ -271,6 +277,8 @@ export interface GameConfig {
   costGrowth: number;
   /** Единая кривая стоимости всех карточек и денежных требований. */
   currencyCostCurve: { anchor: number; exponent: number };
+  /** Курс: нефтефантиков за доллар и эластичность строительных затрат. */
+  exchangeRate: { initial: number; constructionCostElasticity: number };
   maxBuyLevels: number;
   tickMs: number;
   offline: { capSeconds: number; efficiency: number };
@@ -652,6 +660,8 @@ export interface DerivedStats {
   productPriceDomestic: number;
   /** Цена тонны нефтепродуктов на экспорте, ₦. */
   productPriceExport: number;
+  /** Текущий курс: нефтефантиков за 1 доллар; влияет только на экспортные цены. */
+  exchangeRate: number;
   /** Чистая прибыль в секунду: выручка минус налог и расходы, ₦/с. */
   profitPerSecond: number;
   /** Стоимость всех активов империи (заводы, трубы, скважины, роскошь), ₦. */

@@ -352,7 +352,7 @@ export function estimatedGain(
   if (def.type === 'well' || def.type === 'field') {
     const daily = def.id === 't_well'
       ? averageWellDaily(content)
-      : (cost * 7.5) / wellPricePerDailyTonne(content.config);
+      : (cost * 7.5) / wellPricePerDailyTonne(content.config, undefined, game.derived().exchangeRate);
     next.wells.push({ kind: 'unique', dailyTonnes: Math.max(1, daily) });
   }
   const after = derivedForSimulation(content, next, manualTapsPerSecond);

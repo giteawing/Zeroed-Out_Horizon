@@ -28,7 +28,7 @@ export function calculateFinancialRates(
   grossPerSecond: number,
   additionalIncomePerSecond = 0,
 ): FinancialRates {
-  const influence = Math.min(config.influence.cap, Math.round(effects.influenceFromLevels));
+  const influence = Math.max(0, Math.round(effects.influenceFromLevels));
   const taxRate = Math.min(
     config.tax.baseRate,
     taxRateOf(config, influence, effects.taxCutPoints + effects.taxAdd * 100),

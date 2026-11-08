@@ -312,10 +312,10 @@ export class Game {
 
   // -------------------------------------------------------------- покупки
 
-  private priceOfLevels(def: UpgradeDef, level: number, count: number): number {
+  private priceOfLevels(def: UpgradeDef, level: number, count: number, exchangeRate: number): number {
     if (def.baseCost <= 0) return 0;
     let sum = 0;
-    for (let i = 0; i < count; i++) sum += costFor(this.config, def, level + i);
+    for (let i = 0; i < count; i++) sum += costFor(this.config, def, level + i, exchangeRate);
     return sum;
   }
 
@@ -342,7 +342,7 @@ export class Game {
       : Math.min(wanted, Math.max(0, def.maxLevel - level));
     const rawCost = def.win
       ? winCostOf(this.config, this.content.upgrades)
-      : this.priceOfLevels(def, level, buyCount);
+      : this.priceOfLevels(def, level, buyCount, derived.exchangeRate);
     // «Отжать» дешевле, чем построить: скидка растёт от влияния и ЧВК.
     const cost = def.conquest
       ? Math.round(rawCost * (1 - derived.conquestCut))
@@ -379,6 +379,7 @@ export class Game {
             def.conquest
               ? this.state.coins / Math.max(1e-9, 1 - derived.conquestCut)
               : this.state.coins,
+            derived.exchangeRate,
           ),
       count: buyCount,
       unlocked,
@@ -461,7 +462,11 @@ export class Game {
    */
   applyReprivatization(paid: number, upgradeId = 'p_reprivatize'): ReprivatizationPrize {
     const prize = reprivatizationPrize(
-      this.config, paid, this.config.oil.basePricePerTon, () => this.rng.next(),
+      this.config,
+      paid,
+      this.config.oil.basePricePerTon,
+      () => this.rng.next(),
+      this.derived().exchangeRate,
     );
     // Разбиваем суммарный дебит на скважины разных классов — «месторождение».
     let left = prize.dailyTonnes;
