@@ -117,7 +117,7 @@ describe('тап', () => {
 
   it('после победы больше не начисляет', () => {
     const { game, state } = setup();
-    state.coins = config.winCost;
+    state.coins = game.derived().winCost;
     for (const req of config.winRequirements) {
       if (req.upgrade) state.levels[req.upgrade] = req.level ?? 1;
     }
@@ -380,7 +380,8 @@ describe('достижения', () => {
 describe('победа', () => {
   it('требует ключевые улучшения и деньги', () => {
     const { game, state } = setup();
-    state.coins = config.winCost;
+    const winCost = game.derived().winCost;
+    state.coins = winCost;
     const requirements = config.winRequirements;
     if (requirements.length > 0) {
       expect(game.buy('win_pump').reason).toBe('locked');
@@ -392,7 +393,7 @@ describe('победа', () => {
     const result = game.buy('win_pump');
     expect(result.ok).toBe(true);
     expect(state.won).toBe(true);
-    expect(state.coins).toBe(before - config.winCost);
+    expect(state.coins).toBe(before - winCost);
     expect(state.achievements).toContain('a_win');
   });
 

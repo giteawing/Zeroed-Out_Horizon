@@ -743,7 +743,7 @@ describe('потолок добычи и состав собственности
     }
   });
 
-  it('все скважины и месторождения на максимуме дают меньше 10 млн т/с даже со всеми множителями', () => {
+  it('все скважины и месторождения на максимуме не превышают 10 млн т/с даже со всеми множителями', () => {
     const wellUpgrade = content.byId.get('t_well');
     const fieldUpgrade = content.byId.get('p_field');
     const reprivatization = content.byId.get('p_reprivatize');
@@ -760,11 +760,14 @@ describe('потолок добычи и состав собственности
     const state = createInitialState(config, 72);
     state.levels = Object.fromEntries(content.upgrades.map(def => [def.id, def.maxLevel]));
     state.wells = [{ kind: 'unique', dailyTonnes: dailyTonnesAtAllMax }];
+    const uncappedConfig = structuredClone(config);
+    uncappedConfig.oil.maxProductionPerSecond = Number.MAX_SAFE_INTEGER;
+    const uncapped = computeDerived(uncappedConfig, content.upgrades, state, [], content);
     const derived = computeDerived(config, content.upgrades, state, [], content);
 
-    expect(derived.oilPerSecond).toBeGreaterThan(8_000_000);
-    expect(derived.oilPerSecond).toBeLessThan(10_000_000);
-    expect(derived.oilPerSecond).toBeLessThanOrEqual(config.oil.maxProductionPerSecond);
+    expect(uncapped.oilPerSecond).toBeGreaterThan(10_000_000);
+    expect(derived.oilPerSecond).toBe(config.oil.maxProductionPerSecond);
+    expect(derived.oilPerSecond).toBeLessThanOrEqual(10_000_000);
   });
 
   it('жёсткий предел сохраняется для старых сохранений с аномальным дебитом', () => {

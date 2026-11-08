@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadContent } from '../src/core/content';
 import { Game } from '../src/core/game';
-import { costFor, levelOf } from '../src/core/economy';
+import { adjustCurrencyCost, costFor, levelOf } from '../src/core/economy';
 import { createInitialState } from '../src/core/state';
 import type { GameState } from '../src/core/types';
 
@@ -24,22 +24,24 @@ function rich(state: GameState, amount = 1e12): void {
 }
 
 describe('требования владельца по ценам', () => {
-  it('НПЗ стоит от 80 млрд до 630 млрд', () => {
+  it('цена НПЗ и поздних уровней проходит через общую кривую', () => {
     const def = content.byId.get('t_refinery')!;
+    const growth = def.costGrowth ?? config.costGrowth;
     const first = costFor(config, def, 0);
     const last = costFor(config, def, def.maxLevel - 1);
-    expect(first).toBeGreaterThanOrEqual(80_000_000_000);
-    expect(last).toBeGreaterThanOrEqual(600_000_000_000);
-    expect(last).toBeLessThanOrEqual(700_000_000_000);
+    expect(first).toBe(adjustCurrencyCost(config, def.baseCost));
+    expect(last).toBe(adjustCurrencyCost(config, def.baseCost * Math.pow(growth, def.maxLevel - 1)));
+    expect(last).toBeGreaterThan(first);
   });
 
-  it('нефтебаза стоит от 40 млн до 2 млрд', () => {
+  it('цена нефтебазы и поздних уровней проходит через общую кривую', () => {
     const def = content.byId.get('t_depot')!;
+    const growth = def.costGrowth ?? config.costGrowth;
     const first = costFor(config, def, 0);
     const last = costFor(config, def, def.maxLevel - 1);
-    expect(first).toBe(40_000_000);
-    expect(last).toBeGreaterThanOrEqual(1_900_000_000);
-    expect(last).toBeLessThanOrEqual(2_100_000_000);
+    expect(first).toBe(adjustCurrencyCost(config, def.baseCost));
+    expect(last).toBe(adjustCurrencyCost(config, def.baseCost * Math.pow(growth, def.maxLevel - 1)));
+    expect(last).toBeGreaterThan(first);
   });
 
   it('цены в магазине — в нефтефаниках, а не в нефти', () => {
@@ -48,6 +50,7 @@ describe('требования владельца по ценам', () => {
       if (def.win) continue;
       expect(Number.isFinite(costFor(config, def, 0))).toBe(true);
       expect(costFor(config, def, 0)).toBeGreaterThanOrEqual(0);
+      expect(costFor(config, def, 0)).toBe(adjustCurrencyCost(config, def.baseCost));
     }
     expect(config.currency).toBe('₦');
   });
