@@ -458,13 +458,13 @@ export class Hud {
     }
     const share = Math.min(1, derived.influence / Math.max(1, this.config.influence.cap));
     this.influenceFill.style.width = `${(share * 100).toFixed(1)}%`;
-    set('assetsRefinery', assetLine(derived.assetCounts.refinery, derived.assetThroughputByKind.refinery ?? 0));
+    set('assetsRefinery', assetLine(derived.assetCounts.refinery, derived.refineryThroughputCapacity));
     set('assetsGas', assetLine(
       derived.assetCounts.gasPlant + derived.assetCounts.powerPlant,
       (derived.assetThroughputByKind.gasPlant ?? 0) + (derived.assetThroughputByKind.powerPlant ?? 0),
     ));
     set('assetsDepot', storageLine(derived.assetCounts.depot, derived.productCapacity));
-    set('assetsAzs', assetLine(derived.assetCounts.azs, derived.capacities.domestic.products));
+    set('assetsAzs', assetLine(derived.assetCounts.azs, derived.assetThroughputByKind.azs ?? 0));
     set('assetsCrudeTank', storageLine(derived.assetCounts.crudeTank, derived.oilCapacity));
     set('assetsExportPipe', assetLine(derived.assetCounts.exportPipe, derived.exportCapacityByMode.pipeline));
     set('assetsExportRail', assetLine(derived.assetCounts.exportRail, derived.exportCapacityByMode.rail));
