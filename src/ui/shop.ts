@@ -295,7 +295,8 @@ export class Shop {
           t('effectSell', { value: formatNumber((e.value ?? 0) * Math.max(1, level)) }),
         ];
         if (e.percent) {
-          parts.push(t('effectSellThroughput', { value: formatPercent(e.percent / 100, 1) }));
+          const key = e.channel === 'refine' ? 'effectSellThroughput' : 'effectSellVolume';
+          parts.push(t(key, { value: formatPercent(e.percent / 100, 1) }));
         }
         // В карточке видно, какой именно рынок она расширяет: сырьё,
         // нефтепродукты или оба. Раньше это было скрыто в конфиге.

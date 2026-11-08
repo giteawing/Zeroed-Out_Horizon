@@ -154,7 +154,8 @@
     "effectFuelDamper": "Компенсация = разница экспортной и внутренней цены нефтепродуктов × объём их внутренней продажи",
     "effectCapitalFlight": "{value}/с на старте; рост на {growth} от начальной суммы каждую минуту",
     "effectThroughputBonus": "Пропускная способность +{value}% за уровень",
-    "effectSellThroughput": "пропускная способность +{value}"
+    "effectSellThroughput": "пропускная способность +{value}",
+    "effectSellVolume": "объём реализации +{value}"
   },
   "panel": {
     "shop": "Магазин",
