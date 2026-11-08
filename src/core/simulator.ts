@@ -109,7 +109,7 @@ export function runSimulation(content: Content, options: SimulatorOptions = {}):
 
     if (elapsed >= nextDecisionMs) {
       nextDecisionMs = elapsed + opts.decisionIntervalSeconds * 1000;
-      decide(game, content, purchased);
+      decide(game, content, purchased, opts.tapsPerSecond * opts.tapDiligence);
     }
 
     // Экспортная акция продаёт нефть со склада: ждём, пока резервуары
@@ -185,7 +185,12 @@ export function runSimulation(content: Content, options: SimulatorOptions = {}):
 /** С какой доли от цены финала бот перестаёт тратить и начинает копить. */
 const savingShare = 0.8;
 
-export function decide(game: Game, content: Content, purchased: Set<string>): boolean {
+export function decide(
+  game: Game,
+  content: Content,
+  purchased: Set<string>,
+  manualTapsPerSecond = SIMULATED_MANUAL_TAPS,
+): boolean {
   const state = game.state;
   const derived = game.derived();
 
@@ -245,7 +250,7 @@ export function decide(game: Game, content: Content, purchased: Set<string>): bo
     if (cost > state.coins) continue;
     candidates.push({
       def,
-      score: estimatedGain(game, def, cost) / Math.max(1, cost),
+      score: estimatedGain(game, def, cost, manualTapsPerSecond) / Math.max(1, cost),
     });
   }
 
@@ -271,7 +276,11 @@ const HUMAN_TAPS_ID = '__simulator_human_taps';
  * Это позволяет сравнить экономику до/после без отдельных формул цен,
  * мощностей, переработки, налогов и scope-множителей.
  */
-function derivedForSimulation(content: Content, state: GameState) {
+function derivedForSimulation(
+  content: Content,
+  state: GameState,
+  manualTapsPerSecond = SIMULATED_MANUAL_TAPS,
+) {
   const humanTaps: UpgradeDef = {
     id: HUMAN_TAPS_ID,
     tab: 'technical',
@@ -282,7 +291,7 @@ function derivedForSimulation(content: Content, state: GameState) {
     type: 'autoTap',
     baseCost: 0,
     maxLevel: 1,
-    effect: { value: SIMULATED_MANUAL_TAPS },
+    effect: { value: Number.isFinite(manualTapsPerSecond) ? Math.max(0, manualTapsPerSecond) : 0 },
   };
   return computeDerived(
     content.config,
@@ -305,9 +314,14 @@ function averageWellDaily(content: Content): number {
  * условного уровня. Для скважин добавляется их математическое ожидание;
  * реприватизация оценивается по её реальному бюджету 5–10× (среднее 7,5×).
  */
-export function estimatedGain(game: Game, def: UpgradeDef, cost: number): number {
+export function estimatedGain(
+  game: Game,
+  def: UpgradeDef,
+  cost: number,
+  manualTapsPerSecond = SIMULATED_MANUAL_TAPS,
+): number {
   const content = game.content;
-  const before = derivedForSimulation(content, game.state);
+  const before = derivedForSimulation(content, game.state, manualTapsPerSecond);
   const e = def.effect;
 
   // Считаем по той же денежной формуле, что и реальная выплата игры.
@@ -341,6 +355,6 @@ export function estimatedGain(game: Game, def: UpgradeDef, cost: number): number
       : (cost * 7.5) / wellPricePerDailyTonne(content.config);
     next.wells.push({ kind: 'unique', dailyTonnes: Math.max(1, daily) });
   }
-  const after = derivedForSimulation(content, next);
+  const after = derivedForSimulation(content, next, manualTapsPerSecond);
   return Math.max(0, after.netPerSecond - before.netPerSecond);
 }
