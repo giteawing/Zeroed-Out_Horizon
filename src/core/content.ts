@@ -97,7 +97,7 @@ export function validateUpgrades(upgrades: UpgradeDef[], texts?: TextsFile): voi
       (!Number.isFinite(u.unlockAt.influence) || u.unlockAt.influence < 0)) {
       throw new Error(`upgrades.json: некорректное unlockAt.influence у ${u.id}`);
     }
-    if (texts && !texts.upgrades[u.id]?.trim()) {
+    if (texts && !texts.upgrades?.[u.id]?.trim()) {
       throw new Error(`texts.json: нет названия покупки ${u.id} в texts.upgrades`);
     }
     if (u.unlockAt?.upgrade && !upgrades.some((o) => o.id === u.unlockAt?.upgrade)) {

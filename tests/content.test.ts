@@ -296,7 +296,7 @@ describe('целостность данных', () => {
 
   it('каждая покупка имеет локализованное имя в texts.upgrades', () => {
     for (const upgrade of content.upgrades) {
-      expect(content.texts.upgrades[upgrade.id], `нет текста для ${upgrade.id}`).toBeTruthy();
+      expect(content.texts.upgrades?.[upgrade.id], `нет текста для ${upgrade.id}`).toBeTruthy();
     }
   });
 
