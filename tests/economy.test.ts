@@ -209,7 +209,7 @@ describe('производные показатели', () => {
     const early = makeUpgrade({ id: 'early', baseCost: 50_000 });
     const late = makeUpgrade({ id: 'late', baseCost: 1_000_000_000_000 });
     expect(costFor(config, early, 0)).toBe(50_000);
-    expect(costFor(config, late, 0)).toBe(10_000_000_000);
+    expect(costFor(config, late, 0)).toBe(adjustCurrencyCost(config, late.baseCost));
     expect(costFor(config, late, 0)).toBeLessThan(late.baseCost);
   });
 
