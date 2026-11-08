@@ -1,6 +1,6 @@
 /**
- * Отчёт по балансу: гоняет симулятор с разными winCost и профилями игрока.
- * Запуск: npx tsx scripts/balance-report.ts   (или npm run balance:report)
+ * Отчёт по балансу: проверяет текущий winCost на всех профилях.
+ * Полная сетка цен: npx tsx scripts/balance-report.ts --grid.
  * Скрипт намеренно не входит в сборку — это инструмент разработки.
  */
 import { loadContent } from '../src/core/content';
@@ -15,9 +15,12 @@ const profiles = [
   { name: 'оптимизатор', tapsPerSecond: 5, tapDiligence: 0.85, strategy: 'optimizer' as const },
 ];
 
-const winCosts = [
-  1e12, 1e13, 1e14, 1e15, 1e16, 3e16, 6e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22, 1e23, 1e24, 1e25, 1e26,
-];
+const winCosts = process.argv.includes('--grid')
+  ? [
+      1e12, 1e13, 1e14, 1e15, 1e16, 3e16, 6e16, 1e17,
+      1e18, 1e19, 1e20, 1e21, 1e22, 1e23, 1e24, 1e25, 1e26,
+    ]
+  : [content.config.winCost];
 
 for (const profile of profiles) {
   console.log(`\n=== Профиль: ${profile.name} (${profile.tapsPerSecond} тапов/с) ===`);

@@ -194,7 +194,8 @@ npx tsx scripts/auto-balance.ts      # отчёт по подбору цен (с
 
 ```bash
 npm run balance
-npm run balance:report
+npm run balance:report             # текущая цена для всех профилей
+npx tsx scripts/balance-report.ts --grid # полная матрица цен
 npx tsx scripts/tune-2d.ts          # отчёт; запись требует --write --i-know
 npx tsx scripts/tune-scale.ts       # отчёт; запись требует --write --i-know
 ```
