@@ -79,6 +79,14 @@ const DEFS = `
     <stop offset="55%" stop-color="${PALETTE.steel}" />
     <stop offset="100%" stop-color="${PALETTE.steelDark}" />
   </linearGradient>
+  <linearGradient id="steelDark" x1="0" y1="0" x2="0.3" y2="1">
+    <stop offset="0%" stop-color="${PALETTE.steel}" />
+    <stop offset="100%" stop-color="${PALETTE.steelDark}" />
+  </linearGradient>
+  <linearGradient id="cream" x1="0" y1="0" x2="0.3" y2="1">
+    <stop offset="0%" stop-color="${PALETTE.white}" />
+    <stop offset="100%" stop-color="${PALETTE.cream}" />
+  </linearGradient>
   <linearGradient id="purple" x1="0" y1="0" x2="0.3" y2="1">
     <stop offset="0%" stop-color="#a563cc" />
     <stop offset="100%" stop-color="${PALETTE.purple}" />

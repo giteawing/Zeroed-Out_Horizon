@@ -473,3 +473,14 @@ describe('этап 5: требования заказчика по содерж�
     expect(built.assetsValue).toBeGreaterThan(0);
   });
 });
+describe('ссылочная целостность контента', () => {
+  it('у каждой покупки есть локализованное название в texts.upgrades', () => {
+    const textData = JSON.parse(readFileSync(resolve(root, 'src/content/texts.json'), 'utf8')) as {
+      upgrades: Record<string, string>;
+    };
+    for (const upgrade of content.upgrades) {
+      expect(textData.upgrades[upgrade.id], `нет названия для ${upgrade.id}`).toBeTruthy();
+    }
+  });
+});
+

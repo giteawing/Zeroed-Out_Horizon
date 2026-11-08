@@ -17,7 +17,7 @@ import {
   parseSave,
   serializeState,
 } from './core/state';
-import { clearSave, readSave, writeSave } from './core/storage';
+import { archiveCorruptSave, clearSave, readSave, writeSave } from './core/storage';
 import { formatMoney, formatNumber } from './core/format';
 import { Rng } from './core/rng';
 import { image } from './core/assets';
@@ -52,9 +52,13 @@ function boot(): void {
 
   // ------------------------------------------------------- состояние и движок
   const rawSave = readSave();
-  const hasSave = rawSave !== null;
+  const parsedSave = rawSave === null ? null : parseSave(rawSave);
+  const corruptSave = rawSave !== null &&
+    (parsedSave === null || typeof parsedSave !== 'object' || Array.isArray(parsedSave));
+  const corruptBackupSaved = corruptSave ? archiveCorruptSave(rawSave) : false;
+  const hasSave = rawSave !== null && !corruptSave;
   let state: GameState = hasSave
-    ? normalizeState(parseSave(rawSave), config, content)
+    ? normalizeState(parsedSave, config, content)
     : createInitialState(config);
   const game = new Game(content, state);
   const uiRng = new Rng((state.rngSeed ^ 0x9e3779b9) >>> 0);
@@ -155,6 +159,7 @@ function boot(): void {
       badge.hidden = true;
     }, 2600);
   };
+  if (corruptSave) showBadge(texts.get(corruptBackupSaved ? 'save.corrupt' : 'save.corruptBackupFailed'));
 
   /**
    * Меню шапки: одна иконка вместо пяти кнопок.
@@ -173,6 +178,7 @@ function boot(): void {
 
   const menu = new Menu(texts, [
     { id: 'rules', icon: '📖', label: texts.get('menu.rules'), onSelect: () => rules.open() },
+    { id: 'finale', icon: '📜', label: texts.get('menu.finale'), onSelect: () => finale.show(game.state), isVisible: () => game.state.won },
     {
       id: 'sound',
       icon: '🔊',
@@ -195,7 +201,9 @@ function boot(): void {
       label: texts.get('panel.stats'),
       onSelect: () => toggleStats(),
     },
-    { id: 'dev', icon: '🛠', label: texts.get('panel.dev'), onSelect: () => dev.open(state.coins) },
+    ...(import.meta.env.DEV
+      ? [{ id: 'dev', icon: '🛠', label: texts.get('panel.dev'), onSelect: () => dev.open(state.coins) }]
+      : []),
     { id: 'settings', icon: '⚙️', label: texts.get('panel.settings'), onSelect: () => settings.open() },
   ]);
   menuButton.addEventListener('click', () => menu.toggle(menuButton));
@@ -260,6 +268,7 @@ function boot(): void {
       restartWith(state);
     } else if (hasSave) {
       applyOfflineIncome();
+      if (game.state.won) finale.show(game.state);
     }
     start.hide();
     scheduleUi();
@@ -279,10 +288,7 @@ function boot(): void {
    * все карточки становятся доступными для покупки.
    */
   function unlockEverything(): void {
-    for (const def of content.upgrades) {
-      if (def.unlockAt) delete def.unlockAt;
-    }
-    game.invalidate();
+    game.unlockAllForDevelopment();
     shop.setTab(shop.activeTab);
   }
 
@@ -311,9 +317,9 @@ function boot(): void {
       state.savedAtWallMs,
       Date.now(),
     );
-    if (report.coins > 0) {
+    if (report.seconds > 0) {
       game.applyOffline(report.seconds, report.coins);
-      showBadge(`+${formatMoney(report.coins, currency)}`);
+      if (report.coins > 0) showBadge(`+${formatMoney(report.coins, currency)}`);
     }
     // Закрываем офлайн-интервал сразу, иначе быстрый reload до autosave
     // может повторно начислить одну и ту же выплату.
@@ -322,9 +328,14 @@ function boot(): void {
 
   // ------------------------------------------------------------- сохранение
   let lastSaveAt = 0;
+  let saveWarningShown = false;
   function save(): void {
     const snapshot = game.snapshot();
-    writeSave(serializeState(snapshot));
+    const stored = writeSave(serializeState(snapshot));
+    if (!stored && !saveWarningShown) {
+      saveWarningShown = true;
+      showBadge(texts.get('save.writeFailed'));
+    }
     lastSaveAt = performance.now();
   }
 

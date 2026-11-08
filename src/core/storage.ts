@@ -28,6 +28,20 @@ export function readSave(storage: StorageLike | null = getStorage()): string | n
   }
 }
 
+export function archiveCorruptSave(data: string, storage: StorageLike | null = getStorage()): boolean {
+  if (!storage) return false;
+  try {
+    const backupKey = `${SAVE_KEY}:corrupt`;
+    if (storage.getItem(backupKey) === null) storage.setItem(backupKey, data);
+    else storage.setItem(`${backupKey}:${Date.now()}`, data);
+    // Архивируем до удаления: следующий запуск не должен снова предлагать битый сейв.
+    storage.removeItem(SAVE_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function writeSave(data: string, storage: StorageLike | null = getStorage()): boolean {
   if (!storage) return false;
   try {

@@ -99,7 +99,7 @@ img {
   content: '';
   position: absolute;
   inset: 0;
-  background: url('../images/bg.svg') center bottom / cover no-repeat;
+  background: url('/images/bg.svg') center bottom / cover no-repeat;
   opacity: 0.55;
   pointer-events: none;
 }

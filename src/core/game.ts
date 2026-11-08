@@ -96,6 +96,7 @@ export class Game {
   private lastSaleLogMs = 0;
   /** Последняя целая секунда, для которой обновлена мировая котировка. */
   private lastWorldPriceSecond = 0;
+  private devUnlocked = false;
 
   constructor(content: Content, state: GameState) {
     this.content = content;
@@ -117,6 +118,7 @@ export class Game {
     this.pendingSalesGross = 0;
     this.revenueEma = 0;
     this.lastSaleLogMs = 0;
+    this.devUnlocked = false;
     this.invalidate();
   }
 
@@ -149,6 +151,12 @@ export class Game {
    */
   invalidate(): void {
     this.derivedCache = null;
+  }
+
+  /** Снять блокировки только в текущем dev-сеансе, не меняя контент. */
+  unlockAllForDevelopment(): void {
+    this.devUnlocked = true;
+    this.invalidate();
   }
 
   level(id: string): number {
@@ -331,7 +339,7 @@ export class Game {
     }
     const level = this.level(id);
     const derived = this.derived();
-    const unlocked = isUnlocked(def, this.state, derived.influence, this.config);
+    const unlocked = this.devUnlocked || isUnlocked(def, this.state, derived.influence, this.config);
     const cooldownMs = this.state.cooldowns[id] ?? 0;
     const repeatable = isRepeatable(def);
     const requested = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1;
@@ -1105,11 +1113,22 @@ export class Game {
 
   /** Начислить офлайн-доход (один раз при загрузке). */
   applyOffline(seconds: number, coins: number): void {
-    if (coins <= 0 || this.state.won) return;
-    this.grantCoins(coins);
-    this.state.playtimeMs += seconds * 1000;
-    this.invalidate();
-    this.emit({ type: 'offline', seconds, coins });
+    if (this.state.won) return;
+    const elapsedSeconds = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+    const offlineCoins = Number.isFinite(coins) ? Math.max(0, coins) : 0;
+    const elapsedMs = elapsedSeconds * 1000;
+    if (elapsedMs > 0) {
+      this.state.clockMs += elapsedMs;
+      this.state.playtimeMs += elapsedMs;
+      this.lastWorldPriceSecond = Math.floor(this.state.clockMs / 1000);
+      this.invalidate();
+      this.tickCooldowns(elapsedMs);
+      this.tickPeriodic(elapsedMs, this.derived());
+      this.tickGambles();
+      this.invalidate();
+    }
+    this.grantCoins(offlineCoins);
+    this.emit({ type: 'offline', seconds: elapsedSeconds, coins: offlineCoins });
   }
 
   setSound(on: boolean): void {

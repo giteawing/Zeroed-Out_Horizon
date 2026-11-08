@@ -16,6 +16,8 @@ export interface MenuItem {
   onSelect: () => void;
   /** Для переключателей: текущее состояние, чтобы поставить галочку. */
   isOn?: () => boolean;
+  /** Условно показывать пункт меню (например, финал только после победы). */
+  isVisible?: () => boolean;
 }
 
 export class Menu {
@@ -89,7 +91,10 @@ export class Menu {
   refresh(): void {
     for (const item of this.items) {
       const node = this.buttons.get(item.id);
-      if (!node || !item.isOn) continue;
+      if (!node) continue;
+      const visible = item.isVisible?.() ?? true;
+      node.hidden = !visible;
+      if (!visible || !item.isOn) continue;
       const state = node.querySelector('.menu__state');
       if (state) state.textContent = item.isOn() ? this.texts.get('menu.on') : this.texts.get('menu.off');
       node.setAttribute('aria-checked', String(item.isOn()));

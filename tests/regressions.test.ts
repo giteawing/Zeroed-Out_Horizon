@@ -663,3 +663,36 @@ describe('симулятор использует правила живой иг
     expect(estimatedGain(game, well, cost)).toBeGreaterThan(plain);
   });
 });
+
+
+describe('инженерные инструменты и офлайн-время', () => {
+  it('dev-разблокировка не меняет контент и сбрасывается при новой игре', () => {
+    const content = freshContent();
+    const originalUnlock = structuredClone(content.byId.get('p_domestic_cartel')!.unlockAt);
+    const state = rich(content, 1e12);
+    const game = new Game(content, state);
+    expect(game.checkBuy('p_domestic_cartel').unlocked).toBe(false);
+    game.unlockAllForDevelopment();
+    expect(game.checkBuy('p_domestic_cartel').unlocked).toBe(true);
+    expect(content.byId.get('p_domestic_cartel')!.unlockAt).toEqual(originalUnlock);
+    game.reset(createInitialState(content.config, 7));
+    expect(game.checkBuy('p_domestic_cartel').unlocked).toBe(false);
+  });
+
+  it('офлайн-время продвигает часы, кулдауны и розыгрыши в полёте', () => {
+    const content = freshContent();
+    content.byId.get('p_crisis')!.effect.chance = 1;
+    const state = rich(content, 0);
+    state.clockMs = 0;
+    state.playtimeMs = 0;
+    state.cooldowns.p_crisis = 15_000;
+    state.gambles = [{ id: 'p_crisis', amount: 50, factor: 2, resolveAt: 5_000 }];
+    const game = new Game(content, state);
+    game.applyOffline(10, 0);
+    expect(state.clockMs).toBe(10_000);
+    expect(state.playtimeMs).toBe(10_000);
+    expect(state.cooldowns.p_crisis).toBe(5_000);
+    expect(state.gambles).toHaveLength(0);
+    expect(state.coins).toBe(100);
+  });
+});

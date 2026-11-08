@@ -41,7 +41,7 @@
     <stop offset="0%" stop-color="#ffd0ac" />
     <stop offset="100%" stop-color="#f3b98c" />
   </linearGradient>
-</defs>
+<linearGradient id="steelDark" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0%" stop-color="#9aa4ad"/><stop offset="100%" stop-color="#6d7780"/></linearGradient><linearGradient id="cream" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#fdf3dd"/></linearGradient></defs>
   <circle cx="50" cy="50" r="47" fill="url(#soft)" />
   <circle cx="50" cy="50" r="47" fill="none" stroke="#17110c" stroke-width="2.2" opacity="0.14" />
 <rect x="20" y="42" width="40" height="26" rx="5" fill="url(#steel)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="24" y="30" width="12" height="12" rx="3" fill="url(#crimson)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="50" y="34" width="22" height="10" rx="3" fill="url(#gold)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><circle cx="74" cy="46" r="11" fill="url(#steel)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><circle cx="74" cy="46" r="4" fill="#17110c" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><path d="M44 46L50 46" stroke="#17110c" stroke-width="4" stroke-linecap="round" fill="none" /><rect x="14" y="68" width="72" height="8" rx="3" fill="url(#steelDark)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><path d="M88 57.2c3 3.6 4.2 5.4 4.2 6.6a4.2 4.2 0 0 1 -8.4 0c0 -1.2 1.2 -3 4.2 -6.6Z" fill="url(#oil)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  />

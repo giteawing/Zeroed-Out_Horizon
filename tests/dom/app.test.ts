@@ -205,8 +205,10 @@ describe('HUD', () => {
   });
 
   it('под долотом есть журнал операций', () => {
-    const middle = document.querySelector('.stage__middle');
-    expect(middle?.querySelector('[data-testid="oplog"]')).not.toBeNull();
+    const side = document.querySelector('.stage__side');
+    expect(side).not.toBeNull();
+    const log = side!.querySelector('[data-testid="oplog"]');
+    expect(log).not.toBeNull();
   });
 
   it('пересчитывает значения после тапа', async () => {
@@ -253,10 +255,9 @@ describe('магазин', () => {
   });
 
   it('покупка списывает деньги и повышает уровень', async () => {
-    const technical = [...document.querySelectorAll<HTMLButtonElement>('.tab')].find(
-      (tab) => tab.textContent === 'Технические',
-    );
-    technical?.click();
+    const technical = document.querySelector<HTMLButtonElement>('[data-tab="technical"]');
+    expect(technical).not.toBeNull();
+    technical!.click();
     // Дадим денег и перерисуем карточки.
     game.state.coins = 1e6;
     game.state.totalEarned = 1e6;
@@ -388,10 +389,9 @@ describe('мировая цена, магазин и инженерное мен
   });
 
   it('закрытые покупки видны в магазине с красной причиной блокировки', async () => {
-    const technical = [...document.querySelectorAll<HTMLButtonElement>('.tab')].find(
-      (tab) => tab.textContent === 'Технические',
-    );
-    technical?.click();
+    const technical = document.querySelector<HTMLButtonElement>('[data-tab="technical"]');
+    expect(technical).not.toBeNull();
+    technical!.click();
     game.state.coins = 0;
     await waitFor(() => document.querySelectorAll('.card--locked').length > 0);
     const locked = [...document.querySelectorAll<HTMLElement>('.card--locked')];
