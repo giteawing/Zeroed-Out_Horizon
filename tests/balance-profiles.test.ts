@@ -20,7 +20,17 @@ describe('профили прохождения игры', () => {
     it(`профиль «${profile.name}» проходит игру за 12–25 минут`, () => {
       const result = runSimulation(content, { ...profile.options, maxSeconds: 60 * 30 });
       const minutes = result.seconds / 60;
-      expect(result.won, `бот не дошёл до победы (${minutes.toFixed(1)} мин)`).toBe(true);
+      const lastSamples = result.samples.slice(-3).map(sample => ({
+        second: sample.second,
+        coins: sample.coins,
+        earned: sample.totalEarned,
+        netPerSecond: sample.netPerSecond,
+        purchases: sample.purchases,
+      }));
+      expect(
+        result.won,
+        `бот не дошёл до победы (${minutes.toFixed(1)} мин); earned=${result.totalEarned}; coins=${result.coins}; purchases=${result.purchases}; last=${JSON.stringify(lastSamples)}`,
+      ).toBe(true);
       expect(minutes).toBeGreaterThanOrEqual(12);
       expect(minutes).toBeLessThanOrEqual(25);
     });

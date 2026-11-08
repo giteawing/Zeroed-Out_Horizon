@@ -358,8 +358,9 @@ describe('скважины со случайным дебитом', () => {
   it('«Отжать месторождение» приносит целое месторождение: от 5 до 50 скважин', () => {
     const field = content.byId.get('p_field')!;
     expect(field.type).toBe('field');
-    // Цена отжатия — не меньше 10 млн.
-    expect(field.baseCost).toBeGreaterThanOrEqual(10_000_000);
+    // Цена пересчитана под новый дебит и суммарный потолок добычи.
+    expect(field.baseCost).toBe(130_000);
+    expect(field.costGrowth).toBe(1.025);
 
     const counts: number[] = [];
     for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {

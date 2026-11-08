@@ -238,7 +238,7 @@ describe('магазин', () => {
     expect(document.querySelector('.tab--active')?.textContent).toBe('Политика');
     expect(document.querySelector('.shop__list')?.textContent ?? '').toContain('императора');
 
-    const production = tabs.find((tab) => tab.textContent === 'Производство');
+    const production = tabs.find((tab) => tab.textContent === 'Добыча');
     production?.click();
     expect(document.querySelector('.shop__list')?.textContent ?? '').toContain('нефтеперерабатывающий завод');
     const sales = tabs.find((tab) => tab.textContent === 'Сбыт');

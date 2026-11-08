@@ -77,10 +77,7 @@ export function calculateMarket(
 
   const domesticPricePerTon = channels.contract.price;
   const exportPricePerTon = channels.export.price;
-  const producedPerSecond = Math.min(
-    productionLimit,
-    oilPerSecond + tapValue * effects.autoTaps,
-  );
+  const producedPerSecond = oilPerSecond + tapValue * effects.autoTaps;
   const split = config.product.transportSplit;
 
   // Базовая мощность распределяется по transportSplit; бонусы покупок уже
