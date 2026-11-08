@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { Game } from '../src/core/game';
-import { computeDerived, costFor } from '../src/core/economy';
+import { costFor } from '../src/core/economy';
 import { createInitialState } from '../src/core/state';
 import { loadContent } from '../src/core/content';
 import type { GameEvent, GameState } from '../src/core/types';
