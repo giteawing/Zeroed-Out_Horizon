@@ -14,6 +14,7 @@ interface FlowRow {
   input: HTMLInputElement;
   status: HTMLElement;
   auto: HTMLButtonElement;
+  max: HTMLButtonElement;
 }
 
 const CHANNELS: Channel[] = ['export', 'refine', 'contract'];
@@ -43,16 +44,28 @@ export class FlowControlsPanel {
         class: 'flow-controls__auto',
         'data-flow-auto': channel,
       }, texts.get('flows.autoButton'));
+      const max = el('button', {
+        type: 'button',
+        class: 'flow-controls__max',
+        'data-flow-max': channel,
+      }, texts.get('flows.maxButton'));
       const status = el('small', { class: 'flow-controls__status' }, '');
       const row = el('div', { class: 'flow-controls__row' }, [
         el('label', { class: 'flow-controls__label' }, [
           el('span', {}, texts.get(`flows.${channel}`)),
           input,
         ]),
-        auto,
+        el('div', { class: 'flow-controls__actions' }, [max, auto]),
         status,
       ]);
-      this.rows.set(channel, { input, status, auto });
+      this.rows.set(channel, { input, status, auto, max });
+      max.addEventListener('click', () => {
+        const maximum = this.game.derived().flowLimits[channel];
+        if (this.game.setFlowControl(channel, { mode: 'fixed', value: maximum })) {
+          this.onChange();
+          this.update(this.game.state, this.game.derived());
+        }
+      });
       input.addEventListener('change', () => this.setFixed(channel, input));
       auto.addEventListener('click', () => {
         if (this.game.setFlowControl(channel, { mode: 'auto', value: 0 })) {
@@ -102,6 +115,13 @@ export class FlowControlsPanel {
       row.input.max = String(derived.flowLimits[channel]);
       row.input.disabled = state.won;
       row.auto.disabled = state.won;
+      row.max.disabled = state.won;
+      row.max.setAttribute(
+        'aria-pressed',
+        setting.mode === 'fixed' && Math.abs(setting.value - derived.flowLimits[channel]) <= 1e-9
+          ? 'true'
+          : 'false',
+      );
       row.auto.setAttribute('aria-pressed', setting.mode === 'auto' ? 'true' : 'false');
       row.status.textContent = this.texts.get('flows.status', {
         actual: formatNumber(actual[channel]),
