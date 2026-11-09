@@ -57,19 +57,6 @@ export class SoundEngine {
     if (this.ctx.state === 'suspended') void this.ctx.resume();
   }
 
-  /** Тап по долоту: 4 вариации высоты, чтобы не приедалось. */
-  tap(variant?: number): void {
-    const ctx = this.ready('tap');
-    if (!ctx) return;
-    const v = variant === undefined ? Math.floor(Math.random() * 4) : variant % 4;
-    const base = [740, 820, 690, 880][v];
-    const now = ctx.currentTime;
-    // «Дзынь»: два быстрых осциллятора + короткий шумовой щелчок бурения.
-    this.blip(ctx, base, now, 0.09, 'triangle', 0.16);
-    this.blip(ctx, base * 1.5, now + 0.02, 0.07, 'sine', 0.1);
-    this.noise(ctx, now, 0.05, 0.06, 1200);
-  }
-
   /** Покупка: кассовый «ча-чинг». */
   purchase(): void {
     const ctx = this.ready('purchase');
