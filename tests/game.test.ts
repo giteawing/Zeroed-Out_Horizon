@@ -55,6 +55,24 @@ describe('непрерывная добыча и маршрутизация', ()
     expect(state.flowControl.export.mode).toBe('auto');
   });
 
+  it('кнопочный максимум каждого направления равен его физическому лимиту', () => {
+    for (const channel of ['export', 'refine', 'contract'] as const) {
+      const { game, state } = setup();
+      state.levels.t_refinery = 2;
+      game.invalidate();
+      const maximum = game.derived().flowLimits[channel];
+      expect(maximum).toBeGreaterThan(0);
+      expect(game.setFlowControl(channel, { mode: 'fixed', value: maximum })).toBe(true);
+      const flows = game.derived().flows;
+      const actual = channel === 'export'
+        ? flows.export
+        : channel === 'refine'
+          ? flows.refined
+          : flows.domestic;
+      expect(actual).toBeCloseTo(maximum, 6);
+    }
+  });
+
   it('фиксированный поток сохраняется и ограничивает автоматические каналы остатком', () => {
     const { game } = setup();
     const production = game.derived().oilPerSecond;
