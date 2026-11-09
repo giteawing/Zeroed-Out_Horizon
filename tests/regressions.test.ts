@@ -220,33 +220,29 @@ describe('единая финансовая модель продаж', () => {
 });
 
 describe('сырьё, мощности и игровое время', () => {
-  it('безлимитные контракты принимают добычу выше 9000 т/с без переполнения', () => {
+  it('внутренний рынок сырья ограничен установленной пропускной способностью', () => {
     const content = freshContent();
     const state = rich(content, 0);
     state.wells = [{ kind: 'unique', dailyTonnes: 20_000 }];
-    const game = new Game(content, state);
-    game.update(1000);
-    expect(content.config.oil.channels.contract.unlimited).toBe(true);
-    expect(state.totalSold).toBeGreaterThan(19_000);
-    expect(state.oil).toBeLessThanOrEqual(game.derived().oilCapacity);
-    expect(state.log.some((entry) => entry.kind === 'spill' && entry.spill === 'crude')).toBe(false);
+    const derived = computeDerived(content.config, content.upgrades, state, [], content);
+    expect(content.config.oil.channels.contract.unlimited).toBe(false);
+    expect(derived.flows.domestic).toBeLessThanOrEqual(derived.capacities.domestic.crude + 1e-9);
+    expect(derived.flows.domestic).toBeLessThan(derived.oilPerSecond);
+    expect(derived.flows.domestic + derived.flows.export + derived.flows.refined)
+      .toBeLessThanOrEqual(derived.oilPerSecond + 1e-9);
   });
 
-  it('ручной тап не создаёт время и мощность рынка для срочной отгрузки', () => {
+  it('изменение режима потока не создаёт внеплановую отгрузку и игровое время', () => {
     const content = freshContent();
-    content.config.oil.channels.contract.unlimited = false;
     content.config.oil.channels.contract.baseRate = 10;
     const state = rich(content, 0);
-    state.oil = 499;
     const game = new Game(content, state);
-    game.tap();
+    expect(game.setFlowControl('contract', { mode: 'fixed', value: 1 })).toBe(true);
     expect(state.shipTimerMs).toBe(0);
     expect(state.totalSold).toBe(0);
     game.update(1000);
-    // За реальную секунду рынок получил только свои 0,6 × 10 × 0,05 т
-    // на первой срочной отгрузке; пятисекундный рейс ещё не наступил.
-    expect(state.shipTimerMs).toBe(950);
-    expect(state.totalSold).toBeCloseTo(0.3, 6);
+    expect(state.shipTimerMs).toBe(1000);
+    expect(state.totalSold).toBe(0);
   });
 
   it('итог за 10 секунд не зависит от update(10000), update(250) и update(100)', () => {
@@ -306,15 +302,17 @@ describe('сырьё, мощности и игровое время', () => {
     }
   });
 
-  it('штраф от ручного переполнения не теряется до следующего финансового шага', () => {
+  it('штраф при переполнении добычей сохраняется до следующего финансового шага', () => {
     const content = freshContent();
     content.config.oil.channels.contract.unlimited = false;
     content.config.oil.channels.contract.baseRate = 0;
+    content.config.oil.channels.export.baseRate = 0;
+    content.config.oil.channels.refine.baseRate = 0;
     const state = rich(content, 0);
+    state.wells = [{ kind: 'unique', dailyTonnes: 10_000 }];
     state.oil = 499;
     const game = new Game(content, state);
-    game.tap();
-    expect(state.log.some((entry) => entry.kind === 'spill')).toBe(true);
+    game.update(100);
     expect(state.expensesAccrued).toBeGreaterThan(0);
     const restored = normalizeState(
       JSON.parse(JSON.stringify(game.snapshot())), content.config, content,
@@ -408,13 +406,11 @@ describe('устойчивость времени и состояния движ
     const first = new Game(content, firstState);
     const second = new Game(content, secondState);
 
-    first.tap();
-    second.tap();
     first.snapshot();
     first.update(2500);
     second.update(2500);
 
-    expect(firstState.rngSeed).not.toBe(firstState.worldPriceSeed);
+    expect(firstState.rngSeed).toBe(secondState.rngSeed);
     expect(firstState.worldPrice).toBeCloseTo(secondState.worldPrice, 12);
   });
 
@@ -459,7 +455,7 @@ describe('устойчивость времени и состояния движ
 
     expect(game.state).toBe(fresh);
     expect(game.revenuePerSecond()).toBe(0);
-    expect(game.tap()).toBeCloseTo(reference.tap(), 12);
+    expect(game.derived().oilPerSecond).toBeCloseTo(reference.derived().oilPerSecond, 12);
   });
 
   it('начисление денег сразу обновляет DerivedStats.progress', () => {
@@ -697,16 +693,16 @@ describe('симулятор использует правила живой иг
     expect(purchased.has('p_refinery')).toBe(true);
   });
 
-  it('не применяет tap-множитель к оценке скважин и читает пассивный отдельно', () => {
+  it('множитель производственной добычи и пассивный коэффициент усиливают оценку скважины', () => {
     const content = freshContent();
-    const tapMultiplier = structuredClone(content.byId.get('t_smart')!);
-    tapMultiplier.id = 'test_tap_multiplier';
-    tapMultiplier.effect = { factor: 2, scope: 'tap' };
-    const passiveMultiplier = structuredClone(tapMultiplier);
+    const productionMultiplier = structuredClone(content.byId.get('t_smart')!);
+    productionMultiplier.id = 'test_production_multiplier';
+    productionMultiplier.effect = { factor: 2, scope: 'production' };
+    const passiveMultiplier = structuredClone(productionMultiplier);
     passiveMultiplier.id = 'test_passive_multiplier';
     passiveMultiplier.effect = { factor: 2, scope: 'passive' };
-    content.upgrades.push(tapMultiplier, passiveMultiplier);
-    content.byId.set(tapMultiplier.id, tapMultiplier);
+    content.upgrades.push(productionMultiplier, passiveMultiplier);
+    content.byId.set(productionMultiplier.id, productionMultiplier);
     content.byId.set(passiveMultiplier.id, passiveMultiplier);
     const state = rich(content);
     state.wells = [{ kind: 'good', dailyTonnes: 60 }];
@@ -714,9 +710,9 @@ describe('симулятор использует правила живой иг
     const well = content.byId.get('t_well')!;
     const cost = well.baseCost;
     const plain = estimatedGain(game, well, cost);
-    state.levels.test_tap_multiplier = 1;
+    state.levels.test_production_multiplier = 1;
     game.invalidate();
-    expect(estimatedGain(game, well, cost)).toBeCloseTo(plain, 5);
+    expect(estimatedGain(game, well, cost)).toBeGreaterThan(plain);
     state.levels.test_passive_multiplier = 1;
     game.invalidate();
     expect(estimatedGain(game, well, cost)).toBeGreaterThan(plain);
