@@ -772,15 +772,6 @@ img {
   white-space: nowrap;
 }
 
-.flow-controls__max {
-  border: 2px solid var(--ink);
-  border-radius: 8px;
-  background: linear-gradient(180deg, var(--gold-light), var(--gold));
-  color: var(--ink);
-  font-size: 11px;
-  font-weight: 800;
-}
-
 .flow-controls__max[aria-pressed='true'] {
   border-color: var(--gold-light);
   background: linear-gradient(180deg, var(--green-light), var(--green));
