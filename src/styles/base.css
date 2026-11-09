@@ -707,6 +707,126 @@ img {
   }
 }
 
+/* ------------------------------------------------------------------ скважина */
+
+.drill {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(100%, 420px);
+  aspect-ratio: 1 / 1;
+  max-height: 100%;
+  /* В узкой правой колонке долото ограничено высотой, а не шириной. */
+  max-width: 100%;
+}
+
+.drill__stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 45%, rgba(242, 180, 48, 0.16), transparent 65%);
+  touch-action: manipulation; /* без зума по двойному тапу */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+.drill__stage:focus-visible {
+  box-shadow: 0 0 0 4px var(--gold-light);
+}
+
+.drill__art {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.55));
+  transition: transform 0.09s ease-out;
+  pointer-events: none;
+}
+
+.drill__fx {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.drill--hit .drill__art {
+  transform: scale(0.965) translateY(4px);
+}
+
+/* Вращение шарошек: слои из drill.svg */
+#cones {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cones-spin 1.6s linear infinite;
+}
+
+#cones > g:nth-child(2) {
+  animation: cones-spin 1.2s linear infinite reverse;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes cones-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.drill--hit #cones {
+  animation-duration: 0.28s;
+}
+
+#splashes {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: splash-bob 2.4s ease-in-out infinite;
+}
+
+@keyframes splash-bob {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-3px) scale(1.04);
+  }
+}
+
+.drill--shake {
+  animation: shake 0.55s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes shake {
+  10%,
+  90% {
+    transform: translate(-2px, 1px);
+  }
+  20%,
+  80% {
+    transform: translate(4px, -2px);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translate(-6px, 2px);
+  }
+  40%,
+  60% {
+    transform: translate(6px, -1px);
+  }
+}
+
 /* бейдж поверх сцены */
 .badge {
   position: absolute;

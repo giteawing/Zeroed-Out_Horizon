@@ -2,8 +2,8 @@
 /**
  * Проверка состава интерфейса (замечание заказчика):
  *   • левый столбец — большой, и в нём только магазин с вкладками;
- *   • правый столбец — узкий, и в нём статистика, маршрутизация,
- *     журнал операций и статус производственной системы.
+ *   • правый столбец — узкий, и в нём сверху вниз таблица доходов и расходов,
+ *     журнал операций и долото для тапов.
  *
  * happy-dom не считает CSS-раскладку, поэтому проверяем структуру и классы:
  * именно они задают grid-порядок в base.css.
@@ -15,6 +15,7 @@ vi.mock('../../src/audio/sound', () => ({
     isEnabled = true;
     setEnabled(): void {}
     unlock(): void {}
+    tap(): void {}
     purchase(): void {}
     event(): void {}
     coin(): void {}
@@ -53,39 +54,42 @@ describe('раскладка', () => {
     // Ничего из правого столбца в левый не попало.
     expect(main?.querySelector('.hud')).toBeNull();
     expect(main?.querySelector('[data-testid="oplog"]')).toBeNull();
-    expect(main?.querySelector('[data-testid="production-stage"]')).toBeNull();
+    expect(main?.querySelector('[data-testid="drill"]')).toBeNull();
     // Все шесть вкладок — внутри магазина.
     const tabs = [...(main?.querySelectorAll('.tab') ?? [])].map((n) => n.textContent);
     expect(tabs).toEqual(['Техника', 'Добыча', 'Сбыт', 'Политика', 'Роскошь', 'Цель']);
   });
 
-  it('в правом столбце статистика, маршруты, журнал и статус производства', () => {
+  it('в правом столбце таблица, журнал и долото — именно в этом порядке', () => {
     const side = document.querySelector('.stage__side');
     expect(side).not.toBeNull();
-    const blocks = [...(side?.children ?? [])].map((n) => n.classList.contains('hud')
-      ? 'hud'
-      : n.classList.contains('flow-controls')
-        ? 'flow-controls'
+    const blocks = [...(side?.children ?? [])].map((n) =>
+      n.classList.contains('hud')
+        ? 'hud'
         : n.classList.contains('oplog')
           ? 'oplog'
-          : n.className);
-    expect(blocks).toEqual(['hud', 'flow-controls', 'oplog', 'stage__production']);
-    expect(side?.querySelector('[data-testid="flow-controls"]')).not.toBeNull();
-    expect(side?.querySelector('[data-testid="production-stage"]')).not.toBeNull();
-    expect(side?.querySelector('[data-testid="drill"]')).toBeNull();
-    expect(side?.querySelector('.drill')).toBeNull();
+          : n.classList.contains('drill')
+            ? 'drill'
+            : n.className,
+    );
+    // Третий блок — обёртка с долотом и бейджем достижений.
+    expect(blocks[0]).toBe('hud');
+    expect(blocks[1]).toBe('oplog');
+    expect(blocks[2]).toBe('stage__drill');
+    expect(side?.querySelector('.stage__drill .drill')).not.toBeNull();
+
     expect(side?.querySelector('.shop')).toBeNull();
+    expect(side?.querySelector('[data-testid="drill"]')).not.toBeNull();
     expect(side?.querySelector('[data-testid="oplog"]')).not.toBeNull();
   });
 
-  it('статус производства стоит ниже журнала и не является кнопкой', () => {
+  it('долото стоит ниже журнала, то есть тапать можно в правом столбце', () => {
     const side = document.querySelector('.stage__side');
     const children = [...(side?.children ?? [])];
     const oplogIndex = children.findIndex((n) => n.classList.contains('oplog'));
-    const productionIndex = children.findIndex((n) => n.classList.contains('stage__production'));
+    const drillIndex = children.findIndex((n) => n.classList.contains('stage__drill'));
     expect(oplogIndex).toBeGreaterThan(-1);
-    expect(productionIndex).toBeGreaterThan(oplogIndex);
-    expect(side?.querySelector('.stage__production')?.tagName).toBe('SECTION');
+    expect(drillIndex).toBeGreaterThan(oplogIndex);
   });
 
   it('в панели есть все показатели империи', () => {
@@ -129,7 +133,7 @@ describe('раскладка', () => {
     expect(invoiceLabels[invoiceLabels.length - 1]).toBe('Чистая прибыль');
     // Автодобыча — отдельная строка на всю ширину, без подписи в левой колонке.
     const autoDrill = hud?.querySelector('.hud__row-value--wide');
-    expect(autoDrill?.textContent).toMatch(/^буровая бригада (в сборе|не укомплектована)$/);
+    expect(autoDrill?.textContent).toMatch(/^автодобыча: команда (в сборе|не собрана)$/);
     expect(autoDrill?.closest('.hud__row')?.querySelector('.hud__row-label')?.textContent).toBe('');
     // Кошелёк переехал в шапку к иконкам меню.
     expect(document.querySelector('.topbar__coins')).not.toBeNull();

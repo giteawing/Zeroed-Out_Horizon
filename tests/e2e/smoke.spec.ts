@@ -1,8 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
 
 /**
- * Дымовой тест desktop-сценариев: непрерывная добыча, ручная маршрутизация,
- * сбыт, покупки, вкладки, сохранение, финал и чистая консоль.
+ * Дымовой тест прохождения в настоящем браузере (ТЗ §8.1).
+ * Игру целиком он не проходит (это 16–20 минут), а проверяет ключевые
+ * механики на десктопе и телефоне: тап добывает нефть, сбыт приносит
+ * нефтефаники, покупки, вкладки, сохранение, финал и чистую консоль.
  */
 const errors: string[] = [];
 
@@ -22,67 +24,80 @@ async function start(page: Page): Promise<void> {
   await expect(page.locator('.start')).toHaveCount(0, { timeout: 5000 });
 }
 
-/** Дождаться фактической продажи сырья без действий игрока. */
-async function waitForSale(page: Page): Promise<void> {
-  const before = await page.evaluate(
-    () => (window as unknown as { __game: { state: { totalSold: number } } }).__game.state.totalSold,
-  );
-  await expect.poll(
-    async () => page.evaluate(
-      () => (window as unknown as { __game: { state: { totalSold: number } } }).__game.state.totalSold,
-    ),
-    { timeout: 15_000 },
-  ).toBeGreaterThan(before);
+/**
+ * Тап по скважине.
+ * Игра слушает pointerdown, поэтому обычный click() тоже его порождает.
+ * Используем locator.click(): Playwright сам ждёт, пока элемент не перекрыт,
+ * и в случае промаха сообщает, какой элемент мешает.
+ */
+async function tapDrill(page: Page, times = 12): Promise<void> {
+  const drill = page.locator('[data-testid="drill"]');
+  await expect(drill).toBeVisible();
+  for (let i = 0; i < times; i++) {
+    await drill.click();
+  }
 }
 
-/** Дождаться, пока добыча и отгрузка обеспечат первую покупку. */
-async function waitUntilAffordable(page: Page): Promise<void> {
+/** Копит нефть тапами, пока не станет доступна хоть одна покупка. */
+async function tapUntilAffordable(page: Page): Promise<void> {
   const buyButtons = page.locator('.card__buy:not([disabled])');
-  await expect.poll(() => buyButtons.count(), { timeout: 20_000 }).toBeGreaterThan(0);
+  for (let i = 0; i < 60; i++) {
+    if ((await buyButtons.count()) > 0) return;
+    await tapDrill(page, 6);
+    await page.waitForTimeout(120);
+  }
+  await expect(buyButtons.first()).toBeVisible();
 }
 
 test('игра запускается без ошибок в консоли', async ({ page }) => {
   await start(page);
   // Кошелёк с нефтефаниками живёт в шапке, а не в панели.
   await expect(page.locator('.topbar__coins')).toContainText('₦');
-  await expect(page.locator('[data-testid="production-stage"]')).toBeVisible();
-  await expect(page.locator('[data-testid="flow-controls"]')).toBeVisible();
-  await expect(page.locator('[data-testid="drill"]')).toHaveCount(0);
+  await expect(page.locator('.drill__art')).toHaveAttribute('src', /drill\.svg/);
   await expect(page.locator('.news__item').first()).toBeVisible();
   expect(errors).toEqual([]);
 });
 
-test('непрерывная добыча отправляет сырую нефть в сбыт', async ({ page }) => {
+test('тап добывает нефть, а не нефтефаники', async ({ page }) => {
   await start(page);
   const before = await page.evaluate(
-    () => (window as unknown as { __game: { state: { oil: number; totalSold: number } } }).__game.state,
+    () =>
+      (window as unknown as {
+        __game: { state: { oil: number; totalTaps: number; totalSold: number } };
+      }).__game.state,
   );
-  await waitForSale(page);
+  await tapDrill(page, 24);
   const after = await page.evaluate(
-    () => (window as unknown as { __game: { state: { oil: number; totalSold: number } } }).__game.state,
+    () =>
+      (window as unknown as {
+        __game: { state: { oil: number; totalTaps: number; totalSold: number } };
+      }).__game.state,
   );
+  // Каждый тап — это тап по нефти, а не начисление нефтефаников.
+  expect(after.totalTaps).toBeGreaterThan(before.totalTaps + 20);
+  // Контракты измеряются в тысячах тонн, поэтому добытая нефть сразу уходит
+  // на сбыт: резервуар может быть пуст, но тонны проданы.
   expect(after.oil + after.totalSold).toBeGreaterThan(before.oil + before.totalSold);
+  // Панель империи показывает ту же нефть в резервуарах: «{oil} / {capacity} т».
   await expect(page.locator('.hud__oil .hud__row-value')).toContainText('т');
-  expect(errors).toEqual([]);
 });
 
-test('нефтефаники начисляются от фактической продажи', async ({ page }) => {
+test('нефть продаётся, и нефтефаники капают со сбыта', async ({ page }) => {
   await start(page);
-  const totalEarned = await page.evaluate(
-    () => (window as unknown as { __game: { state: { totalEarned: number } } }).__game.state.totalEarned,
-  );
-  await waitForSale(page);
+  const balance = page.locator('.topbar__coins');
+  await tapDrill(page, 40);
+  // Сбыт идёт непрерывно: нефть уходит в контракты и превращается в деньги.
   await expect.poll(
-    () => page.evaluate(
-      () => (window as unknown as { __game: { state: { totalEarned: number } } }).__game.state.totalEarned,
-    ),
-  ).toBeGreaterThan(totalEarned);
-  await expect(page.locator('.topbar__coins')).toContainText('₦');
+    async () =>
+      page.evaluate(() => (window as unknown as { __game: { state: { totalEarned: number } } }).__game.state.totalEarned),
+    { timeout: 15_000 },
+  ).toBeGreaterThan(0);
+  await expect(balance).toContainText('₦');
 });
 
 test('покупка в магазине работает', async ({ page }) => {
   await start(page);
-  await waitUntilAffordable(page);
+  await tapUntilAffordable(page);
   const buyButtons = page.locator('.card__buy:not([disabled])');
   await buyButtons.first().click();
   const purchases = await page.evaluate(
@@ -110,9 +125,9 @@ test('вкладки магазина переключаются', async ({ page
 
 test('прогресс сохраняется после перезагрузки', async ({ page }) => {
   await start(page);
-  await waitForSale(page);
+  await tapDrill(page, 30);
   const before = await page.evaluate(
-    () => (window as unknown as { __game: { state: { totalSold: number } } }).__game.state.totalSold,
+    () => (window as unknown as { __game: { state: { totalTaps: number } } }).__game.state.totalTaps,
   );
   expect(before).toBeGreaterThan(0);
   await page.evaluate(() => {
@@ -122,10 +137,10 @@ test('прогресс сохраняется после перезагрузк�
   await page.waitForTimeout(300);
   await page.reload();
   await page.locator('.start .btn--gold').click();
-  const sold = await page.evaluate(
-    () => (window as unknown as { __game: { state: { totalSold: number } } }).__game.state.totalSold,
+  const taps = await page.evaluate(
+    () => (window as unknown as { __game: { state: { totalTaps: number } } }).__game.state.totalTaps,
   );
-  expect(sold).toBeGreaterThan(0);
+  expect(taps).toBeGreaterThan(0);
 });
 
 test('меню шапки закрыто, пока его не открыли', async ({ page }) => {
@@ -233,22 +248,25 @@ test('панель империи видна всегда и держит все
   await expect(hud.locator('.hud__profit-label')).toHaveText('Чистая прибыль');
   // Автодобыча — отдельной строкой на всю ширину колонки.
   const autoDrill = hud.locator('.hud__row-value--wide');
-  await expect(autoDrill).toHaveText(/^буровая бригада (в сборе|не укомплектована)$/);
+  await expect(autoDrill).toHaveText(/^автодобыча: команда (в сборе|не собрана)$/);
   expect((await autoDrill.boundingBox())?.width ?? 0).toBeGreaterThan(250);
-  // Правая колонка: статистика, маршрутизация, журнал и статус производства.
+  // Правая колонка: панель, журнал и долото стоят столбиком и не закрывают магазин.
   const side = page.locator('.stage__side');
   const shopBox = await page.locator('.shop').boundingBox();
   const hudBox = await hud.boundingBox();
-  const flowBox = await page.locator('[data-testid="flow-controls"]').boundingBox();
+  const drillBox = await page.locator('[data-testid="drill"]').boundingBox();
   const oplogBox = await page.locator('[data-testid="oplog"]').boundingBox();
-  const productionBox = await page.locator('[data-testid="production-stage"]').boundingBox();
   expect(hudBox?.width ?? 0).toBeGreaterThan(200);
-  expect(flowBox?.width ?? 0).toBeGreaterThan(200);
-  expect(flowBox?.height ?? 0).toBeGreaterThan(80);
+  // Долото намеренно невысокое: на 800 px экрана это 13vh ≈ 104 px.
+  // Проверяем, что оно не схлопнулось в точку и осталось квадратным.
+  expect(drillBox?.width ?? 0).toBeGreaterThan(90);
+  expect(drillBox?.width ?? 0).toBeLessThanOrEqual(200);
+  expect(Math.abs((drillBox?.width ?? 0) - (drillBox?.height ?? 0))).toBeLessThan(2);
   expect(oplogBox?.width ?? 0).toBeGreaterThan(200);
-  expect(productionBox?.height ?? 0).toBeGreaterThan(70);
-  expect(oplogBox!.y).toBeGreaterThan(flowBox!.y + flowBox!.height - 1);
-  expect(productionBox!.y).toBeGreaterThan(oplogBox!.y + oplogBox!.height - 1);
+  // Журнал идёт под таблицей, долото — под журналом (десктопная раскладка).
+  expect(oplogBox!.y).toBeGreaterThan(hudBox!.y + hudBox!.height - 1);
+  const drillBlock = await page.locator('.stage__drill').boundingBox();
+  expect(drillBlock!.y).toBeGreaterThan(oplogBox!.y + oplogBox!.height - 1);
   // Панель империи стала широкой: 460–620 px на десктопе. Магазин при этом
   // не схлопывается — иначе карточки покупок не читаются.
   expect(side).toBeTruthy();

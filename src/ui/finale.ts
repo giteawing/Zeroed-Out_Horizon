@@ -8,7 +8,7 @@
 import { el } from './dom';
 import { icon, image } from '../core/assets';
 import type { Texts } from './texts';
-import { formatDuration, formatMoney, formatNumber } from '../core/format';
+import { formatDuration, formatMoney } from '../core/format';
 import { creditsIsPlaceholder } from '../core/content';
 import type { Content, GameState } from '../core/types';
 
@@ -113,7 +113,7 @@ export class Finale {
   private buildStats(state: GameState): HTMLElement {
     const rows: Array<[string, string]> = [
       [this.texts.get('stats.time'), formatDuration(state.wonAtMs ?? state.playtimeMs)],
-      [this.texts.get('stats.sold'), formatNumber(state.totalSold)],
+      [this.texts.get('stats.taps'), String(state.totalTaps)],
       [this.texts.get('stats.earned'), formatMoney(state.totalEarned, this.currency)],
       [this.texts.get('stats.luxurySpent'), formatMoney(state.luxurySpent, this.currency)],
       [this.texts.get('stats.purchases'), String(state.totalPurchases)],

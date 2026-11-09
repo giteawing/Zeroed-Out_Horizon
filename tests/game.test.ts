@@ -32,56 +32,90 @@ function setup(): { game: Game; state: GameState; events: GameEvent[] } {
   return { game, state, events };
 }
 
-describe('непрерывная добыча и маршрутизация', () => {
-  it('новая партия начинает с бесплатной работающей скважиной', () => {
+describe('тап', () => {
+  it('тап добывает нефть, а не деньги', () => {
     const { game, state } = setup();
-    expect(state.wells.length).toBeGreaterThan(0);
-    expect(game.derived().oilPerSecond).toBeGreaterThan(0);
+    const before = state.oil;
+    const gain = game.tap();
+    expect(gain).toBeGreaterThan(0);
+    // В резервуары пришла нефть, а нефтефаников за тап не начисляется:
+    // деньги появятся только после продажи.
+    expect(state.oil).toBeGreaterThan(before);
+    expect(state.coins).toBe(config.startCoins);
+    expect(state.totalTaps).toBe(1);
   });
 
-  it('добыча поступает автоматически, а продажа проходит через окно отгрузки', () => {
+  it('резервуары переполняются и лишняя нефть теряется', () => {
     const { game, state } = setup();
-    const soldBefore = state.totalSold;
+    const capacity = game.derived().oilCapacity;
+    state.oil = capacity - 0.5;
+    game.tap();
+    expect(state.oil).toBeLessThanOrEqual(capacity + 1e-6);
+  });
+
+  it('добыча идёт сама и сразу продаётся по контрактам', () => {
+    const { game, state } = setup();
+    makeRich(state, 't_well', 80);
+    game.buy('t_well', 10);
+    state.oil = 0;
     const coinsBefore = state.coins;
-    game.update(config.oil.shipDays * 1000);
+    game.update(1000);
+    // Нефть, добытая персоналом, ушла в безлимитные контракты и стала деньгами.
+    expect(state.totalSold).toBeGreaterThan(0);
+    expect(state.coins).toBeGreaterThan(coinsBefore);
+  });
+
+  it('переполнение резервуаров не сжигает нефть, а продаёт её', () => {
+    const { game, state } = setup();
+    // Много добычи и маленький склад: нефть гарантированно не влезет.
+    makeRich(state, 't_well', 50);
+    game.buy('t_well', 10);
+    state.oil = game.derived().oilCapacity;
+    const coinsBefore = state.coins;
+    const soldBefore = state.totalSold;
+    game.update(1000);
+    // Склад полон, но излишек ушёл в контракты — деньги пришли.
+    expect(state.oil).toBeLessThanOrEqual(game.derived().oilCapacity + 1e-6);
     expect(state.totalSold).toBeGreaterThan(soldBefore);
     expect(state.coins).toBeGreaterThan(coinsBefore);
   });
 
-  it('фиксированный поток нельзя установить выше физического максимума', () => {
+  it('без каналов сбыта нефть копится в резервуарах', () => {
     const { game, state } = setup();
-    const maximum = game.derived().flowLimits.export;
-    expect(game.setFlowControl('export', { mode: 'fixed', value: maximum + 1 })).toBe(false);
-    expect(state.flowControl.export.mode).toBe('auto');
+    makeRich(state, 't_well', 80);
+    game.buy('t_well', 10);
+    state.oil = 0;
+    // Убираем все каналы: продавать некуда.
+    const previous = {
+      unlimited: config.oil.channels.contract.unlimited,
+      baseRate: config.oil.channels.contract.baseRate,
+    };
+    for (const channel of ['contract', 'export', 'refine'] as const) {
+      game.content.config.oil.channels[channel].unlimited = false;
+      game.content.config.oil.channels[channel].baseRate = 0;
+    }
+    const soldBefore = state.totalSold;
+    // Конфиг поменяли напрямую — сбрасываем кеш производных.
+    game.invalidate();
+    game.update(1000);
+    expect(state.oil).toBeGreaterThan(0);
+    // Сбыта нет: за этот тик не продано ни тонны.
+    expect(state.totalSold).toBe(soldBefore);
+    // Восстанавливаем конфиг для остальных тестов.
+    content.config.oil.channels.contract.unlimited = previous.unlimited;
+    content.config.oil.channels.contract.baseRate = previous.baseRate;
+    game.invalidate();
   });
 
-  it('фиксированный поток сохраняется и ограничивает автоматические каналы остатком', () => {
-    const { game } = setup();
-    const production = game.derived().oilPerSecond;
-    const target = Math.min(production / 3, game.derived().flowLimits.contract);
-    expect(game.setFlowControl('contract', { mode: 'fixed', value: target })).toBe(true);
-    const derived = game.derived();
-    expect(derived.flows.domestic).toBeCloseTo(target, 6);
-    expect(derived.flows.export + derived.flows.refined + derived.flows.domestic)
-      .toBeLessThanOrEqual(production + 1e-6);
-  });
-
-  it('автоматический режим сбрасывает фиксированное значение', () => {
+  it('растёт от технических улучшений', () => {
     const { game, state } = setup();
-    expect(game.setFlowControl('contract', { mode: 'fixed', value: 0 })).toBe(true);
-    expect(game.setFlowControl('contract', { mode: 'auto', value: 0 })).toBe(true);
-    expect(state.flowControl.contract).toEqual({ mode: 'auto', value: 0 });
-  });
-
-  it('оборудование увеличивает непрерывный дебит добычи', () => {
-    const { game, state } = setup();
-    const before = game.derived().oilPerSecond;
+    const before = game.derived().tapValue;
     makeRich(state, 'd1_blade', 100);
-    expect(game.buy('d1_blade', 5).ok).toBe(true);
-    expect(game.derived().oilPerSecond).toBeGreaterThan(before);
+    game.buy('d1_blade', 5);
+    expect(game.derived().tapValue).toBeGreaterThan(before);
   });
 
-  it('после победы добыча и продажи останавливаются', () => {
+  it('после победы больше не начисляет', () => {
     const { game, state } = setup();
     state.coins = game.derived().winCost;
     for (const req of config.winRequirements) {
@@ -89,12 +123,11 @@ describe('непрерывная добыча и маршрутизация', ()
     }
     expect(game.buy('win_pump').ok).toBe(true);
     const coins = state.coins;
-    const sold = state.totalSold;
-    game.update(1000);
+    expect(game.tap()).toBe(0);
     expect(state.coins).toBe(coins);
-    expect(state.totalSold).toBe(sold);
   });
 });
+
 describe('покупки', () => {
   it('нельзя купить без денег', () => {
     const { game, state, events } = setup();
@@ -323,9 +356,9 @@ describe('экономика во времени', () => {
 describe('достижения', () => {
   it('выдаются по правилам и не дублируются', () => {
     const { game, state, events } = setup();
-    game.update(config.oil.shipDays * 1000);
+    game.tap();
     expect(state.achievements).toContain('a_first');
-    game.update(config.oil.shipDays * 1000);
+    game.tap();
     expect(events.filter((e) => e.type === 'achievement' && e.id === 'a_first')).toHaveLength(1);
   });
 
@@ -376,6 +409,7 @@ describe('детерминированность', () => {
       const state = createInitialState(config, 999);
       const game = new Game(content, state);
       for (let i = 0; i < 50; i++) {
+        game.tap();
         game.update(500);
       }
       return state.coins;

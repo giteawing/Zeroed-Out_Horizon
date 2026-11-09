@@ -26,7 +26,6 @@ describe('магазин: пакетная покупка из реальной 
       },
     });
 
-    const initialWells = state.wells.length;
     shop.setTab('production');
     const button = shop.root.querySelector<HTMLButtonElement>('[data-id="t_well"] .card__buy')!;
     expect(button.textContent).toBe(content.texts.shop.buyMax.replace('{n}', '10'));
@@ -34,12 +33,12 @@ describe('магазин: пакетная покупка из реальной 
     button.click();
 
     expect(state.levels.t_well).toBe(10);
-    expect(state.wells).toHaveLength(initialWells + 10);
+    expect(state.wells).toHaveLength(10);
     const restored = normalizeState(
       JSON.parse(JSON.stringify(game.snapshot())), content.config, content,
     );
     expect(restored.levels.t_well).toBe(10);
-    expect(restored.wells).toHaveLength(initialWells + 10);
+    expect(restored.wells).toHaveLength(10);
   });
 
   it('не предлагает пакет для repeatable и финальной покупки', () => {

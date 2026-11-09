@@ -17,6 +17,7 @@ import { oilFlowsOf } from '../sales';
 import type { UpgradeEffects } from './effects';
 
 export interface MarketStats {
+  tapValue: number;
   crew: boolean;
   oilPerSecond: number;
   oilPricePerTon: number;
@@ -31,8 +32,6 @@ export interface MarketStats {
     export: Record<Product, number>;
     refine: number;
   };
-  /** Физический максимум каждого потока с учётом остальных фиксированных заявок. */
-  flowLimits: Record<Channel, number>;
   exportCapacityByMode: Record<ExportMode, number>;
   hasPipeline: boolean;
   productStorage: number;
@@ -46,6 +45,7 @@ export function calculateMarket(
   effects: UpgradeEffects,
   content: Content | null,
 ): MarketStats {
+  const tapValue = Math.max(0.1, effects.tapFlat * effects.multTap * config.balance.tapScale);
   const crew = hasFullCrew(config, state);
   const crewMultiplier = crew ? 1 + config.oil.autoDrill.bonus : 1;
   // Контракты и экспортные договорённости открывают рынок для дополнительного
@@ -55,11 +55,10 @@ export function calculateMarket(
     effects.throughputBonus.export,
   );
   const rawOilPerSecond =
-    (
-      wellsTonnesPerSecond(config, state) * effects.multPassive * crewMultiplier +
-      effects.productionFlat * effects.multProduction
-    ) *
+    wellsTonnesPerSecond(config, state) *
+    effects.multPassive *
     config.balance.passiveScale *
+    crewMultiplier *
     salesVolumeMultiplier;
   // Защита экономики от экстремальных комбинаций апгрейдов и старых сейвов.
   const productionLimit = Math.max(0, config.oil.maxProductionPerSecond);
@@ -85,7 +84,10 @@ export function calculateMarket(
 
   const domesticPricePerTon = channels.contract.price;
   const exportPricePerTon = channels.export.price;
-  const producedPerSecond = oilPerSecond;
+  const producedPerSecond = Math.min(
+    productionLimit,
+    oilPerSecond + tapValue * effects.autoTaps,
+  );
   const split = config.product.transportSplit;
 
   // Базовая мощность распределяется по transportSplit; бонусы покупок уже
@@ -154,7 +156,6 @@ export function calculateMarket(
     productInventory: state.products,
     storageHorizonSeconds: shipmentWindowSeconds,
     modeShares: exportCapacityByMode,
-    flowControl: state.flowControl,
   });
 
   const grossPerSecond =
@@ -163,27 +164,8 @@ export function calculateMarket(
     flows.productsDomestic * productPriceDomestic +
     flows.productsExport * productPriceExport;
 
-  const fixed = state.flowControl;
-  const fixedOther = (exclude: Channel): number =>
-    (['contract', 'export', 'refine'] as Channel[])
-      .filter((channel) => channel !== exclude && fixed[channel].mode === 'fixed')
-      .reduce((sum, channel) => sum + fixed[channel].value, 0);
-  const flowLimits: Record<Channel, number> = {
-    contract: Math.min(
-      config.oil.channels.contract.unlimited ? Number.POSITIVE_INFINITY : capacities.domestic.crude,
-      Math.max(0, producedPerSecond - fixedOther('contract')),
-    ),
-    export: Math.min(
-      capacities.export.crude,
-      Math.max(0, producedPerSecond - fixedOther('export')),
-    ),
-    refine: Math.min(
-      flows.refineCapacity,
-      Math.max(0, producedPerSecond - fixedOther('refine')),
-    ),
-  };
-
   return {
+    tapValue,
     crew,
     oilPerSecond,
     oilPricePerTon,
@@ -198,7 +180,6 @@ export function calculateMarket(
     hasPipeline,
     productStorage,
     flows,
-    flowLimits,
     grossPerSecond,
   };
 }

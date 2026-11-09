@@ -102,8 +102,11 @@ export class Rules {
         })] : []),
       ]),
 
-      this.section('rules.productionTitle', [
-        t('rules.productionText'),
+      this.section('rules.tapTitle', [
+        t('rules.tapText', {
+          tonnes: formatNumber(oil.tapTonnes),
+          unit: tonnes,
+        }),
         t('rules.autoDrillText', {
           crew: crew.join(', '),
           bonus: formatPercent(oil.autoDrill.bonus, 0),

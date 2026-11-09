@@ -22,7 +22,7 @@ export function computeDerived(
   // Временные TaxBuff намеренно не участвуют в ставке налога.
   void buffs;
 
-  const effects = collectUpgradeEffects(upgrades, state);
+  const effects = collectUpgradeEffects(config, upgrades, state);
   const market = calculateMarket(config, state, effects, content);
   // Демпфер компенсирует разницу цен нефтепродуктов, проданных внутри страны.
   const damperIncomePerSecond = effects.fuelDamperEnabled
@@ -64,8 +64,10 @@ export function computeDerived(
       : Number.POSITIVE_INFINITY;
 
   return {
+    tapValue: market.tapValue,
+    tapRevenue: market.tapValue * market.oilPricePerTon,
+    autoTapsPerSecond: effects.autoTaps,
     oilPerSecond: market.oilPerSecond,
-    flowLimits: market.flowLimits,
     sellPerSecond:
       market.flows.domestic +
       market.flows.export +
@@ -115,8 +117,8 @@ export function computeDerived(
     taxPaidPerSecond: finance.taxPerSecond,
     taxRate: finance.taxRate,
     costCutPercent: finance.costCutPercent,
-    multiplier: effects.multProduction * effects.multPassive,
-    productionMultiplier: effects.multProduction,
+    multiplier: effects.multTap * effects.multPassive,
+    tapMultiplier: effects.multTap,
     passiveMultiplier: effects.multPassive,
     priceMultiplier: effects.priceMultiplier,
     salaries: finance.salaries,
@@ -181,12 +183,13 @@ export function eventPayout(
   if (effect.factor !== undefined && paidCost > 0) {
     return Math.max(1, Math.round(paidCost * Math.pow(effect.factor, Math.max(1, level))));
   }
-  if (def.type === 'periodic') {
-    // Округляем выплату одного уровня один раз, затем масштабируем уровень.
-    const perLevel = Math.max(1, Math.round(payoutBase(derived) * (effect.value ?? 1)));
-    return perLevel * Math.max(1, level);
-  }
-  return Math.max(1, Math.round(payoutBase(derived) * (effect.value ?? 1)));
+  const levelScale = def.type === 'periodic' ? Math.max(1, level) : 1;
+  return Math.max(1, Math.round(payoutBase(derived) * (effect.value ?? 1) * levelScale));
+}
+
+/** Нефть за один тап с небольшим случайным разбросом. */
+export function tapReward(derived: DerivedStats, rngValue: number): number {
+  return Math.max(0.1, derived.tapValue * (0.9 + rngValue * 0.2));
 }
 
 /** Чистые деньги за интервал: EBT минус налог на прибыль. */

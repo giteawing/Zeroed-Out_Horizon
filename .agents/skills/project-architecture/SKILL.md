@@ -11,7 +11,7 @@ description: Use when changing project structure, TypeScript modules, content lo
 src/
   content/       config.json, upgrades.json, texts.json, achievements.json, credits.txt
   core/          types, content loader, economy, game engine, state, storage, simulator, RNG
-  ui/            DOM-компоненты: HUD, панель потоков, магазин, новости, финал, настройки
+  ui/            DOM-компоненты: HUD, магазин, бурение, новости, финал, настройки
   fx/            canvas-частицы и всплывающие значения
   audio/         Web Audio API
   styles/        основная таблица стилей

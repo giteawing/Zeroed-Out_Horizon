@@ -30,7 +30,7 @@ function test(prodK: number, sellK: number): { minutes: number; bought: number }
       def.effect.value = Math.max(1, Math.round(def.effect.value * sellK));
     }
   }
-  const r = runSimulation(content, { seed: 202, maxSeconds: 2400 });
+  const r = runSimulation(content, { tapsPerSecond: 5, tapDiligence: 0.85, seed: 202, maxSeconds: 2400 });
   return { minutes: r.won ? r.seconds / 60 : 40, bought: r.purchasedIds.length };
 }
 

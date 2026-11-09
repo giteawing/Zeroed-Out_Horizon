@@ -1,6 +1,10 @@
 /**
- * Генератор крупной графики: фон, логотип и финал.
- * Запуск: npm run art.
+ * Генератор крупной графики: фон, логотип, центральная скважина, финал.
+ * Запуск: npm run art
+ *
+ * drill.svg собирается слоями с id, чтобы CSS мог вращать шарошки:
+ *   #btn-body — корпус долота, #btn-cones — шарошки, #splashes — брызги.
+ * Эти id трогать нельзя (ТЗ §9).
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -147,6 +151,106 @@ ${DEFS}
 </svg>
 `;
 
+// ------------------------------------------------- центральная скважина
+
+const drill = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img">
+${DEFS}
+  <defs>
+    <linearGradient id="band1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c9a97e" />
+      <stop offset="100%" stop-color="#a8875d" />
+    </linearGradient>
+    <linearGradient id="band2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8a6a4a" />
+      <stop offset="100%" stop-color="#5c4029" />
+    </linearGradient>
+  </defs>
+
+  <!-- ПЛАСТ В РАЗРЕЗЕ: слои от поверхности до низа -->
+  <g id="strata">
+    <rect x="0" y="300" width="512" height="212" fill="url(#band1)" />
+    <rect x="0" y="300" width="512" height="212" fill="none" stroke="${P.ink}" stroke-width="7" />
+    <path d="M0 352q128 14 256 4t256 -10" fill="none" stroke="${P.ink}" stroke-width="5" opacity="0.55" />
+    <path d="M0 386q150 -12 256 -2t256 8" fill="none" stroke="${P.ink}" stroke-width="5" opacity="0.45" />
+    <!-- нефтяной горизонт -->
+    <path d="M0 396q128-22 256 -12t256 10v64q-128 20-256 14T0 460Z" fill="url(#oilGrad)" stroke="${P.ink}" stroke-width="6" />
+    ${Array.from({ length: 11 }, (_, i) => `<circle cx="${26 + i * 46}" cy="${424 + (i % 3) * 14}" r="${5 + (i % 3) * 3}" fill="#0f0f13" opacity="0.8" />`).join('')}
+    <path d="M0 300v212" stroke="${P.ink}" stroke-width="7" />
+    <path d="M512 300v212" stroke="${P.ink}" stroke-width="7" />
+  </g>
+
+  <!-- ПОВЕРХНОСТЬ -->
+  <g id="surface">
+    <path d="M0 300q128 -14 256 -4t256 8v14H0Z" fill="#6f5a3f" stroke="${P.ink}" stroke-width="6" />
+  </g>
+
+  <!-- БУРОВАЯ МАЧТА -->
+  <g id="rig">
+    ${derrick(84, 298, 168, '#2a2320')}
+    ${rect(50, 292, 68, 12, '#2a2320', 4)}
+    ${line(84, 132, 84, 96, 5, '#2a2320')}
+    <circle cx="84" cy="92" r="10" fill="url(#goldGrad)" stroke="${P.ink}" stroke-width="5" />
+    <!-- отвод к скважине -->
+    <path d="M120 292q40 -6 76 4" fill="none" stroke="${P.ink}" stroke-width="7" stroke-linecap="round" />
+  </g>
+
+  <!-- ОБСАДНАЯ КОЛОННА / ТРУБА ВБОК -->
+  <g id="casing">
+    <path d="M334 318h104a44 44 0 0 1 0 88H334Z" fill="url(#steelGrad)" stroke="${P.ink}" stroke-width="7" stroke-linejoin="round" />
+    <path d="M342 336h88a26 26 0 0 1 0 52H342Z" fill="#6d7780" opacity="0.45" />
+    <path d="M366 322v80M398 322v80M428 324v76" fill="none" stroke="${P.ink}" stroke-width="4" opacity="0.4" />
+    <path d="M438 318v88" fill="none" stroke="${P.ink}" stroke-width="6" />
+    <path d="M342 338h80a16 16 0 0 1 0 8H342Z" fill="#ffffff" opacity="0.35" />
+  </g>
+
+  <!-- НЕФТЯНОЙ ФОНТАН -->
+  <g id="gusher" opacity="0.95">
+    ${drop(128, 244, 0.95)}${drop(100, 272, 0.65)}${drop(158, 214, 0.55)}
+  </g>
+
+  <!-- ДОЛОТО: корпус -->
+  <g id="btn-body">
+    <path d="M188 344h136l-8 30H196Z" fill="url(#steelGrad)" stroke="${P.ink}" stroke-width="7" stroke-linejoin="round" />
+    <rect x="178" y="322" width="156" height="22" rx="10" fill="url(#goldGrad)" stroke="${P.ink}" stroke-width="7" />
+    <path d="M196 362h120" fill="none" stroke="${P.ink}" stroke-width="5" opacity="0.45" />
+  </g>
+
+  <!-- ДОЛОТО: шарошки (вращаются через CSS) -->
+  <g id="cones">
+    <g>
+      <circle cx="208" cy="394" r="32" fill="url(#steelGrad)" stroke="${P.ink}" stroke-width="7" />
+      ${Array.from({ length: 8 }, (_, i) => {
+        const angle = (Math.PI / 4) * i;
+        return `<circle cx="${(208 + Math.cos(angle) * 19).toFixed(1)}" cy="${(394 + Math.sin(angle) * 19).toFixed(1)}" r="4.6" fill="#3b4650" />`;
+      }).join('')}
+      <circle cx="208" cy="394" r="7" fill="#3b4650" />
+    </g>
+    <g>
+      <circle cx="304" cy="394" r="32" fill="url(#steelGrad)" stroke="${P.ink}" stroke-width="7" />
+      ${Array.from({ length: 8 }, (_, i) => {
+        const angle = (Math.PI / 4) * i + 0.4;
+        return `<circle cx="${(304 + Math.cos(angle) * 19).toFixed(1)}" cy="${(394 + Math.sin(angle) * 19).toFixed(1)}" r="4.6" fill="#3b4650" />`;
+      }).join('')}
+      <circle cx="304" cy="394" r="7" fill="#3b4650" />
+    </g>
+    <g>
+      <circle cx="256" cy="424" r="28" fill="url(#steelGrad)" stroke="${P.ink}" stroke-width="7" />
+      ${Array.from({ length: 6 }, (_, i) => {
+        const angle = (Math.PI / 3) * i + 0.2;
+        return `<circle cx="${(256 + Math.cos(angle) * 17).toFixed(1)}" cy="${(424 + Math.sin(angle) * 17).toFixed(1)}" r="4.6" fill="#3b4650" />`;
+      }).join('')}
+      <circle cx="256" cy="424" r="6" fill="#3b4650" />
+    </g>
+  </g>
+
+  <!-- БРЫЗГИ НЕФТИ (анимируются) -->
+  <g id="splashes">
+    ${drop(148, 356, 1.05)}${drop(122, 396, 0.8)}${drop(352, 358, 0.95)}${drop(378, 398, 0.7)}
+    ${circle(168, 402, 4.5, 'url(#oilGrad)')}${circle(340, 406, 4, 'url(#oilGrad)')}
+  </g>
+</svg>
+`;
+
 // ------------------------------------------------------------- финал
 
 const finale = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img">
@@ -239,8 +343,9 @@ function main() {
   mkdirSync(imgDir, { recursive: true });
   writeFileSync(resolve(imgDir, 'bg.svg'), bg, 'utf8');
   writeFileSync(resolve(imgDir, 'logo.svg'), logo, 'utf8');
+  writeFileSync(resolve(imgDir, 'drill.svg'), drill, 'utf8');
   writeFileSync(resolve(imgDir, 'finale.svg'), finale, 'utf8');
-  console.log('готово: bg.svg, logo.svg, finale.svg');
+  console.log('готово: bg.svg, logo.svg, drill.svg, finale.svg');
 }
 
 void STROKE;

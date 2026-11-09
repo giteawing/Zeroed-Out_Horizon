@@ -9,6 +9,7 @@ const game = new Game(content, state);
 const bought = new Set<string>();
 let lastBuy = '';
 for (let s = 0; s < 900; s++) {
+  for (let i = 0; i < 5; i++) game.tap();
   game.update(1000);
   if (s % 2 === 0) {
     const before = state.coins;
@@ -20,6 +21,6 @@ for (let s = 0; s < 900; s++) {
   if (s % 60 === 0) {
     const d = game.derived();
     const fill = (state.oil / d.oilCapacity) * 100;
-    console.log(`t=${String(s).padStart(3)}с ₦${state.coins.toFixed(0).padStart(8)} нефть ${fill.toFixed(0)}% добыча ${d.oilPerSecond.toFixed(1)} сбыт ${d.sellPerSecond.toFixed(0)} gross ${d.grossPerSecond.toFixed(0)} net ${d.netPerSecond.toFixed(0)} влиять ${d.influence} покупка ${lastBuy}`);
+    console.log(`t=${String(s).padStart(3)}с ₦${state.coins.toFixed(0).padStart(8)} нефть ${fill.toFixed(0)}% добыча ${d.oilPerSecond.toFixed(1)} сбыт ${d.sellPerSecond.toFixed(0)} gross ${d.grossPerSecond.toFixed(0)} net ${d.netPerSecond.toFixed(0)} влиять ${d.influence} тап ${d.tapValue.toFixed(1)}т покупка ${lastBuy}`);
   }
 }

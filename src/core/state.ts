@@ -5,7 +5,7 @@ import type { Content, GameConfig, GameState } from './types';
 import { randomSeed } from './rng';
 
 export const SAVE_KEY = 'zeroed-out-horizon:save:v2';
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 2;
 
 export function createInitialState(config: GameConfig, seed = randomSeed()): GameState {
   return {
@@ -19,21 +19,15 @@ export function createInitialState(config: GameConfig, seed = randomSeed()): Gam
     spillCrudePerSecond: 0,
     spillProductsPerSecond: 0,
     totalEarned: config.startCoins,
+    totalTaps: 0,
     totalSold: 0,
-    flowControl: {
-      contract: { mode: 'auto', value: 0 },
-      export: { mode: 'auto', value: 0 },
-      refine: { mode: 'auto', value: 0 },
-    },
     log: [],
     totalPurchases: 0,
     luxurySpent: 0,
     levels: {},
     cooldowns: {},
     timers: {},
-    wells: config.oil.starterWellDailyTonnes > 0
-      ? [{ kind: 'ordinary', dailyTonnes: config.oil.starterWellDailyTonnes }]
-      : [],
+    wells: [],
     gambles: [],
     achievements: [],
     clockMs: 0,
@@ -52,12 +46,6 @@ export function createInitialState(config: GameConfig, seed = randomSeed()): Gam
 
 const num = (v: unknown, fallback: number): number =>
   typeof v === 'number' && Number.isFinite(v) ? v : fallback;
-
-/** Старые id достижений сохраняются в сейвах с версии игры на тапах. */
-const LEGACY_ACHIEVEMENT_IDS: Record<string, string> = {
-  a_tap100: 'a_sold_1000',
-  a_tap1000: 'a_sold_100000',
-};
 
 /** Мягкое слияние сохранения с дефолтами: старые и битые сейвы не ломают новую версию. */
 export function normalizeState(raw: unknown, config: GameConfig, content: Content): GameState {
@@ -78,20 +66,8 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
   state.spillProductsPerSecond = Math.max(0, num(src.spillProductsPerSecond, 0));
   state.totalSold = Math.max(0, num((src as { totalSold?: number }).totalSold, 0));
   state.totalEarned = Math.max(state.coins, num(src.totalEarned, base.totalEarned));
+  state.totalTaps = Math.max(0, num(src.totalTaps, 0));
   state.totalPurchases = Math.max(0, num(src.totalPurchases, 0));
-  const rawFlowControl = (src as { flowControl?: unknown }).flowControl;
-  if (rawFlowControl && typeof rawFlowControl === 'object') {
-    const controls = rawFlowControl as Partial<GameState['flowControl']>;
-    for (const channel of ['contract', 'export', 'refine'] as const) {
-      const setting = controls[channel];
-      if (!setting || typeof setting !== 'object') continue;
-      const value = num(setting.value, 0);
-      state.flowControl[channel] = setting.mode === 'fixed' && value >= 0
-        ? { mode: 'fixed', value: Math.min(config.oil.maxProductionPerSecond, value) }
-        : { mode: 'auto', value: 0 };
-    }
-  }
-  // В старых сохранениях поля распределения нет: все каналы переходят в авто.
   state.luxurySpent = Math.max(0, num(src.luxurySpent, 0));
   state.clockMs = Math.max(0, num(src.clockMs, 0));
   state.playtimeMs = Math.max(0, num(src.playtimeMs, 0));
@@ -168,11 +144,6 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
       state.wells = [{ kind: 'unique', dailyTonnes: Math.round(legacyDaily) }];
     }
   }
-  // Старые сохранения без скважин получают стартовый дебит, чтобы переход
-  // с ручной добычи на непрерывную не оставлял партию без источника сырья.
-  if (state.wells.length === 0 && config.oil.starterWellDailyTonnes > 0) {
-    state.wells = [{ kind: 'ordinary', dailyTonnes: config.oil.starterWellDailyTonnes }];
-  }
 
   state.gambles = Array.isArray(src.gambles)
     ? src.gambles
@@ -211,9 +182,7 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
     : [];
 
   state.achievements = Array.isArray(src.achievements)
-    ? [...new Set(src.achievements
-        .filter((id): id is string => typeof id === 'string')
-        .map((id) => LEGACY_ACHIEVEMENT_IDS[id] ?? id))]
+    ? src.achievements.filter((id): id is string => typeof id === 'string')
     : [];
 
   return state;

@@ -5,7 +5,7 @@
  * Правила:
  *   • AudioContext создаётся/возобновляется ТОЛЬКО внутри пользовательского
  *     жеста (pointerdown) — иначе iOS/Safari молчит;
- *   • на важные события — короткие синтезированные звуковые сигналы;
+ *   • на тап — короткий «дзынь» с 4 вариациями высоты;
  *   • на покупку — касса, на событие — сирена, на победу — фанфары;
  *   • при выключенном звуке не создаём ни одного узла (экономия батареи).
  */
@@ -55,6 +55,19 @@ export class SoundEngine {
       }
     }
     if (this.ctx.state === 'suspended') void this.ctx.resume();
+  }
+
+  /** Тап по долоту: 4 вариации высоты, чтобы не приедалось. */
+  tap(variant?: number): void {
+    const ctx = this.ready('tap');
+    if (!ctx) return;
+    const v = variant === undefined ? Math.floor(Math.random() * 4) : variant % 4;
+    const base = [740, 820, 690, 880][v];
+    const now = ctx.currentTime;
+    // «Дзынь»: два быстрых осциллятора + короткий шумовой щелчок бурения.
+    this.blip(ctx, base, now, 0.09, 'triangle', 0.16);
+    this.blip(ctx, base * 1.5, now + 0.02, 0.07, 'sine', 0.1);
+    this.noise(ctx, now, 0.05, 0.06, 1200);
   }
 
   /** Покупка: кассовый «ча-чинг». */
@@ -152,7 +165,7 @@ export class SoundEngine {
     osc.stop(at + duration + 0.05);
   }
 
-  /** Короткий шумовой слой для звуковых событий без внешних файлов. */
+  /** Короткий шум (бурение, касса, аплодисменты) без внешних файлов. */
   private noise(ctx: Ctx, at: number, duration: number, gain: number, cutoff: number): void {
     if (!this.master) return;
     if (!this.noiseBuffer) {

@@ -6,9 +6,9 @@ export default defineConfig({
     environment: 'node',
     testTimeout: 30000,
     // Потоковый пул устраняет fork-worker RPC timeout onTaskUpdate на CI.
-    // Симуляции CPU-bound; один worker исключает конкуренцию двух длинных прогонов.
+    // Баланс-симуляции CPU-bound: ограничиваем параллелизм, чтобы worker-ы не голодали.
     pool: 'threads',
-    maxWorkers: 1,
+    maxWorkers: 2,
     // DOM-тесты помечают себя сами: // @vitest-environment happy-dom
   },
 });

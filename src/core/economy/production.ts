@@ -2,20 +2,8 @@
  * Производство и базовые коэффициенты расходов: ёмкости, скважины, налог и штрафы.
  * Все функции чистые: состояние и конфиг только читаются.
  */
-import type { Content, GameConfig, GameState, Well } from '../types';
+import type { Content, GameConfig, GameState } from '../types';
 import { levelOf } from './purchases';
-
-// Дебит меняется только при добавлении скважины; кешируем сумму по массиву.
-const wellDailyTotals = new WeakMap<readonly Well[], { length: number; total: number }>();
-
-function totalDailyWellTonnes(wells: readonly Well[]): number {
-  const cached = wellDailyTotals.get(wells);
-  if (cached && cached.length === wells.length) return cached.total;
-  let total = 0;
-  for (const well of wells) total += Math.max(0, well.dailyTonnes);
-  wellDailyTotals.set(wells, { length: wells.length, total });
-  return total;
-}
 
 export function fineFactorOf(config: GameConfig, influence: number): number {
   const relief = Math.min(
@@ -96,12 +84,17 @@ export function wellsTonnesPerSecond(config: GameConfig, state: GameState): numb
   const wells = state.wells ?? [];
   if (wells.length === 0) return 0;
   const perDay = config.oil.wells?.secondsPerDay || 1;
-  return (totalDailyWellTonnes(wells) / perDay) * wellDeclineFactor(config, state);
+  let daily = 0;
+  for (const well of wells) daily += Math.max(0, well.dailyTonnes);
+  return (daily / perDay) * wellDeclineFactor(config, state);
 }
 
 /** Суммарный суточный дебит, тонн в сутки (с учётом падения) — для панели. */
 export function wellsDailyTonnes(state: GameState, config?: GameConfig): number {
-  const total = totalDailyWellTonnes(state.wells ?? []);
+  const total = (state.wells ?? []).reduce(
+    (sum, well) => sum + Math.max(0, well.dailyTonnes),
+    0,
+  );
   if (!config) return total;
   return total * wellDeclineFactor(config, state);
 }

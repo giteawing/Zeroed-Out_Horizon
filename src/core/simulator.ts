@@ -1,5 +1,5 @@
 /**
- * Симулятор-бот. Непрерывно добывает сырьё, управляет потоками и покупает самое выгодное.
+ * Симулятор-бот. «Играет» вместо человека: тапает и покупает самое выгодное.
  * Нужен двум вещам:
  *   1) тест на длительность прохождения (ТЗ §5.3: 12–25 мин, цель 15–20);
  *   2) подбор winCost (scripts/balance-report.ts).
@@ -10,11 +10,16 @@ import { Game } from './game';
 import { adjustCurrencyCost, bankScaleOf, computeDerived, eventPayout, isUnlocked, levelOf, unlockBlocker, wellPricePerDailyTonne, winCostOf } from './economy';
 import { isRepeatable } from './game';
 import { createInitialState } from './state';
+import { Rng } from './rng';
 import type { Content, GameState, UpgradeDef } from './types';
 
 export interface SimulatorOptions {
   /** Стандартная стратегия игнорирует cooldown-действия; optimizer оценивает и использует их. */
   strategy?: 'standard' | 'optimizer';
+  /** Тапов в секунду (ТЗ: 4–6). */
+  tapsPerSecond?: number;
+  /** Доля тапов, которые игрок реально делает (устаёт, отвлекается). */
+  tapDiligence?: number;
   /** Как часто бот пересматривает покупки, сек. */
   decisionIntervalSeconds?: number;
   /** Максимум игрового времени, сек. */
@@ -33,7 +38,7 @@ export interface Checkpoint {
   minute: number;
   coins: number;
   netPerSecond: number;
-  productionRate: number;
+  tapValue: number;
 }
 
 export interface Sample {
@@ -41,7 +46,7 @@ export interface Sample {
   coins: number;
   totalEarned: number;
   netPerSecond: number;
-  productionRate: number;
+  tapValue: number;
   /** Нефть в резервуарах на момент сэмпла, тонн. */
   oil: number;
   purchases: number;
@@ -53,6 +58,7 @@ export interface SimulatorResult {
   seconds: number;
   coins: number;
   totalEarned: number;
+  totalTaps: number;
   purchases: number;
   luxurySpent: number;
   achievements: number;
@@ -66,6 +72,8 @@ const STEP_MS = 1000;
 
 export function runSimulation(content: Content, options: SimulatorOptions = {}): SimulatorResult {
   const opts: Required<SimulatorOptions> = {
+    tapsPerSecond: 5,
+    tapDiligence: 0.85,
     strategy: 'standard',
     decisionIntervalSeconds: 1.5,
     maxSeconds: 60 * 30,
@@ -76,12 +84,15 @@ export function runSimulation(content: Content, options: SimulatorOptions = {}):
     ...options,
   };
 
+  const rng = new Rng(opts.seed ^ 0x5f3759df);
   const state = createInitialState(content.config, opts.seed);
   const game = new Game(content, state);
   const checkpoints: Checkpoint[] = [];
   const samples: Sample[] = [];
   const purchased = new Set<string>();
 
+  const tapEveryMs = 1000 / Math.max(0.1, opts.tapsPerSecond);
+  let tapAcc = 0;
   let nextDecisionMs = 0;
   let exportWaitMs = 0;
   let elapsed = 0;
@@ -91,6 +102,12 @@ export function runSimulation(content: Content, options: SimulatorOptions = {}):
   while (elapsed < opts.maxSeconds * 1000) {
     elapsed += STEP_MS;
 
+    tapAcc += STEP_MS;
+    while (tapAcc >= tapEveryMs) {
+      tapAcc -= tapEveryMs;
+      if (rng.next() < opts.tapDiligence) game.tap();
+    }
+
     game.update(STEP_MS);
 
     if (elapsed >= nextDecisionMs) {
@@ -99,6 +116,7 @@ export function runSimulation(content: Content, options: SimulatorOptions = {}):
         game,
         content,
         purchased,
+        opts.tapsPerSecond * opts.tapDiligence,
         opts.strategy === 'optimizer',
       );
     }
@@ -132,7 +150,7 @@ export function runSimulation(content: Content, options: SimulatorOptions = {}):
         minute,
         coins: state.coins,
         netPerSecond: game.derived().netPerSecond,
-        productionRate: game.derived().oilPerSecond,
+        tapValue: game.derived().tapValue,
       });
     }
 
@@ -145,7 +163,7 @@ export function runSimulation(content: Content, options: SimulatorOptions = {}):
         coins: state.coins,
         totalEarned: state.totalEarned,
         netPerSecond: d.netPerSecond,
-        productionRate: d.oilPerSecond,
+        tapValue: d.tapValue,
         oil: state.oil,
         purchases: state.totalPurchases,
       });
@@ -159,6 +177,7 @@ export function runSimulation(content: Content, options: SimulatorOptions = {}):
     seconds: state.won ? elapsed / 1000 : opts.maxSeconds,
     coins: state.coins,
     totalEarned: state.totalEarned,
+    totalTaps: state.totalTaps,
     purchases: state.totalPurchases,
     luxurySpent: state.luxurySpent,
     achievements: state.achievements.length,
@@ -179,6 +198,7 @@ export function decide(
   game: Game,
   content: Content,
   purchased: Set<string>,
+  manualTapsPerSecond = SIMULATED_MANUAL_TAPS,
   allowRepeatables = false,
 ): boolean {
   const state = game.state;
@@ -238,7 +258,7 @@ export function decide(
     if (!check.unlocked || check.cooldownMs > 0) continue;
     const cost = check.cost;
     if (cost > state.coins) continue;
-    const gain = estimatedGain(game, def, cost);
+    const gain = estimatedGain(game, def, cost, manualTapsPerSecond);
     if (allowRepeatables && isRepeatable(def) && gain <= 0) continue;
     candidates.push({
       def,
@@ -259,9 +279,39 @@ export function decide(
   return boughtAny;
 }
 
-/** Симулятор использует ту же непрерывную производственную модель, что и игра. */
-function derivedForSimulation(content: Content, state: GameState) {
-  return computeDerived(content.config, content.upgrades, state, [], content);
+/** Усреднённая активность обычного профиля, тапов в секунду. */
+const SIMULATED_MANUAL_TAPS = 5 * 0.85;
+const HUMAN_TAPS_ID = '__simulator_human_taps';
+
+/**
+ * Та же computeDerived, что и у игры, плюс условный источник ручных тапов.
+ * Это позволяет сравнить экономику до/после без отдельных формул цен,
+ * мощностей, переработки, налогов и scope-множителей.
+ */
+function derivedForSimulation(
+  content: Content,
+  state: GameState,
+  manualTapsPerSecond = SIMULATED_MANUAL_TAPS,
+) {
+  const humanTaps: UpgradeDef = {
+    id: HUMAN_TAPS_ID,
+    tab: 'technical',
+    group: 'simulation',
+    name: HUMAN_TAPS_ID,
+    description: HUMAN_TAPS_ID,
+    icon: 'well',
+    type: 'autoTap',
+    baseCost: 0,
+    maxLevel: 1,
+    effect: { value: Number.isFinite(manualTapsPerSecond) ? Math.max(0, manualTapsPerSecond) : 0 },
+  };
+  return computeDerived(
+    content.config,
+    [...content.upgrades, humanTaps],
+    { ...state, levels: { ...state.levels, [HUMAN_TAPS_ID]: 1 } },
+    [],
+    content,
+  );
 }
 
 function averageWellDaily(content: Content): number {
@@ -280,12 +330,14 @@ export function estimatedGain(
   game: Game,
   def: UpgradeDef,
   cost: number,
-  ): number {
+  manualTapsPerSecond = SIMULATED_MANUAL_TAPS,
+): number {
   const content = game.content;
-  const before = derivedForSimulation(content, game.state);
+  const before = derivedForSimulation(content, game.state, manualTapsPerSecond);
   const e = def.effect;
 
   // Считаем по той же денежной формуле, что и реальная выплата игры.
+  // tapValue — тонны, его нельзя смешивать с нефтефаниками.
   if (def.type === 'oneShot') {
     const payout = eventPayout(def, before, levelOf(game.state, def.id) + 1, cost);
     const bankBonus = def.effect.bankScale ? bankScaleOf(content.upgrades, game.state) : 1;
@@ -318,6 +370,6 @@ export function estimatedGain(
       : (cost * 7.5) / wellPricePerDailyTonne(content.config, undefined, game.derived().exchangeRate);
     next.wells.push({ kind: 'unique', dailyTonnes: Math.max(1, daily) });
   }
-  const after = derivedForSimulation(content, next);
+  const after = derivedForSimulation(content, next, manualTapsPerSecond);
   return Math.max(0, after.netPerSecond - before.netPerSecond);
 }

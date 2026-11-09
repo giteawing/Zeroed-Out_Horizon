@@ -30,11 +30,11 @@ describe('нормализация сохранения', () => {
     const original = createInitialState(config, 7);
     original.coins = 12345;
     original.levels = { t_well: 3, d1_blade: 2 };
-    original.flowControl.export = { mode: 'fixed', value: 12.5 };
+    original.totalTaps = 55;
     const restored = normalizeState(JSON.parse(serializeState(original)), config, content);
     expect(restored.coins).toBe(12345);
     expect(restored.levels).toEqual({ t_well: 3, d1_blade: 2 });
-    expect(restored.flowControl.export).toEqual({ mode: 'fixed', value: 12.5 });
+    expect(restored.totalTaps).toBe(55);
   });
 
   it('старый сейв получает постоянный seed цены из RNG seed', () => {
@@ -74,15 +74,6 @@ describe('нормализация сохранения', () => {
     expect(normalizeState(42, config, content).coins).toBe(0);
     expect(parseSave('{битый json')).toBeNull();
     expect(parseSave('{"ok":1}')).toEqual({ ok: 1 });
-  });
-
-  it('мигрирует старые id достижений за тап в достижения за проданные тонны', () => {
-    const restored = normalizeState(
-      { achievements: ['a_tap100', 'a_tap1000', 'a_sold_1000'] },
-      config,
-      content,
-    );
-    expect(restored.achievements).toEqual(['a_sold_1000', 'a_sold_100000']);
   });
 
   it('не теряет достижения и флаг победы', () => {

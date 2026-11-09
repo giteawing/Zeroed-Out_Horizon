@@ -53,6 +53,8 @@ function minutesForWinCost(winCost: number): number {
   const winDef = content.upgrades.find((u) => u.win);
   if (winDef) winDef.baseCost = winCost;
   const result = runSimulation(content, {
+    tapsPerSecond: 5,
+    tapDiligence: 0.85,
     seed: 202,
     maxSeconds: 60 * 40,
   });
