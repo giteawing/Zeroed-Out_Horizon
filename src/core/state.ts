@@ -5,7 +5,7 @@ import type { Content, GameConfig, GameState } from './types';
 import { randomSeed } from './rng';
 
 export const SAVE_KEY = 'zeroed-out-horizon:save:v2';
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export function createInitialState(config: GameConfig, seed = randomSeed()): GameState {
   return {
@@ -19,8 +19,12 @@ export function createInitialState(config: GameConfig, seed = randomSeed()): Gam
     spillCrudePerSecond: 0,
     spillProductsPerSecond: 0,
     totalEarned: config.startCoins,
-    totalTaps: 0,
     totalSold: 0,
+    flowControl: {
+      contract: { mode: 'auto', value: 0 },
+      export: { mode: 'auto', value: 0 },
+      refine: { mode: 'auto', value: 0 },
+    },
     log: [],
     totalPurchases: 0,
     luxurySpent: 0,
@@ -66,8 +70,20 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
   state.spillProductsPerSecond = Math.max(0, num(src.spillProductsPerSecond, 0));
   state.totalSold = Math.max(0, num((src as { totalSold?: number }).totalSold, 0));
   state.totalEarned = Math.max(state.coins, num(src.totalEarned, base.totalEarned));
-  state.totalTaps = Math.max(0, num(src.totalTaps, 0));
   state.totalPurchases = Math.max(0, num(src.totalPurchases, 0));
+  const rawFlowControl = (src as { flowControl?: unknown }).flowControl;
+  if (rawFlowControl && typeof rawFlowControl === 'object') {
+    const controls = rawFlowControl as Partial<GameState['flowControl']>;
+    for (const channel of ['contract', 'export', 'refine'] as const) {
+      const setting = controls[channel];
+      if (!setting || typeof setting !== 'object') continue;
+      const value = num(setting.value, 0);
+      state.flowControl[channel] = setting.mode === 'fixed' && value >= 0
+        ? { mode: 'fixed', value: Math.min(config.oil.maxProductionPerSecond, value) }
+        : { mode: 'auto', value: 0 };
+    }
+  }
+  // В старых сохранениях поля распределения нет: все каналы переходят в авто.
   state.luxurySpent = Math.max(0, num(src.luxurySpent, 0));
   state.clockMs = Math.max(0, num(src.clockMs, 0));
   state.playtimeMs = Math.max(0, num(src.playtimeMs, 0));
