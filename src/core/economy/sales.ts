@@ -247,8 +247,8 @@ export function oilFlowsOf(
     : shares
       ? {
         pipeline: pipelineTonnes,
-        rail: nonPipelineShare > 1e-9 ? crude.byMarket.export * shares.rail / nonPipelineShare : 0,
-        tanker: nonPipelineShare > 1e-9 ? crude.byMarket.export * shares.tanker / nonPipelineShare : 0,
+        rail: nonPipelineShare > 1e-9 ? Math.max(0, exportTonnes - pipelineTonnes) * shares.rail / nonPipelineShare : 0,
+        tanker: nonPipelineShare > 1e-9 ? Math.max(0, exportTonnes - pipelineTonnes) * shares.tanker / nonPipelineShare : 0,
       }
       : { pipeline: pipelineTonnes, rail: 0, tanker: 0 };
 
