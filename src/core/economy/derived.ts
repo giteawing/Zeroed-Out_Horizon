@@ -22,7 +22,7 @@ export function computeDerived(
   // Временные TaxBuff намеренно не участвуют в ставке налога.
   void buffs;
 
-  const effects = collectUpgradeEffects(config, upgrades, state);
+  const effects = collectUpgradeEffects(upgrades, state);
   const market = calculateMarket(config, state, effects, content);
   // Демпфер компенсирует разницу цен нефтепродуктов, проданных внутри страны.
   const damperIncomePerSecond = effects.fuelDamperEnabled

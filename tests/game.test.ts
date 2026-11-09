@@ -56,7 +56,7 @@ describe('непрерывная добыча и маршрутизация', ()
   });
 
   it('фиксированный поток сохраняется и ограничивает автоматические каналы остатком', () => {
-    const { game, state } = setup();
+    const { game } = setup();
     const production = game.derived().oilPerSecond;
     const target = Math.min(production / 3, game.derived().flowLimits.contract);
     expect(game.setFlowControl('contract', { mode: 'fixed', value: target })).toBe(true);
@@ -323,9 +323,9 @@ describe('экономика во времени', () => {
 describe('достижения', () => {
   it('выдаются по правилам и не дублируются', () => {
     const { game, state, events } = setup();
-    game.tap();
+    game.update(config.oil.shipDays * 1000);
     expect(state.achievements).toContain('a_first');
-    game.tap();
+    game.update(config.oil.shipDays * 1000);
     expect(events.filter((e) => e.type === 'achievement' && e.id === 'a_first')).toHaveLength(1);
   });
 
@@ -376,7 +376,6 @@ describe('детерминированность', () => {
       const state = createInitialState(config, 999);
       const game = new Game(content, state);
       for (let i = 0; i < 50; i++) {
-        game.tap();
         game.update(500);
       }
       return state.coins;

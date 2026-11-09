@@ -65,8 +65,6 @@ function buildCurve(costs: Map<string, number>): (t: number) => number {
     t,
     e: runSimulation(contentWithCosts(costs), {
       maxSeconds: t,
-      tapDiligence: 0.85,
-      tapsPerSecond: 5,
     }).totalEarned,
   }));
   return (t: number) => {

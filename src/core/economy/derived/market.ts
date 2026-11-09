@@ -31,6 +31,8 @@ export interface MarketStats {
     export: Record<Product, number>;
     refine: number;
   };
+  /** Физический максимум каждого потока с учётом остальных фиксированных заявок. */
+  flowLimits: Record<Channel, number>;
   exportCapacityByMode: Record<ExportMode, number>;
   hasPipeline: boolean;
   productStorage: number;

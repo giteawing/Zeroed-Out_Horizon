@@ -2,7 +2,7 @@
  * Сбор эффектов приобретённых улучшений.
  * Только складывает уровни и бонусы; добычу и деньги здесь не рассчитываем.
  */
-import type { Channel, ExportMode, GameConfig, GameState, Product, UpgradeDef } from '../../types';
+import type { Channel, ExportMode, GameState, Product, UpgradeDef } from '../../types';
 import { PRODUCTS, exportModeOf } from '../definitions';
 import { levelOf } from '../purchases';
 
@@ -40,7 +40,6 @@ export interface UpgradeEffects {
 }
 /** Суммирует эффекты покупок, не рассчитывая добычу, рынки или деньги. */
 export function collectUpgradeEffects(
-  config: GameConfig,
   upgrades: UpgradeDef[],
   state: GameState,
 ): UpgradeEffects {
