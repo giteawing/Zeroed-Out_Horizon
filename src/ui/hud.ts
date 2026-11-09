@@ -6,8 +6,8 @@
  * налог на прибыль → чистая прибыль. Так видно, из чего складывается каждая
  * следующая строка, и не приходится считать в голове.
  *
- * Деньги и влияние живут в шапке — там же, где нефтефаники: правый столбец
- * отдан цифрам, которые меняются каждую секунду.
+ * Деньги, влияние и рыночные цены живут в шапке; правый столбец отдан
+ * товарной, денежной и имущественной статистике.
  */
 import { el } from './dom';
 import type { Texts } from './texts';
@@ -33,6 +33,7 @@ export class Hud {
   private readonly ebtNode: HTMLElement;
   /** Пометки под ценами: у каждой цены своя надбавка, поэтому и подпись своя. */
   private readonly priceNotes = new Map<string, HTMLElement>();
+  private readonly pricesPanel: HTMLElement;
   private readonly profitValue: HTMLElement;
   private readonly balanceNode: HTMLElement;
   private readonly influenceValue: HTMLElement;
@@ -73,15 +74,7 @@ export class Hud {
         ...body,
       ]);
 
-    this.root = el('section', { class: 'hud', 'data-testid': 'hud' }, [
-      // --- товарная статистика: цены, сырая нефть, нефтепродукты ---
-      group('goods', texts.get('hud.groupGoods'), [
-        // Цены. Заказчик ловил расхождение: в строках сбыта стояло одно
-        // число, а здесь другое. Причина — надбавки от сбытовых построек
-        // (тресты, брокеры, биржа) входили в цену продажи, но не в подпись.
-        // Теперь у каждой цены есть пометка, что в неё входит, а цена в
-        // строках сбыта — ровно та же, что и здесь.
-        el('div', { class: 'hud__prices' }, [
+    this.pricesPanel = el('div', { class: 'hud__prices' }, [
           el('div', { class: 'hud__price' }, [
             el('span', { class: 'hud__price-label' }, texts.get('hud.worldPrice')),
             row('worldPrice', '', 'hud__row-value--price').value,
@@ -112,6 +105,16 @@ export class Hud {
             row('exchangeRate', '', 'hud__row-value--price').value,
           ]),
         ]),
+
+    this.root = el('section', { class: 'hud', 'data-testid': 'hud' }, [
+      // --- товарная статистика: цены, сырая нефть, нефтепродукты ---
+      group('goods', texts.get('hud.groupGoods'), [
+        // Цены. Заказчик ловил расхождение: в строках сбыта стояло одно
+        // число, а здесь другое. Причина — надбавки от сбытовых построек
+        // (тресты, брокеры, биржа) входили в цену продажи, но не в подпись.
+        // Теперь у каждой цены есть пометка, что в неё входит, а цена в
+        // строках сбыта — ровно та же, что и здесь.
+        this.pricesPanel,
 
         el('div', { class: 'hud__oil' }, [
           el('div', { class: 'hud__oil-head' }, [
@@ -268,6 +271,11 @@ export class Hud {
   /** Значение влияния и шкала: заказчик просил вынести их в шапку. */
   get influence(): { value: HTMLElement; fill: HTMLElement } {
     return { value: this.influenceValue, fill: this.influenceFill };
+  }
+
+  /** Живая панель рыночных цен для верхней строки интерфейса. */
+  get marketPrices(): HTMLElement {
+    return this.pricesPanel;
   }
 
   update(state: GameState, derived: DerivedStats): void {

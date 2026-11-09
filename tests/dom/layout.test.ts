@@ -2,8 +2,8 @@
 /**
  * Проверка состава интерфейса (замечание заказчика):
  *   • левый столбец — большой, и в нём только магазин с вкладками;
- *   • правый столбец — узкий, и в нём статистика, маршрутизация,
- *     журнал операций и статус производственной системы.
+ *   • правый столбец — узкий, и в нём статистика, маршрутизация
+ *     и журнал операций; служебные эффекты вынесены в overlay.
  *
  * happy-dom не считает CSS-раскладку, поэтому проверяем структуру и классы:
  * именно они задают grid-порядок в base.css.
@@ -41,9 +41,10 @@ describe('раскладка', () => {
     const stage = document.querySelector('.stage');
     expect(stage).not.toBeNull();
     const children = [...(stage?.children ?? [])];
-    expect(children).toHaveLength(2);
+    expect(children).toHaveLength(3);
     expect(children[0].classList.contains('stage__main')).toBe(true);
     expect(children[1].classList.contains('stage__side')).toBe(true);
+    expect(children[2].classList.contains('stage__overlay')).toBe(true);
   });
 
   it('в левом столбце только магазин со вкладками', () => {
@@ -59,7 +60,7 @@ describe('раскладка', () => {
     expect(tabs).toEqual(['Техника', 'Добыча', 'Сбыт', 'Политика', 'Роскошь', 'Цель']);
   });
 
-  it('в правом столбце статистика, маршруты, журнал и статус производства', () => {
+  it('в правом столбце статистика, маршруты и журнал операций', () => {
     const side = document.querySelector('.stage__side');
     expect(side).not.toBeNull();
     const blocks = [...(side?.children ?? [])].map((n) => n.classList.contains('hud')
@@ -69,25 +70,25 @@ describe('раскладка', () => {
         : n.classList.contains('oplog')
           ? 'oplog'
           : n.className);
-    expect(blocks).toEqual(['hud', 'flow-controls', 'oplog', 'stage__production']);
+    expect(blocks).toEqual(['hud', 'flow-controls', 'oplog']);
     expect(side?.querySelector('[data-testid="flow-controls"]')).not.toBeNull();
     expect(side?.querySelectorAll('[data-flow-max]')).toHaveLength(3);
     expect(side?.querySelectorAll('[data-flow-auto]')).toHaveLength(3);
-    expect(side?.querySelector('[data-testid="production-stage"]')).not.toBeNull();
+    expect(side?.querySelector('[data-testid="production-stage"]')).toBeNull();
+    expect(side?.querySelector('.stage__production')).toBeNull();
     expect(side?.querySelector('[data-testid="drill"]')).toBeNull();
     expect(side?.querySelector('.drill')).toBeNull();
     expect(side?.querySelector('.shop')).toBeNull();
     expect(side?.querySelector('[data-testid="oplog"]')).not.toBeNull();
   });
 
-  it('статус производства стоит ниже журнала и не является кнопкой', () => {
-    const side = document.querySelector('.stage__side');
-    const children = [...(side?.children ?? [])];
-    const oplogIndex = children.findIndex((n) => n.classList.contains('oplog'));
-    const productionIndex = children.findIndex((n) => n.classList.contains('stage__production'));
-    expect(oplogIndex).toBeGreaterThan(-1);
-    expect(productionIndex).toBeGreaterThan(oplogIndex);
-    expect(side?.querySelector('.stage__production')?.tagName).toBe('SECTION');
+  it('промышленная карточка удалена, частицы и уведомления вынесены в overlay', () => {
+    expect(document.querySelector('.stage__production')).toBeNull();
+    expect(document.querySelector('[data-testid="production-stage"]')).toBeNull();
+    const overlay = document.querySelector('.stage__overlay');
+    expect(overlay).not.toBeNull();
+    expect(overlay?.querySelector('canvas.stage__fx')).not.toBeNull();
+    expect(overlay?.querySelector('.badge')).not.toBeNull();
   });
 
   it('в панели есть все показатели империи', () => {
@@ -115,8 +116,17 @@ describe('раскладка', () => {
     ]) {
       expect(labels).toContain(expected);
     }
-    expect([... (hud?.querySelectorAll('.hud__price-label') ?? [])].map(n => n.textContent))
-      .toContain('Нефтефантиков за $1');
+    const marketLabels = [...document.querySelectorAll('.topbar__market .hud__price-label')]
+      .map((n) => n.textContent);
+    expect(marketLabels).toEqual([
+      'мировая цена',
+      'внутренняя цена',
+      'экспортная цена',
+      'продукты, внутр. цена',
+      'продукты, экспорт',
+      'Нефтефантиков за $1',
+    ]);
+    expect(hud?.querySelector('.hud__prices')).toBeNull();
     const propertyRows = hud?.querySelector('[data-group="property"] .hud__rows');
     expect(propertyRows?.classList.contains('hud__rows--property')).toBe(true);
     // Денежная таблица идёт в порядке применения: доход → расходы → EBT →

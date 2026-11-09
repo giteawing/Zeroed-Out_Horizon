@@ -3,7 +3,8 @@
  *
  * Правила, которые здесь соблюдаются:
  *   • тексты только из texts.json (никаких русских строк в коде);
- *   • главный цикл на requestAnimationFrame, экономический тик — раз в 100 мс;
+ *   • главный цикл на requestAnimationFrame; экономика тикает раз в 100 мс,
+ *     DOM-панели обновляются не чаще пяти раз в секунду;
  *   • сохранение при visibilitychange/pagehide и раз в autosaveSeconds;
  *   • звук «разблокируется» на первом pointerdown (требование iOS).
  */
@@ -98,7 +99,7 @@ function boot(): void {
     onAddMoney: (amount) => {
       game.addCoins(amount);
       save();
-      refreshUi(true);
+      refreshUi();
     },
     onWin: () => {
       forceWin();
@@ -107,7 +108,7 @@ function boot(): void {
     onUnlockAll: () => {
       unlockEverything();
       save();
-      refreshUi(true);
+      refreshUi();
     },
     onClose: () => dev.close(),
   });
@@ -131,26 +132,11 @@ function boot(): void {
   const oplog = new OperationLog(texts, currency);
 
   const feedbackCanvas = el('canvas', { class: 'stage__fx', 'aria-hidden': 'true' });
-  const productionStage = el('section', {
-    class: 'stage__production',
-    'data-testid': 'production-stage',
-  }, [
-    el('div', { class: 'stage__production-icon', 'aria-hidden': 'true' }, '🏭'),
-    el('div', { class: 'stage__production-title' }, texts.get('production.title')),
-    el('div', { class: 'stage__production-copy' }, texts.get('production.copy')),
-    feedbackCanvas,
-  ]);
   const stageSize = () => {
-    const rect = productionStage.getBoundingClientRect();
+    const rect = feedbackCanvas.getBoundingClientRect();
     return { width: rect.width, height: rect.height };
   };
-  const pulseStage = () => {
-    productionStage.classList.remove('stage__production--pulse');
-    void productionStage.offsetWidth;
-    productionStage.classList.add('stage__production--pulse');
-    window.setTimeout(() => productionStage.classList.remove('stage__production--pulse'), 500);
-  };
-  const effects = new Effects(feedbackCanvas, config);
+    const effects = new Effects(feedbackCanvas, config);
 
   const badge = el('div', { class: 'badge', hidden: true });
   const showBadge = (text: string) => {
@@ -163,7 +149,7 @@ function boot(): void {
       badge.hidden = true;
     }, 2600);
   };
-  productionStage.append(badge);
+  const stageOverlay = el('div', { class: 'stage__overlay' }, [feedbackCanvas, badge]);
   if (corruptSave) showBadge(texts.get(corruptBackupSaved ? 'save.corrupt' : 'save.corruptBackupFailed'));
 
   /**
@@ -217,7 +203,7 @@ function boot(): void {
     el('div', { class: 'topbar__brand' }, [
       el('img', { src: image('logo.svg'), alt: texts.data.meta.title, width: 132, height: 66 }),
     ]),
-    // Кошелёк и влияние — рядом, в одной «витрине» шапки.
+    // Кошелёк, влияние и все рыночные цены собраны в верхней панели.
     el('div', { class: 'topbar__wallet' }, [
       el('div', { class: 'topbar__stat' }, [
         el('span', { class: 'topbar__wallet-label' }, texts.get('hud.balance')),
@@ -230,20 +216,21 @@ function boot(): void {
           el('div', { class: 'topbar__influence-track' }, [hud.influence.fill]),
         ]),
       ]),
+      el('div', { class: 'topbar__market' }, [hud.marketPrices]),
     ]),
     el('div', { class: 'topbar__actions' }, [menuButton]),
   ]);
 
   const stage = el('main', { class: 'stage' }, [
-    // Левый, широкий столбец — только магазин со вкладками (он же прокручивается).
+    // Левый, широкий столбец — магазин со вкладками.
     el('div', { class: 'stage__main' }, [shop.root]),
-    // Правый, узкий: таблица доходов и расходов, журнал операций, долото.
+    // Правый, узкий столбец — показатели, маршруты и журнал операций.
     el('aside', { class: 'stage__side' }, [
       hud.root,
       flowControls.root,
       oplog.root,
-      productionStage,
     ]),
+    stageOverlay,
   ]);
 
   const newsBar = el('div', { class: 'newspane' }, [news.root]);
@@ -285,7 +272,7 @@ function boot(): void {
     if (game.state.won) return;
     game.forceWin();
     dev.close();
-    refreshUi(true);
+    refreshUi();
   }
 
   /**
@@ -312,7 +299,7 @@ function boot(): void {
   function restartWith(next: GameState): void {
     game.reset(next);
     shop.setTab(shop.activeTab);
-    refreshUi(true);
+    refreshUi();
   }
 
   function applyOfflineIncome(): void {
@@ -359,7 +346,6 @@ function boot(): void {
       return;
     }
     sound.purchase();
-    pulseStage();
     const gain = result.payouts.reduce((sum, payout) => sum + payout.amount, 0);
     if (gain > 0) {
       effects.burst(stageSize().width / 2, stageSize().height * 0.55, 16);
@@ -372,7 +358,7 @@ function boot(): void {
     }
     if (result.ok && def?.type === 'gamble') sound.event(true);
     save();
-    refreshUi(true);
+    refreshUi();
   }
 
   function randomNewsFor(id: string): string {
@@ -399,6 +385,8 @@ function boot(): void {
   let lastFrame = performance.now();
   let accumulator = 0;
   let uiDirty = true;
+  let uiRefreshElapsed = 0;
+  const UI_REFRESH_INTERVAL_MS = 200;
   let newsTimer = 0;
   let hidden = false;
 
@@ -419,7 +407,6 @@ function boot(): void {
         break;
       case 'gambleResult':
         sound.event(event.won);
-        pulseStage();
         showBadge(
           event.won
             ? `+${formatMoney(event.amount, currency)}`
@@ -436,7 +423,6 @@ function boot(): void {
             value: formatNumber(event.dailyTonnes),
           }),
         );
-        pulseStage();
         sound.event(true);
         break;
       }
@@ -472,7 +458,6 @@ function boot(): void {
   function onWin(): void {
     sound.fanfare();
     save();
-    pulseStage();
     effettiWin();
     window.setTimeout(() => finale.show(game.state), 700);
   }
@@ -502,20 +487,21 @@ function boot(): void {
       if (now - lastSaveAt > config.autosaveSeconds * 1000) save();
     }
     if (uiDirty) {
-      uiDirty = false;
-      refreshUi(false);
+      uiRefreshElapsed += dt;
+      if (uiRefreshElapsed >= UI_REFRESH_INTERVAL_MS) refreshUi();
     }
     requestAnimationFrame(frame);
   }
 
   let lastWinShown = false;
-  function refreshUi(forceShop: boolean): void {
+  function refreshUi(): void {
+    uiDirty = false;
+    uiRefreshElapsed = 0;
     const derived = game.derived();
     hud.update(game.state, derived);
     flowControls.update(game.state, derived);
     oplog.update(game.state.log);
     shop.update();
-    void forceShop;
     if (game.state.won && !lastWinShown) {
       lastWinShown = true;
     }
@@ -566,7 +552,7 @@ function boot(): void {
 
   // Первый кадр рисуем сразу: иначе до следующего requestAnimationFrame
   // (в скрытой вкладке и в тестах он может не прийти) панель стоит пустой.
-  refreshUi(true);
+  refreshUi();
   requestAnimationFrame(frame);
 }
 
