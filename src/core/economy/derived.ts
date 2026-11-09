@@ -64,10 +64,8 @@ export function computeDerived(
       : Number.POSITIVE_INFINITY;
 
   return {
-    tapValue: market.tapValue,
-    tapRevenue: market.tapValue * market.oilPricePerTon,
-    autoTapsPerSecond: effects.autoTaps,
     oilPerSecond: market.oilPerSecond,
+    flowLimits: market.flowLimits,
     sellPerSecond:
       market.flows.domestic +
       market.flows.export +
@@ -117,8 +115,8 @@ export function computeDerived(
     taxPaidPerSecond: finance.taxPerSecond,
     taxRate: finance.taxRate,
     costCutPercent: finance.costCutPercent,
-    multiplier: effects.multTap * effects.multPassive,
-    tapMultiplier: effects.multTap,
+    multiplier: effects.multProduction * effects.multPassive,
+    productionMultiplier: effects.multProduction,
     passiveMultiplier: effects.multPassive,
     priceMultiplier: effects.priceMultiplier,
     salaries: finance.salaries,
@@ -185,11 +183,6 @@ export function eventPayout(
   }
   const levelScale = def.type === 'periodic' ? Math.max(1, level) : 1;
   return Math.max(1, Math.round(payoutBase(derived) * (effect.value ?? 1) * levelScale));
-}
-
-/** Нефть за один тап с небольшим случайным разбросом. */
-export function tapReward(derived: DerivedStats, rngValue: number): number {
-  return Math.max(0.1, derived.tapValue * (0.9 + rngValue * 0.2));
 }
 
 /** Чистые деньги за интервал: EBT минус налог на прибыль. */

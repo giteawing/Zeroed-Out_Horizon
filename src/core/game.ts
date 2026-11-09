@@ -15,15 +15,16 @@ import {
   isWinReady,
   levelOf,
   stagedNameOf,
-  tapReward,
   unlockBlocker,
   winCostOf,
   allocateByPrice,
   worldPriceAt,
 } from './economy';
 import type {
+  Channel,
   Content,
   DerivedStats,
+  FlowControl,
   GameEvent,
   Well,
   GameState,
@@ -82,7 +83,6 @@ export class Game {
   private rng: Rng;
   private derivedCache: DerivedStats | null = null;
   private listeners = new Set<(event: GameEvent) => void>();
-  private autoTapAccum = 0;
   private achievementTimerMs = 0;
   /** Разлито за текущий шаг, тонн: переводим в т/с уже после шага. */
   private spillCrudeThisStep = 0;
@@ -119,7 +119,6 @@ export class Game {
     this.state = state;
     this.rng = new Rng(state.rngSeed);
     this.lastWorldPriceSecond = Math.floor(state.clockMs / 1000);
-    this.autoTapAccum = 0;
     this.achievementTimerMs = 0;
     this.spillCrudeThisStep = 0;
     this.spillProductsThisStep = 0;
@@ -157,6 +156,21 @@ export class Game {
     return this.derivedCache;
   }
 
+  /** Изменить маршрут сырой нефти. Фиксированный поток нельзя задать выше физического максимума. */
+  setFlowControl(channel: Channel, setting: FlowControl): boolean {
+    if (setting.mode === 'auto') {
+      this.state.flowControl[channel] = { mode: 'auto', value: 0 };
+    } else {
+      if (!Number.isFinite(setting.value) || setting.value < 0) return false;
+      const max = this.derived().flowLimits[channel];
+      if (setting.value > max + 1e-9) return false;
+      this.state.flowControl[channel] = { mode: 'fixed', value: setting.value };
+    }
+    this.invalidate();
+    this.emit({ type: 'income' });
+    return true;
+  }
+
   /**
    * Сбросить кеш производных показателей. Нужен, когда меняется не состояние,
    * а конфиг (например, в тестах или при подмене правил на лету).
@@ -175,23 +189,6 @@ export class Game {
     return levelOf(this.state, id);
   }
 
-  // ------------------------------------------------------------------ тап
-
-  /**
-   * Тап по долоту: добывает НЕФТЬ (тонны), а не деньги.
-   * Возвращает, сколько тонн добавилось (0, если резервуары полны).
-   */
-  tap(): number {
-    if (this.state.won) return 0;
-    const derived = this.derived();
-    const tonnes = tapReward(derived, this.rng.next());
-    const added = this.addOil(tonnes);
-    this.state.totalTaps += 1;
-    this.emit({ type: 'tap', amount: added });
-    if (this.state.totalTaps === 1) this.checkAchievements();
-    return added;
-  }
-
   /**
    * Продать нефть напрямую через трубопровод, минуя резервуары.
    *
@@ -205,7 +202,9 @@ export class Game {
     const price = derived.channels.export.price;
     if (!(price > 0)) return 0;
     const room = derived.exportCapacityByMode.pipeline * dtSeconds;
-    const viaPipe = Math.min(tonnes, room);
+    // Прямая труба использует только экспортный объём, выделенный расчётом рынка.
+    const exportBudget = derived.flows.export * dtSeconds;
+    const viaPipe = Math.min(tonnes, room, exportBudget);
     if (viaPipe <= 0) return 0;
     this.state.totalSold += viaPipe;
     // Как и любая другая продажа, труба добавляет именно ВАЛОВУЮ выручку.
@@ -318,18 +317,6 @@ export class Game {
     this.grantAchievement('a_win');
     this.emit({ type: 'win' });
     return true;
-  }
-
-  /** Авто-тап от «Верхнего привода». */
-  private applyAutoTaps(dtMs: number): void {
-    const auto = this.derived().autoTapsPerSecond;
-    if (auto <= 0) return;
-    this.autoTapAccum += auto * (dtMs / 1000);
-    if (this.autoTapAccum < 1) return;
-    const count = Math.floor(this.autoTapAccum);
-    this.autoTapAccum -= count;
-    this.addOil(this.derived().tapValue * count);
-    this.emit({ type: 'income' });
   }
 
   // -------------------------------------------------------------- покупки
@@ -712,9 +699,6 @@ export class Game {
       this.state.pipeSoldSinceShip += viaPipe;
       this.addOil(pumped - viaPipe);
     }
-    // Автотапы относятся к этому же интервалу и к этой же партии.
-    this.applyAutoTaps(dtMs);
-
     // 2. Отгрузка лишь читает накопленный таймер и добавляет валовую
     // выручку в общий финансовый расчёт.
     this.pendingSalesGross += this.tickShipping(derived, dtSeconds);
@@ -866,11 +850,12 @@ export class Game {
       batch,
       { ...derived, capacities: { ...derived.capacities, export: exportCapacity } },
       periodSeconds,
+      pipeUsedPerSecond,
     );
   }
 
   /** Распределить партию по каналам и превратить её в деньги. */
-  private shipBatch(batch: number, derived: DerivedStats, seconds = 1): number {
+  private shipBatch(batch: number, derived: DerivedStats, seconds = 1, pipeUsedPerSecond = 0): number {
     /*
      * Топливо, которое уже лежит на нефтебазах, — тоже товар к продаже:
      * раньше оно копилось молча и обрезалось ёмкостью, то есть исчезало.
@@ -888,7 +873,16 @@ export class Game {
       crudeExport: derived.channels.export.price,
       productDomestic: derived.productPriceDomestic,
       productExport: derived.productPriceExport,
-    }, Math.max(0, derived.productCapacity - stockProducts), stockProducts);
+    }, Math.max(0, derived.productCapacity - stockProducts), stockProducts,
+    this.state.flowControl.export.mode === 'fixed'
+      ? {
+        ...this.state.flowControl,
+        export: {
+          mode: 'fixed',
+          value: Math.max(0, this.state.flowControl.export.value - pipeUsedPerSecond),
+        },
+      }
+      : this.state.flowControl);
 
     // Сырьё: деньги по ценам своих каналов. За продукты платит shipProducts —
     // он же решает, сколько топлива рынки реально взяли.
@@ -1134,8 +1128,6 @@ export class Game {
 
   private testRule(rule: Content['achievements'][number]['rule']): boolean {
     switch (rule.kind) {
-      case 'taps':
-        return this.state.totalTaps >= rule.value;
       case 'earned':
         return this.state.totalEarned >= rule.value;
       case 'taxRate':
