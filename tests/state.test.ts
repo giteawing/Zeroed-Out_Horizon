@@ -76,6 +76,15 @@ describe('нормализация сохранения', () => {
     expect(parseSave('{"ok":1}')).toEqual({ ok: 1 });
   });
 
+  it('мигрирует старые id достижений за тап в достижения за проданные тонны', () => {
+    const restored = normalizeState(
+      { achievements: ['a_tap100', 'a_tap1000', 'a_sold_1000'] },
+      config,
+      content,
+    );
+    expect(restored.achievements).toEqual(['a_sold_1000', 'a_sold_100000']);
+  });
+
   it('не теряет достижения и флаг победы', () => {
     const restored = normalizeState(
       { achievements: ['a_first', 'a_win'], won: true, wonAtMs: 1000 },

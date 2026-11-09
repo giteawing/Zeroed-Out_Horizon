@@ -26,7 +26,7 @@ export class NewsFeed {
     this.push('start');
   }
 
-  /** Добавить заголовок из категории (start/tap/tax/.../luxury/win). */
+  /** Добавить заголовок из категории (start/production/tax/.../luxury/win). */
   push(category: string): void {
     const lines = this.texts.list('news', category);
     if (lines.length === 0) return;

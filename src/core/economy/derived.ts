@@ -181,8 +181,12 @@ export function eventPayout(
   if (effect.factor !== undefined && paidCost > 0) {
     return Math.max(1, Math.round(paidCost * Math.pow(effect.factor, Math.max(1, level))));
   }
-  const levelScale = def.type === 'periodic' ? Math.max(1, level) : 1;
-  return Math.max(1, Math.round(payoutBase(derived) * (effect.value ?? 1) * levelScale));
+  if (def.type === 'periodic') {
+    // Округляем выплату одного уровня один раз, затем масштабируем уровень.
+    const perLevel = Math.max(1, Math.round(payoutBase(derived) * (effect.value ?? 1)));
+    return perLevel * Math.max(1, level);
+  }
+  return Math.max(1, Math.round(payoutBase(derived) * (effect.value ?? 1)));
 }
 
 /** Чистые деньги за интервал: EBT минус налог на прибыль. */

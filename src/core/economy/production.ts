@@ -5,6 +5,18 @@
 import type { Content, GameConfig, GameState } from '../types';
 import { levelOf } from './purchases';
 
+// Дебит меняется только при добавлении скважины; кешируем сумму по массиву.
+const wellDailyTotals = new WeakMap<readonly Well[], { length: number; total: number }>();
+
+function totalDailyWellTonnes(wells: readonly Well[]): number {
+  const cached = wellDailyTotals.get(wells);
+  if (cached && cached.length === wells.length) return cached.total;
+  let total = 0;
+  for (const well of wells) total += Math.max(0, well.dailyTonnes);
+  wellDailyTotals.set(wells, { length: wells.length, total });
+  return total;
+}
+
 export function fineFactorOf(config: GameConfig, influence: number): number {
   const relief = Math.min(
     config.fines.maxRelief,

@@ -53,6 +53,12 @@ export function createInitialState(config: GameConfig, seed = randomSeed()): Gam
 const num = (v: unknown, fallback: number): number =>
   typeof v === 'number' && Number.isFinite(v) ? v : fallback;
 
+/** Старые id достижений сохраняются в сейвах с версии игры на тапах. */
+const LEGACY_ACHIEVEMENT_IDS: Record<string, string> = {
+  a_tap100: 'a_sold_1000',
+  a_tap1000: 'a_sold_100000',
+};
+
 /** Мягкое слияние сохранения с дефолтами: старые и битые сейвы не ломают новую версию. */
 export function normalizeState(raw: unknown, config: GameConfig, content: Content): GameState {
   const base = createInitialState(config);
@@ -205,7 +211,9 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
     : [];
 
   state.achievements = Array.isArray(src.achievements)
-    ? src.achievements.filter((id): id is string => typeof id === 'string')
+    ? [...new Set(src.achievements
+        .filter((id): id is string => typeof id === 'string')
+        .map((id) => LEGACY_ACHIEVEMENT_IDS[id] ?? id))]
     : [];
 
   return state;

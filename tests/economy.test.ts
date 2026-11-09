@@ -107,7 +107,9 @@ describe('разблокировка покупок', () => {
 
 describe('производные показатели', () => {
   it('без скважин и производственных улучшений добычи нет', () => {
-    const d = computeDerived(config, content.upgrades, withUpgrades());
+    const state = withUpgrades();
+    state.wells = [];
+    const d = computeDerived(config, content.upgrades, state);
     expect(d.oilPerSecond).toBe(0);
     expect(d.netPerSecond).toBeGreaterThanOrEqual(0);
   });
@@ -298,7 +300,9 @@ describe('производные показатели', () => {
 
   it('роскошь попадает в витрину и не даёт дохода', () => {
     const yacht = makeUpgrade({ id: 'y', type: 'luxury', effect: {} });
-    const d = computeDerived(config, [yacht], withUpgrades({ y: 1 }));
+    const state = withUpgrades({ y: 1 });
+    state.wells = [];
+    const d = computeDerived(config, [yacht], state);
     expect(d.luxuries).toContain('y');
     expect(d.oilPerSecond).toBe(0);
   });
@@ -761,9 +765,11 @@ describe('товарная модель: сырая нефть → нефтеп�
   it('у рынков свои доступные объёмы для сырья и нефтепродуктов', () => {
     const state = createInitialState(config, 67);
     const base = computeDerived(config, content.upgrades, state, [], content);
-    // Стартовые контракты безлимитны для сырья; продукты ограничены своей
-    // отдельной мощностью и не становятся безлимитными вместе с нефтью.
-    expect(base.capacities.domestic.crude).toBe(Number.POSITIVE_INFINITY);
+    // Контракты ограничены выделенной физической долей мощности внутреннего рынка.
+    expect(base.capacities.domestic.crude).toBeCloseTo(
+      config.oil.channels.contract.baseRate * config.product.transportSplit.crude,
+      6,
+    );
     expect(base.capacities.domestic.products).toBeGreaterThan(0);
     expect(base.capacities.export.crude).toBe(0);
 

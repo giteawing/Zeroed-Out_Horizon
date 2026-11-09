@@ -129,7 +129,7 @@ describe('раскладка', () => {
     expect(invoiceLabels[invoiceLabels.length - 1]).toBe('Чистая прибыль');
     // Автодобыча — отдельная строка на всю ширину, без подписи в левой колонке.
     const autoDrill = hud?.querySelector('.hud__row-value--wide');
-    expect(autoDrill?.textContent).toMatch(/^автодобыча: команда (в сборе|не собрана)$/);
+    expect(autoDrill?.textContent).toMatch(/^буровая бригада (в сборе|не укомплектована)$/);
     expect(autoDrill?.closest('.hud__row')?.querySelector('.hud__row-label')?.textContent).toBe('');
     // Кошелёк переехал в шапку к иконкам меню.
     expect(document.querySelector('.topbar__coins')).not.toBeNull();

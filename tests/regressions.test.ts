@@ -72,7 +72,7 @@ describe('регрессии пакетной покупки', () => {
       JSON.parse(JSON.stringify(game.snapshot())), content.config, content,
     );
     expect(restored.levels.t_well).toBe(45);
-    expect(restored.wells).toHaveLength(2);
+    expect(restored.wells).toHaveLength(wellsBefore + 2);
   });
 
   it('affordable и фактическое списание учитывают одну и ту же conquest-скидку', () => {
@@ -135,6 +135,7 @@ describe('единая финансовая модель продаж', () => {
     content.config.oil.channels.contract.unlimited = false;
     content.config.oil.channels.contract.baseRate = 1000;
     const state = rich(content, 0);
+    state.wells = [];
     state.products = 1;
     const game = new Game(content, state);
     const derived = game.derived();
@@ -517,6 +518,7 @@ describe('устойчивость времени и состояния движ
   it('вывоз капитала стартует с 5 млрд/с, растёт на 1% в минуту и не добавляет расходов', () => {
     const content = freshContent();
     const state = rich(content, 1e12);
+    state.wells = [];
     const game = new Game(content, state);
     const beforeExpenses = game.derived().expensesPerSecond;
     const result = game.buy('g_capital_flight');

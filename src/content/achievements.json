@@ -29,14 +29,14 @@
       }
     },
     {
-      "id": "a_tap100",
+      "id": "a_sold_1000",
       "rule": {
         "kind": "sold",
         "value": 1000
       }
     },
     {
-      "id": "a_tap1000",
+      "id": "a_sold_100000",
       "rule": {
         "kind": "sold",
         "value": 100000

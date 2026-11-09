@@ -131,8 +131,9 @@ export function collectUpgradeEffects(
       case 'multiplier': {
         const factor = Math.pow(effect.factor ?? 1, Math.sqrt(level));
         const scope = effect.scope ?? 'all';
+        // Production scales the complete oil stream; passive is a well-only bonus.
         if (scope === 'all' || scope === 'production') result.multProduction *= factor;
-        if (scope === 'all' || scope === 'passive') result.multPassive *= factor;
+        if (scope === 'passive') result.multPassive *= factor;
         break;
       }
       case 'taxCut':

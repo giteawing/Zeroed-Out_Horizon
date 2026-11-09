@@ -473,9 +473,9 @@ export interface ReprivatizationPrize {
 
 export interface Well {
   /** Класс скважины: обычная, хорошая или уникальная. */
-  kind: 'ordinary' | 'good' | 'unique';
+  readonly kind: 'ordinary' | 'good' | 'unique';
   /** Дебит, тонн в сутки. Выпадает случайно при бурении. */
-  dailyTonnes: number;
+  readonly dailyTonnes: number;
 }
 
 /** Полный снимок прогресса, который сохраняется в localStorage. */
