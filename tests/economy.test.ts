@@ -106,23 +106,20 @@ describe('разблокировка покупок', () => {
 });
 
 describe('производные показатели', () => {
-  it('без покупок тап добывает базовые тонны, а денег ещё нет', () => {
+  it('без скважин и производственных улучшений добычи нет', () => {
     const d = computeDerived(config, content.upgrades, withUpgrades());
-    // Тап добывает НЕФТЬ; базовое значение тапа — это tonnы из config.oil.
-    expect(d.tapValue).toBeCloseTo(config.oil.tapTonnes, 6);
-    // Контракты доступны с самого начала: сбыт есть, но нефти ещё нет,
-    // поэтому «теоретический» доход без добычи нулевой.
     expect(d.oilPerSecond).toBe(0);
     expect(d.netPerSecond).toBeGreaterThanOrEqual(0);
   });
 
-  it('perTap складывается линейно и умножается на множители (с затуханием)', () => {
-    const tap = makeUpgrade({ id: 'tap', type: 'perTap', effect: { value: 5 } });
+  it('производственные улучшения складываются и усиливаются общим множителем', () => {
+    const production = makeUpgrade({ id: 'production', type: 'production', effect: { value: 5 } });
     const mult = makeUpgrade({ id: 'mult', type: 'multiplier', effect: { factor: 2 } });
-    const d = computeDerived(config, [tap, mult], withUpgrades({ tap: 3, mult: 2 }));
-    // (oil.tapTonnes + 5*3) * 2^√2 — отдача множителей затухает,
-    // иначе к концу игры цены и доходы «взрываются».
-    expect(d.tapValue).toBeCloseTo((config.oil.tapTonnes + 15) * Math.pow(2, Math.SQRT2), 4);
+    const state = withUpgrades({ production: 3, mult: 2 });
+    state.wells = [{ kind: 'ordinary', dailyTonnes: 10 }];
+    const d = computeDerived(config, [production, mult], state);
+    const base = 10 / config.oil.wells.secondsPerDay;
+    expect(d.oilPerSecond).toBeCloseTo((base + 15) * Math.pow(2, Math.SQRT2), 4);
   });
 
   it('скважины дают добычу, множитель пассива её усиливает', () => {
@@ -139,13 +136,12 @@ describe('производные показатели', () => {
     expect(d.oilPerSecond).toBeCloseTo(base * Math.pow(1.5, Math.SQRT2), 6);
   });
 
-  it('множитель с scope=tap не влияет на добычу скважин', () => {
-    const mult = makeUpgrade({ id: 'm', type: 'multiplier', effect: { factor: 3, scope: 'tap' } });
+  it('множитель production усиливает добычу скважин', () => {
+    const mult = makeUpgrade({ id: 'm', type: 'multiplier', effect: { factor: 3, scope: 'production' } });
     const state = withUpgrades({ m: 1 });
     state.wells = [{ kind: 'ordinary', dailyTonnes: 10 }];
     const d = computeDerived(config, [mult], state);
-    expect(d.oilPerSecond).toBeCloseTo(10 / config.oil.wells.secondsPerDay, 6);
-    expect(d.tapValue).toBeCloseTo(config.oil.tapTonnes * 3, 4);
+    expect(d.oilPerSecond).toBeCloseTo((10 / config.oil.wells.secondsPerDay) * 3, 6);
   });
 
   it('налог снижается влиянием и не опускается ниже минимума', () => {
@@ -300,7 +296,7 @@ describe('производные показатели', () => {
     const yacht = makeUpgrade({ id: 'y', type: 'luxury', effect: {} });
     const d = computeDerived(config, [yacht], withUpgrades({ y: 1 }));
     expect(d.luxuries).toContain('y');
-    expect(d.tapValue).toBeCloseTo(config.oil.tapTonnes, 6);
+    expect(d.oilPerSecond).toBe(0);
   });
 });
 
@@ -393,7 +389,7 @@ describe('устойчивость формул', () => {
       makeUpgrade({ id: 'b', type: 'passive', effect: {} }),
     ];
     const d = computeDerived(weird, defs, withUpgrades({ a: 1, b: 1 }));
-    expect(Number.isFinite(d.tapValue)).toBe(true);
+    expect(Number.isFinite(d.oilPerSecond)).toBe(true);
     expect(Number.isFinite(d.netPerSecond)).toBe(true);
     expect(Number.isFinite(d.taxRate)).toBe(true);
   });

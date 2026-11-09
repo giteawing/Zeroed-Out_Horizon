@@ -1,5 +1,5 @@
 /**
- * Симулятор-бот. «Играет» вместо человека: тапает и покупает самое выгодное.
+ * Симулятор-бот. Непрерывно добывает сырьё, управляет потоками и покупает самое выгодное.
  * Нужен двум вещам:
  *   1) тест на длительность прохождения (ТЗ §5.3: 12–25 мин, цель 15–20);
  *   2) подбор winCost (scripts/balance-report.ts).
@@ -41,7 +41,7 @@ export interface Sample {
   coins: number;
   totalEarned: number;
   netPerSecond: number;
-  tapValue: number;
+  productionRate: number;
   /** Нефть в резервуарах на момент сэмпла, тонн. */
   oil: number;
   purchases: number;
