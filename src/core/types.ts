@@ -145,7 +145,7 @@ export interface WellConfig {
 }
 
 export interface UpgradeEffect {
-  /** Прибавка (к тапу, к пассиву, к разовой выплате — зависит от type). */
+  /** Прибавка к дебиту, пассивному доходу или разовой выплате — зависит от type. */
   value?: number;
   /** Множитель одного уровня (1.06 = +6% за уровень). */
   factor?: number;

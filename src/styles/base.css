@@ -645,7 +645,7 @@ img {
   overflow: hidden;
 }
 
-/* Правый, узкий столбец: таблица, журнал, долото — сверху вниз. */
+/* Правая колонка: статистика, маршруты, журнал и статус добычи. */
 .stage__side {
   min-height: 0;
   min-width: 0;
@@ -669,41 +669,192 @@ img {
   scrollbar-width: thin;
 }
 
-/* Журнал операций: забирает свободное место и прокручивается внутри. */
+/* Журнал операций растёт в оставшемся пространстве и прокручивается внутри. */
 .stage__side > .oplog {
   flex: 1 1 0;
-  /* Журнал уступает место долоту: минимум маленький, иначе на низком
-     экране долото уезжает за нижнюю границу столбца. */
   min-height: 64px;
 }
 
-/* Долото: последний блок, держит свой размер и не наезжает на журнал. */
-.stage__drill {
-  position: relative;
-  flex: none;
+/* Панель маршрутов: все три направления остаются видимыми и управляемыми. */
+.stage__side > .flow-controls {
+  flex: 0 1 auto;
+  max-height: min(34vh, 280px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.flow-controls {
   display: grid;
-  place-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: var(--stroke-w) solid var(--ink);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(34, 26, 19, 0.96), rgba(15, 12, 10, 0.94));
+  box-shadow: var(--shadow);
+}
+
+.flow-controls__heading {
+  color: var(--gold-light);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.flow-controls__hint {
+  margin: 0;
+  color: var(--steel);
+  font-size: clamp(10px, 2.3vw, 12px);
+  line-height: 1.35;
+}
+
+.flow-controls__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+  padding-top: 6px;
+  border-top: 1px solid rgba(253, 243, 221, 0.12);
+}
+
+.flow-controls__label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(88px, 34%);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--cream);
+  font-size: clamp(11px, 2.4vw, 13px);
+  font-weight: 700;
+}
+
+.flow-controls__input {
   width: 100%;
-  min-height: 0;
-  padding-top: 2px;
+  min-width: 0;
+  min-height: 32px;
+  padding: 5px 7px;
+  border: 2px solid rgba(23, 17, 12, 0.95);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.42);
+  color: var(--cream);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  user-select: text;
+  color-scheme: dark;
 }
 
-/*
- * Долото ограничено и шириной колонки, и высотой экрана: иначе в узком
- * правом столбце оно переполняется, центр уезжает вниз и тапы промахиваются.
- */
-/* Долото намеренно небольшое: заказчик просил уменьшить высоту вдвое. */
-.stage__drill > .drill {
-  width: min(100%, 220px, 16vh);
+.flow-controls__input:focus-visible,
+.flow-controls__auto:focus-visible {
+  outline: 2px solid var(--gold-light);
+  outline-offset: 2px;
 }
 
-/* На низком экране HUD уступает место журналу и долоту. */
+.flow-controls__auto {
+  min-height: 32px;
+  padding: 5px 9px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background: linear-gradient(180deg, var(--gold-light), var(--gold));
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.flow-controls__auto[aria-pressed='true'] {
+  border-color: var(--gold-light);
+  background: linear-gradient(180deg, var(--green-light), var(--green));
+  color: #07180e;
+}
+
+.flow-controls__auto:disabled {
+  opacity: 0.45;
+}
+
+.flow-controls__status {
+  grid-column: 1 / -1;
+  color: var(--steel);
+  font-size: 10px;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Неинтерактивный статусный блок: производство работает непрерывно. */
+.stage__production {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 4px 10px;
+  flex: none;
+  min-height: 88px;
+  padding: 12px 14px;
+  overflow: hidden;
+  border: var(--stroke-w) solid var(--ink);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(90% 130% at 0% 0%, rgba(242, 180, 48, 0.14), transparent 68%),
+    linear-gradient(180deg, rgba(34, 26, 19, 0.96), rgba(15, 12, 10, 0.95));
+  box-shadow: var(--shadow);
+}
+
+.stage__production-icon {
+  grid-row: 1 / 3;
+  font-size: 32px;
+  line-height: 1;
+  text-align: center;
+  filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.4));
+}
+
+.stage__production-title {
+  align-self: end;
+  color: var(--gold-light);
+  font-family: var(--font-display);
+  font-size: clamp(14px, 2.8vw, 18px);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.stage__production-copy {
+  align-self: start;
+  color: var(--steel-light);
+  font-size: clamp(10px, 2.2vw, 12px);
+  line-height: 1.35;
+}
+
+.stage__fx {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.stage__production--pulse {
+  animation: production-pulse 0.5s ease;
+}
+
+@keyframes production-pulse {
+  35% {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 2px rgba(242, 180, 48, 0.16), var(--shadow);
+  }
+}
+
+/* На низком экране HUD и маршруты прокручиваются каждый в своей панели. */
 @media (max-height: 820px) {
   .stage__side > .hud {
     max-height: 42vh;
   }
-  .stage__drill > .drill {
-    width: min(100%, 190px, 13vh);
+  .stage__side > .flow-controls {
+    max-height: 30vh;
   }
 }
 
