@@ -695,7 +695,7 @@ describe('симулятор использует правила живой иг
     expect(purchased.has('p_refinery')).toBe(true);
   });
 
-  it('множитель производственной добычи и пассивный коэффициент усиливают оценку скважины', () => {
+  it('множитель production действует на оборудование, passive — на скважины', () => {
     const content = freshContent();
     const productionMultiplier = structuredClone(content.byId.get('t_smart')!);
     productionMultiplier.id = 'test_production_multiplier';
@@ -714,7 +714,8 @@ describe('симулятор использует правила живой иг
     const plain = estimatedGain(game, well, cost);
     state.levels.test_production_multiplier = 1;
     game.invalidate();
-    expect(estimatedGain(game, well, cost)).toBeGreaterThan(plain);
+    // Новая скважина не получает бонус scope=production.
+    expect(estimatedGain(game, well, cost)).toBeCloseTo(plain, 8);
     state.levels.test_passive_multiplier = 1;
     game.invalidate();
     expect(estimatedGain(game, well, cost)).toBeGreaterThan(plain);

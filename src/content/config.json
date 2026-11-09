@@ -118,7 +118,7 @@
     "cap": 400
   },
   "autosaveSeconds": 10,
-  "winCost": 1e+25,
+  "winCost": 7e+24,
   "winRequirements": [
     {
       "upgrade": "t_pump4",

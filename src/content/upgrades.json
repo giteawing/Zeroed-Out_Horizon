@@ -2146,7 +2146,7 @@
       "description": "Полный контроль над империей. Требуются Насос-Гигант (уровень 5) и Умная скважина (уровень 3).",
       "icon": "win-pump",
       "type": "win",
-      "baseCost": 1e+25,
+      "baseCost": 7e+24,
       "maxLevel": 1,
       "win": true,
       "tag": "strict",

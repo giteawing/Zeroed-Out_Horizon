@@ -57,9 +57,8 @@ export function calculateMarket(
   const rawOilPerSecond =
     (
       wellsTonnesPerSecond(config, state) * effects.multPassive * crewMultiplier +
-      effects.productionFlat
+      effects.productionFlat * effects.multProduction
     ) *
-    effects.multProduction *
     config.balance.passiveScale *
     salesVolumeMultiplier;
   // Защита экономики от экстремальных комбинаций апгрейдов и старых сейвов.
