@@ -137,11 +137,15 @@ describe('производные показатели', () => {
   });
 
   it('множитель production усиливает добычу скважин', () => {
+    const production = makeUpgrade({ id: 'production', type: 'production', effect: { value: 5 } });
     const mult = makeUpgrade({ id: 'm', type: 'multiplier', effect: { factor: 3, scope: 'production' } });
-    const state = withUpgrades({ m: 1 });
+    const state = withUpgrades({ production: 1, m: 1 });
     state.wells = [{ kind: 'ordinary', dailyTonnes: 10 }];
-    const d = computeDerived(config, [mult], state);
-    expect(d.oilPerSecond).toBeCloseTo((10 / config.oil.wells.secondsPerDay) * 3, 6);
+    const d = computeDerived(config, [production, mult], state);
+    expect(d.oilPerSecond).toBeCloseTo(
+      10 / config.oil.wells.secondsPerDay + 5 * 3,
+      6,
+    );
   });
 
   it('налог снижается влиянием и не опускается ниже минимума', () => {

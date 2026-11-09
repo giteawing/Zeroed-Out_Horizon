@@ -167,7 +167,11 @@ export interface UpgradeEffect {
   taxAdd?: number;
   /** Разовая выплата считается по мировой цене нефти. */
   usesWorldPrice?: boolean;
-  /** На что действует множитель. */
+  /**
+   * Область множителя: production — оборудование с прямой прибавкой т/с,
+   * passive — суммарный дебит скважин (включая бонус комплекта бригады),
+   * all — оба источника.
+   */
   scope?: 'all' | 'production' | 'passive';
   /** Канал сбыта (для type: 'sell'). */
   channel?: Channel;

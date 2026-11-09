@@ -53,11 +53,11 @@ export function calculateMarket(
     effects.throughputBonus.export,
   );
   const rawOilPerSecond =
-    (wellsTonnesPerSecond(config, state) + effects.productionFlat) *
-    effects.multProduction *
-    effects.multPassive *
+    (
+      wellsTonnesPerSecond(config, state) * effects.multPassive * crewMultiplier +
+      effects.productionFlat * effects.multProduction
+    ) *
     config.balance.passiveScale *
-    crewMultiplier *
     salesVolumeMultiplier;
   // Защита экономики от экстремальных комбинаций апгрейдов и старых сейвов.
   const productionLimit = Math.max(0, config.oil.maxProductionPerSecond);
