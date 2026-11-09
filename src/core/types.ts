@@ -79,6 +79,8 @@ export interface OilConfig {
   startOil: number;
   /** Стартовая ёмкость резервуаров, тонн. */
   baseCapacity: number;
+  /** Дебит стартовой скважины, т/сут. */
+  starterWellDailyTonnes: number;
   /** Каналы сбыта. */
   channels: Record<Channel, ChannelConfig>;
   /**

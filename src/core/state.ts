@@ -31,7 +31,9 @@ export function createInitialState(config: GameConfig, seed = randomSeed()): Gam
     levels: {},
     cooldowns: {},
     timers: {},
-    wells: [],
+    wells: config.oil.starterWellDailyTonnes > 0
+      ? [{ kind: 'ordinary', dailyTonnes: config.oil.starterWellDailyTonnes }]
+      : [],
     gambles: [],
     achievements: [],
     clockMs: 0,
@@ -159,6 +161,11 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
     if (legacyDaily > 0) {
       state.wells = [{ kind: 'unique', dailyTonnes: Math.round(legacyDaily) }];
     }
+  }
+  // Старые сохранения без скважин получают стартовый дебит, чтобы переход
+  // с ручной добычи на непрерывную не оставлял партию без источника сырья.
+  if (state.wells.length === 0 && config.oil.starterWellDailyTonnes > 0) {
+    state.wells = [{ kind: 'ordinary', dailyTonnes: config.oil.starterWellDailyTonnes }];
   }
 
   state.gambles = Array.isArray(src.gambles)

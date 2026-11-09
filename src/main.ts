@@ -478,7 +478,7 @@ function boot(): void {
   }
 
   function effettiWin(): void {
-    const size = drill.size;
+    const size = stageSize();
     effects.burst(size.width / 2, size.height / 2, 36);
   }
 
@@ -527,7 +527,7 @@ function boot(): void {
 
   function statsLine(): string {
     const minutes = Math.round(game.state.playtimeMs / 60000);
-    return `${texts.get('stats.time')}: ${minutes} · ${texts.get('stats.production')}: ${formatNumber(game.derived().oilPerSecond)} ${texts.get('units.tonnesPerSecond')}`;
+    return `${texts.get('stats.time')}: ${minutes} · ${texts.get('stats.production')}: ${formatNumber(game.derived().oilPerSecond)} ${texts.get('units.perSecondTonnes')}`;
   }
 
   // Пауза, когда вкладка не видна: экономим батарею и не начисляем «за кадром».
