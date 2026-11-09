@@ -3,7 +3,7 @@
     {
       "id": "a_first",
       "rule": {
-        "kind": "taps",
+        "kind": "sold",
         "value": 1
       }
     },
@@ -31,15 +31,15 @@
     {
       "id": "a_tap100",
       "rule": {
-        "kind": "taps",
-        "value": 100
+        "kind": "sold",
+        "value": 1000
       }
     },
     {
       "id": "a_tap1000",
       "rule": {
-        "kind": "taps",
-        "value": 1000
+        "kind": "sold",
+        "value": 100000
       }
     },
     {

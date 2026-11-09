@@ -39,12 +39,11 @@
     "basePricePerTon": 3,
     "startOil": 0,
     "baseCapacity": 500,
-    "tapTonnes": 1,
     "channels": {
       "contract": {
         "priceFactor": 0.35,
         "baseRate": 9000,
-        "unlimited": true
+        "unlimited": false
       },
       "export": {
         "priceFactor": 1,
@@ -103,7 +102,8 @@
       "min": 5,
       "max": 50
     },
-    "maxProductionPerSecond": 10000000
+    "maxProductionPerSecond": 10000000,
+    "starterWellDailyTonnes": 8
   },
   "influence": {
     "perGroup": {
@@ -135,8 +135,7 @@
     "maxFloating": 18
   },
   "balance": {
-    "passiveScale": 1,
-    "tapScale": 1
+    "passiveScale": 1
   },
   "product": {
     "domesticPriceFactor": 1.8,
