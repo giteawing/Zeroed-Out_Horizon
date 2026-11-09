@@ -2,8 +2,8 @@
 /**
  * Проверка состава интерфейса (замечание заказчика):
  *   • левый столбец — большой, и в нём только магазин с вкладками;
- *   • правый столбец — узкий, и в нём сверху вниз таблица доходов и расходов,
- *     журнал операций и долото для тапов.
+ *   • правый столбец — узкий, и в нём статистика, маршрутизация,
+ *     журнал операций и статус производственной системы.
  *
  * happy-dom не считает CSS-раскладку, поэтому проверяем структуру и классы:
  * именно они задают grid-порядок в base.css.
@@ -15,7 +15,6 @@ vi.mock('../../src/audio/sound', () => ({
     isEnabled = true;
     setEnabled(): void {}
     unlock(): void {}
-    tap(): void {}
     purchase(): void {}
     event(): void {}
     coin(): void {}
@@ -54,42 +53,39 @@ describe('раскладка', () => {
     // Ничего из правого столбца в левый не попало.
     expect(main?.querySelector('.hud')).toBeNull();
     expect(main?.querySelector('[data-testid="oplog"]')).toBeNull();
-    expect(main?.querySelector('[data-testid="drill"]')).toBeNull();
+    expect(main?.querySelector('[data-testid="production-stage"]')).toBeNull();
     // Все шесть вкладок — внутри магазина.
     const tabs = [...(main?.querySelectorAll('.tab') ?? [])].map((n) => n.textContent);
     expect(tabs).toEqual(['Техника', 'Добыча', 'Сбыт', 'Политика', 'Роскошь', 'Цель']);
   });
 
-  it('в правом столбце таблица, журнал и долото — именно в этом порядке', () => {
+  it('в правом столбце статистика, маршруты, журнал и статус производства', () => {
     const side = document.querySelector('.stage__side');
     expect(side).not.toBeNull();
-    const blocks = [...(side?.children ?? [])].map((n) =>
-      n.classList.contains('hud')
-        ? 'hud'
+    const blocks = [...(side?.children ?? [])].map((n) => n.classList.contains('hud')
+      ? 'hud'
+      : n.classList.contains('flow-controls')
+        ? 'flow-controls'
         : n.classList.contains('oplog')
           ? 'oplog'
-          : n.classList.contains('drill')
-            ? 'drill'
-            : n.className,
-    );
-    // Третий блок — обёртка с долотом и бейджем достижений.
-    expect(blocks[0]).toBe('hud');
-    expect(blocks[1]).toBe('oplog');
-    expect(blocks[2]).toBe('stage__drill');
-    expect(side?.querySelector('.stage__drill .drill')).not.toBeNull();
-
+          : n.className);
+    expect(blocks).toEqual(['hud', 'flow-controls', 'oplog', 'stage__production']);
+    expect(side?.querySelector('[data-testid="flow-controls"]')).not.toBeNull();
+    expect(side?.querySelector('[data-testid="production-stage"]')).not.toBeNull();
+    expect(side?.querySelector('[data-testid="drill"]')).toBeNull();
+    expect(side?.querySelector('.drill')).toBeNull();
     expect(side?.querySelector('.shop')).toBeNull();
-    expect(side?.querySelector('[data-testid="drill"]')).not.toBeNull();
     expect(side?.querySelector('[data-testid="oplog"]')).not.toBeNull();
   });
 
-  it('долото стоит ниже журнала, то есть тапать можно в правом столбце', () => {
+  it('статус производства стоит ниже журнала и не является кнопкой', () => {
     const side = document.querySelector('.stage__side');
     const children = [...(side?.children ?? [])];
     const oplogIndex = children.findIndex((n) => n.classList.contains('oplog'));
-    const drillIndex = children.findIndex((n) => n.classList.contains('stage__drill'));
+    const productionIndex = children.findIndex((n) => n.classList.contains('stage__production'));
     expect(oplogIndex).toBeGreaterThan(-1);
-    expect(drillIndex).toBeGreaterThan(oplogIndex);
+    expect(productionIndex).toBeGreaterThan(oplogIndex);
+    expect(side?.querySelector('.stage__production')?.tagName).toBe('SECTION');
   });
 
   it('в панели есть все показатели империи', () => {

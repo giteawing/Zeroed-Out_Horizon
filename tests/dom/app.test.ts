@@ -1,11 +1,9 @@
 // @vitest-environment happy-dom
 /**
- * Дымовой тест всего приложения в happy-dom: реальный main.ts, реальные
- * тексты из JSON, реальные тапы через PointerEvent.
+ * Дымовой тест всего приложения в happy-dom: реальный main.ts и тексты из JSON.
  *
- * Это замена браузерному e2e в окружениях без Playwright: проверяем, что
- * приложение поднимается без ошибок, тап начисляет монеты, покупка работает,
- * вкладки переключаются и финал открывается.
+ * Проверяем запуск, непрерывную добычу, маршрутизацию потоков, покупки,
+ * вкладки и финал в среде без настоящего браузерного движка.
  */
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -14,7 +12,6 @@ vi.mock('../../src/audio/sound', () => ({
     isEnabled = true;
     setEnabled(): void {}
     unlock(): void {}
-    tap(): void {}
     purchase(): void {}
     event(): void {}
     coin(): void {}
@@ -75,7 +72,7 @@ describe('стартовый экран', () => {
     expect(start).not.toBeNull();
     expect(start?.querySelector('.start__logo')?.getAttribute('src')).toBe('images/logo.svg');
     const primary = start?.querySelector('.btn--gold');
-    expect(primary?.textContent).toBe('Начать бурить');
+    expect(primary?.textContent).toBe('Запустить добычу');
   });
 
   it('запускает игру по кнопке', async () => {
@@ -92,55 +89,35 @@ describe('стартовый экран', () => {
   });
 });
 
-describe('сцена с долотом', () => {
-  it('отрисовывает скважину и canvas для частиц', () => {
-    expect(document.querySelector('.drill__art')?.getAttribute('src')).toBe('images/drill.svg');
-    expect(document.querySelector('.drill__fx')).not.toBeNull();
+describe('производственная сцена и маршрутизация', () => {
+  it('показывает статус промышленной добычи вместо кнопки долота', () => {
+    expect(document.querySelector('[data-testid="production-stage"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="drill"]')).toBeNull();
+    expect(document.querySelector('.drill__art')).toBeNull();
+    expect(document.querySelector('.stage__fx')).not.toBeNull();
   });
 
-  it('тап через pointerdown добывает нефть', async () => {
-    const stage = document.querySelector<HTMLElement>('[data-testid="drill"]');
-    expect(stage).not.toBeNull();
-    // Тап кладёт нефть в резервуары, но её тут же может забрать сбыт,
-    // поэтому считаем «нефть + проданное»: масштаб добычи, а не остаток.
-    const before = game.state.oil + game.state.totalSold;
-    const tapsBefore = game.state.totalTaps;
-    stage?.dispatchEvent(
-      new PointerEvent('pointerdown', {
-        bubbles: true,
-        clientX: 40,
-        clientY: 40,
-        pointerId: 1,
-      }),
-    );
-    await flush();
-    // Деньги за тап не начисляются напрямую: сначала нефть, потом продажа.
-    expect(game.state.oil + game.state.totalSold).toBeGreaterThan(before);
-    // Считаем прирост, а не абсолют: тест не зависит от других файлов прогона.
-    expect(game.state.totalTaps).toBe(tapsBefore + 1);
-  });
-
-  it('поддерживает мультитач: два pointerdown = два тапа', async () => {
-    const stage = document.querySelector<HTMLElement>('[data-testid="drill"]');
-    const tapsBefore = game.state.totalTaps;
-    for (const pointerId of [2, 3]) {
-      stage?.dispatchEvent(
-        new PointerEvent('pointerdown', { bubbles: true, clientX: 10, clientY: 10, pointerId }),
-      );
+  it('показывает три числовых маршрута и режим авто', () => {
+    const panel = document.querySelector('[data-testid="flow-controls"]');
+    expect(panel).not.toBeNull();
+    for (const channel of ['export', 'refine', 'contract']) {
+      expect(panel!.querySelector(`[data-flow-input="${channel}"]`)).not.toBeNull();
+      expect(panel!.querySelector(`[data-flow-auto="${channel}"]`)).not.toBeNull();
     }
-    await flush();
-    expect(game.state.totalTaps).toBe(tapsBefore + 2);
   });
 
-  it('клавиатура работает для доступности', async () => {
-    const stage = document.querySelector<HTMLElement>('[data-testid="drill"]');
-    const tapsBefore = game.state.totalTaps;
-    stage?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  it('изменение значения в панели переключает направление в фиксированный режим', async () => {
+    const input = document.querySelector<HTMLInputElement>('[data-flow-input="contract"]');
+    expect(input).not.toBeNull();
+    input!.value = '0';
+    input!.dispatchEvent(new Event('change', { bubbles: true }));
     await flush();
-    expect(game.state.totalTaps).toBe(tapsBefore + 1);
+    expect(game.state.flowControl.contract).toEqual({ mode: 'fixed', value: 0 });
+    document.querySelector<HTMLButtonElement>('[data-flow-auto="contract"]')!.click();
+    await flush();
+    expect(game.state.flowControl.contract).toEqual({ mode: 'auto', value: 0 });
   });
 });
-
 describe('HUD', () => {
   it('показывает баланс и влияние в шапке, а товарную статистику — в панели', () => {
     // Кошелёк и влияние живут в шапке рядом с меню.
@@ -206,25 +183,24 @@ describe('HUD', () => {
     expect(side!.firstElementChild?.classList.contains('hud')).toBe(true);
   });
 
-  it('под долотом есть журнал операций', () => {
+  it('журнал операций расположен под панелью маршрутизации', () => {
     const side = document.querySelector('.stage__side');
     expect(side).not.toBeNull();
     const log = side!.querySelector('[data-testid="oplog"]');
     expect(log).not.toBeNull();
   });
 
-  it('пересчитывает значения после тапа', async () => {
-    const stage = document.querySelector<HTMLElement>('[data-testid="drill"]');
-    for (let i = 0; i < 5; i++) {
-      stage?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 9 }));
-    }
+  it('обновляет отображаемые лимиты после переключения маршрута', async () => {
+    const input = document.querySelector<HTMLInputElement>('[data-flow-input="contract"]');
+    expect(input).not.toBeNull();
+    const before = document.querySelector('.flow-controls__status')?.textContent ?? '';
+    input!.value = '0';
+    input!.dispatchEvent(new Event('change', { bubbles: true }));
     await flush();
-    // Ждём, пока интерфейс перерисуется после тапов, а не фиксированный кадр.
-    await waitFor(() => {
-      const values = [...document.querySelectorAll('.hud__row-value')]
-        .map((n) => n.textContent ?? '');
-      return values.some((v) => v.includes('т') && /[1-9]/.test(v));
-    });
+    await waitFor(() => game.state.flowControl.contract.mode === 'fixed');
+    const after = document.querySelector('.flow-controls__status')?.textContent ?? '';
+    expect(after).toContain('Факт:');
+    expect(before).toContain('максимум:');
   });
 });
 
