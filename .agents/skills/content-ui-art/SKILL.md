@@ -49,9 +49,8 @@ description: Use when modifying content JSON, Russian UI copy, shop cards, HUD, 
   файлов в `scripts/lib/art.mjs` и визуального просмотра итоговых SVG.
 - Не запускай генераторы без необходимости: они могут перезаписать много
   файлов. Проверь diff и не коммить случайные массовые изменения.
-- В `public/images/drill.svg` сохраняй SVG id слоёв
-  `cones`, `btn-body`, `splashes`, `casing`, `rig`, `strata` —
-  на них завязаны CSS-анимации.
+- Интерактивная сцена долота и файл `public/images/drill.svg` удалены вместе
+  с механикой ручной добычи. Не восстанавливай их в приложении или генераторах.
 - Иконка покупки должна соответствовать `icon`/id в контенте; целостность
   проверяет content test.
 

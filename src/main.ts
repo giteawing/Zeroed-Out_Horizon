@@ -27,7 +27,7 @@ import { el } from './ui/dom';
 import { Texts } from './ui/texts';
 import { Hud } from './ui/hud';
 import { Shop } from './ui/shop';
-import { Drill } from './ui/drill';
+import { FlowControlsPanel } from './ui/flow-controls';
 import { NewsFeed } from './ui/news';
 import { Finale } from './ui/finale';
 import { StartScreen } from './ui/start';
@@ -69,6 +69,10 @@ function boot(): void {
 
   // ------------------------------------------------------------------ разметка
   const hud = new Hud(texts, currency, config);
+  const flowControls = new FlowControlsPanel(game, texts, () => {
+    save();
+    scheduleUi();
+  });
   const rules = new Rules(content, texts, currency, () => rules.hide());
   const news = new NewsFeed(texts, uiRng);
   const finale = new Finale(content, texts, currency, {
@@ -126,27 +130,27 @@ function boot(): void {
 
   const oplog = new OperationLog(texts, currency);
 
-  const drill = new Drill(texts, {
-    onTap: ({ x, y }) => {
-      // Тап добывает нефть. Деньги появятся, когда её продадут каналы сбыта.
-      const gain = game.tap();
-      if (gain <= 0) return;
-      sound.tap();
-      effects.splash(x, y, 1);
-      effects.floatText(
-        x,
-        y - 10,
-        texts.get('units.tonnesValue', { value: formatNumber(gain), tonnes: texts.get('units.tonnes') }),
-        'gain',
-      );
-      scheduleUi();
-    },
-    onFirstTouch: () => {
-      sound.unlock();
-    },
-  });
-
-  const effects = new Effects(drill.canvas, config);
+  const feedbackCanvas = el('canvas', { class: 'stage__fx', 'aria-hidden': 'true' });
+  const productionStage = el('section', {
+    class: 'stage__production',
+    'data-testid': 'production-stage',
+  }, [
+    el('div', { class: 'stage__production-icon', 'aria-hidden': 'true' }, '🏭'),
+    el('div', { class: 'stage__production-title' }, texts.get('production.title')),
+    el('div', { class: 'stage__production-copy' }, texts.get('production.copy')),
+    feedbackCanvas,
+  ]);
+  const stageSize = () => {
+    const rect = productionStage.getBoundingClientRect();
+    return { width: rect.width, height: rect.height };
+  };
+  const pulseStage = () => {
+    productionStage.classList.remove('stage__production--pulse');
+    void productionStage.offsetWidth;
+    productionStage.classList.add('stage__production--pulse');
+    window.setTimeout(() => productionStage.classList.remove('stage__production--pulse'), 500);
+  };
+  const effects = new Effects(feedbackCanvas, config);
 
   const badge = el('div', { class: 'badge', hidden: true });
   const showBadge = (text: string) => {
@@ -159,6 +163,7 @@ function boot(): void {
       badge.hidden = true;
     }, 2600);
   };
+  productionStage.append(badge);
   if (corruptSave) showBadge(texts.get(corruptBackupSaved ? 'save.corrupt' : 'save.corruptBackupFailed'));
 
   /**
@@ -235,9 +240,9 @@ function boot(): void {
     // Правый, узкий: таблица доходов и расходов, журнал операций, долото.
     el('aside', { class: 'stage__side' }, [
       hud.root,
+      flowControls.root,
       oplog.root,
-      // Долото вместе с бейджем достижений: бейдж всплывает над ним.
-      el('div', { class: 'stage__drill' }, [drill.root, badge]),
+      productionStage,
     ]),
   ]);
 
@@ -354,14 +359,14 @@ function boot(): void {
       return;
     }
     sound.purchase();
-    drill.shake();
+    pulseStage();
     const gain = result.payouts.reduce((sum, payout) => sum + payout.amount, 0);
     if (gain > 0) {
-      effects.burst(drill.size.width / 2, drill.size.height * 0.55, 16);
-      effects.floatText(drill.size.width / 2, drill.size.height * 0.45, `+${formatMoney(gain, currency)}`, 'gold');
+      effects.burst(stageSize().width / 2, stageSize().height * 0.55, 16);
+      effects.floatText(stageSize().width / 2, stageSize().height * 0.45, `+${formatMoney(gain, currency)}`, 'gold');
       news.push(randomNewsFor(id));
     } else if (def?.type === 'luxury') {
-      effects.burst(drill.size.width / 2, drill.size.height * 0.5, 10);
+      effects.burst(stageSize().width / 2, stageSize().height * 0.5, 10);
     } else {
       news.push('milestone');
     }
@@ -405,16 +410,16 @@ function boot(): void {
     switch (event.type) {
       case 'oneShot':
         sound.coin();
-        effects.floatText(drill.size.width / 2, drill.size.height * 0.42, `+${formatMoney(event.amount, currency)}`, 'gold');
+        effects.floatText(stageSize().width / 2, stageSize().height * 0.42, `+${formatMoney(event.amount, currency)}`, 'gold');
         break;
       case 'periodic':
         sound.coin();
-        effects.floatText(drill.size.width * 0.36, drill.size.height * 0.4, `+${formatMoney(event.amount, currency)}`, 'gain');
+        effects.floatText(stageSize().width * 0.36, stageSize().height * 0.4, `+${formatMoney(event.amount, currency)}`, 'gain');
         news.push('periodic');
         break;
       case 'gambleResult':
         sound.event(event.won);
-        drill.shake();
+        pulseStage();
         showBadge(
           event.won
             ? `+${formatMoney(event.amount, currency)}`
@@ -431,7 +436,7 @@ function boot(): void {
             value: formatNumber(event.dailyTonnes),
           }),
         );
-        drill.shake();
+        pulseStage();
         sound.event(true);
         break;
       }
@@ -467,13 +472,13 @@ function boot(): void {
   function onWin(): void {
     sound.fanfare();
     save();
-    drill.shake();
+    pulseStage();
     effettiWin();
     window.setTimeout(() => finale.show(game.state), 700);
   }
 
   function effettiWin(): void {
-    const size = drill.size;
+    const size = stageSize();
     effects.burst(size.width / 2, size.height / 2, 36);
   }
 
@@ -507,6 +512,7 @@ function boot(): void {
   function refreshUi(forceShop: boolean): void {
     const derived = game.derived();
     hud.update(game.state, derived);
+    flowControls.update(game.state, derived);
     oplog.update(game.state.log);
     shop.update();
     void forceShop;
@@ -521,7 +527,7 @@ function boot(): void {
 
   function statsLine(): string {
     const minutes = Math.round(game.state.playtimeMs / 60000);
-    return `${texts.get('stats.time')}: ${minutes} · ${texts.get('stats.taps')}: ${game.state.totalTaps}`;
+    return `${texts.get('stats.time')}: ${minutes} · ${texts.get('stats.production')}: ${formatNumber(game.derived().oilPerSecond)} ${texts.get('units.perSecondTonnes')}`;
   }
 
   // Пауза, когда вкладка не видна: экономим батарею и не начисляем «за кадром».
@@ -549,7 +555,7 @@ function boot(): void {
     effects.resize();
   });
   if (typeof ResizeObserver !== 'undefined') {
-    new ResizeObserver(() => effects.resize()).observe(drill.canvas);
+    new ResizeObserver(() => effects.resize()).observe(feedbackCanvas);
   }
 
   // -------------------------------------------------------------- диагностика

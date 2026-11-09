@@ -2,7 +2,7 @@
  * Сбор эффектов приобретённых улучшений.
  * Только складывает уровни и бонусы; добычу и деньги здесь не рассчитываем.
  */
-import type { Channel, ExportMode, GameConfig, GameState, Product, UpgradeDef } from '../../types';
+import type { Channel, ExportMode, GameState, Product, UpgradeDef } from '../../types';
 import { PRODUCTS, exportModeOf } from '../definitions';
 import { levelOf } from '../purchases';
 
@@ -10,8 +10,8 @@ const GROUPS_OFFICIALS = new Set(['grants', 'taxes', 'deals', 'conquest', 'favor
 const GROUPS_STAFF = new Set(['staff', 'crew']);
 
 export interface UpgradeEffects {
-  tapFlat: number;
-  multTap: number;
+  productionFlat: number;
+  multProduction: number;
   multPassive: number;
   taxCutPoints: number;
   costCutFraction: number;
@@ -20,7 +20,6 @@ export interface UpgradeEffects {
   exportPriceMultiplier: number;
   exchangeRateMultiplier: number;
   exportMultiplier: number;
-  autoTaps: number;
   salariesGrowth: number;
   taxAdd: number;
   staffLevels: number;
@@ -41,13 +40,12 @@ export interface UpgradeEffects {
 }
 /** Суммирует эффекты покупок, не рассчитывая добычу, рынки или деньги. */
 export function collectUpgradeEffects(
-  config: GameConfig,
   upgrades: UpgradeDef[],
   state: GameState,
 ): UpgradeEffects {
   const result: UpgradeEffects = {
-    tapFlat: config.oil.tapTonnes,
-    multTap: 1,
+    productionFlat: 0,
+    multProduction: 1,
     multPassive: 1,
     taxCutPoints: 0,
     costCutFraction: 0,
@@ -56,7 +54,6 @@ export function collectUpgradeEffects(
     exportPriceMultiplier: 1,
     exchangeRateMultiplier: 1,
     exportMultiplier: 1,
-    autoTaps: 0,
     salariesGrowth: 0,
     taxAdd: 0,
     staffLevels: 0,
@@ -97,8 +94,8 @@ export function collectUpgradeEffects(
     if (effect.conquestCut) result.conquestCut += effect.conquestCut * level;
 
     switch (def.type) {
-      case 'perTap':
-        result.tapFlat += (effect.value ?? 0) * level;
+      case 'production':
+        result.productionFlat += (effect.value ?? 0) * level;
         break;
       case 'passive':
         if (effect.capitalFlightPerSecond) {
@@ -134,7 +131,7 @@ export function collectUpgradeEffects(
       case 'multiplier': {
         const factor = Math.pow(effect.factor ?? 1, Math.sqrt(level));
         const scope = effect.scope ?? 'all';
-        if (scope === 'all' || scope === 'tap') result.multTap *= factor;
+        if (scope === 'all' || scope === 'production') result.multProduction *= factor;
         if (scope === 'all' || scope === 'passive') result.multPassive *= factor;
         break;
       }
@@ -154,9 +151,6 @@ export function collectUpgradeEffects(
         if (effect.exchangeRateDevaluation && effect.exchangeRateDevaluation > 0) {
           result.exchangeRateMultiplier *= Math.pow(1 + effect.exchangeRateDevaluation, level);
         }
-        break;
-      case 'autoTap':
-        result.autoTaps += (effect.value ?? 0) * level;
         break;
       case 'luxury':
         result.luxuries.push(def.id);

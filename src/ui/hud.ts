@@ -179,10 +179,9 @@ export class Hud {
         ]),
 
         el('div', { class: 'hud__rows' }, [
-          row('perTap', texts.get('hud.perTap'), 'hud__row-value--oil').root,
         ]),
         // Автодобыча — отдельной строкой на всю ширину колонки: короткий
-        // вердикт «команда в сборе / не собрана» важнее соседства с тапом.
+        // вердикт «команда в сборе / не собрана» важнее соседства с маршрутами.
         el('div', { class: 'hud__rows hud__rows--single' }, [
           row('autoDrill', '', 'hud__row-value--crew hud__row-value--wide').root,
         ]),
@@ -490,7 +489,6 @@ export class Hud {
     set('assetsMedia', formatNumber(derived.assetCounts.media));
     set('assetsFacilities', formatNumber(derived.assetCounts.facility));
     set('assets', formatMoney(derived.assetsValue, this.currency));
-    set('perTap', units('tonnesValue', { value: formatNumber(derived.tapValue), tonnes }));
     // Автодобыча — одной фразой на всю ширину: подпись и статус слиты.
     set('autoDrill', derived.autoDrill
       ? this.texts.get('hud.autoDrillOn')

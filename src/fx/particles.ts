@@ -19,7 +19,7 @@ interface Particle {
   life: number;
   maxLife: number;
   size: number;
-  kind: 'oil' | 'spark' | 'coin';
+  kind: 'spark' | 'coin';
 }
 
 interface Floating {
@@ -77,28 +77,6 @@ export class Effects {
     if (this.ctx) {
       this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     }
-  }
-
-  /** Брызги нефти при тапе. x/y — в координатах canvas. */
-  splash(x: number, y: number, power = 1): void {
-    if (!this.enabled || this.reduced) return;
-    const count = 3 + Math.floor(power * 3);
-    for (let i = 0; i < count; i++) {
-      if (this.particles.length >= this.maxParticles) this.particles.shift();
-      const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 0.9;
-      const speed = 90 + Math.random() * 190 * power;
-      this.particles.push({
-        x,
-        y,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
-        life: 0,
-        maxLife: 0.5 + Math.random() * 0.4,
-        size: 2 + Math.random() * 4,
-        kind: 'oil',
-      });
-    }
-    this.start();
   }
 
   /** Искры при крупном событии. */
@@ -187,13 +165,7 @@ export class Effects {
     for (const p of this.particles) {
       const alpha = 1 - p.life / p.maxLife;
       ctx.globalAlpha = Math.max(0, alpha);
-      if (p.kind === 'oil') {
-        ctx.fillStyle = '#1b1b20';
-      } else if (p.kind === 'spark') {
-        ctx.fillStyle = '#ffd766';
-      } else {
-        ctx.fillStyle = '#f2b430';
-      }
+      ctx.fillStyle = p.kind === 'spark' ? '#ffd766' : '#f2b430';
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size * (0.6 + alpha * 0.6), 0, Math.PI * 2);
       ctx.fill();

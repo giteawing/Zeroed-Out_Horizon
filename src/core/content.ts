@@ -17,8 +17,8 @@ import type {
 
 const TABS = new Set(['political', 'technical', 'production', 'sales', 'luxury', 'goals']);
 const TYPES = new Set([
-  'perTap', 'well', 'passive', 'multiplier', 'taxCut', 'costCut', 'periodic',
-  'oneShot', 'gamble', 'priceBoost', 'luxury', 'autoTap', 'sell', 'storage', 'field', 'win',
+  'production', 'well', 'passive', 'multiplier', 'taxCut', 'costCut', 'periodic',
+  'oneShot', 'gamble', 'priceBoost', 'luxury', 'sell', 'storage', 'field', 'win',
 ]);
 const CHANNELS = new Set(['contract', 'export', 'refine']);
 const EXPORT_MODES = new Set(['pipeline', 'rail', 'tanker']);

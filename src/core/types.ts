@@ -1,16 +1,14 @@
 /**
  * Типы ядра игры. Всё, что описывает данные — здесь; сами данные лежат в src/content/*.json.
  *
- * Главная идея экономики: тап добывает НЕФТЬ (тонны), а нефтефаники (₦) —
- * это деньги, которые получаются только когда нефть продана. Продать можно
- * тремя каналами: контракты (дёшево, но всегда), экспорт (дороже) и
- * переработка на НПЗ (дороже всего).
+ * Скважины и производственное оборудование непрерывно добывают сырую нефть.
+ * Игрок задаёт распределение сырья между внутренним рынком, экспортом и НПЗ.
  */
 
 export type Tab = 'political' | 'technical' | 'production' | 'sales' | 'luxury' | 'goals';
 
 export type UpgradeType =
-  | 'perTap'
+  | 'production'
   | 'well'
   | 'passive'
   | 'multiplier'
@@ -21,7 +19,6 @@ export type UpgradeType =
   | 'gamble'
   | 'priceBoost'
   | 'luxury'
-  | 'autoTap'
   | 'sell'
   | 'storage'
   /** Отжатое месторождение: за одну покупку приходит 5–50 скважин. */
@@ -82,8 +79,8 @@ export interface OilConfig {
   startOil: number;
   /** Стартовая ёмкость резервуаров, тонн. */
   baseCapacity: number;
-  /** Тонн за один тап без улучшений. */
-  tapTonnes: number;
+  /** Дебит стартовой скважины, т/сут. */
+  starterWellDailyTonnes: number;
   /** Каналы сбыта. */
   channels: Record<Channel, ChannelConfig>;
   /**
@@ -170,8 +167,12 @@ export interface UpgradeEffect {
   taxAdd?: number;
   /** Разовая выплата считается по мировой цене нефти. */
   usesWorldPrice?: boolean;
-  /** На что действует множитель. */
-  scope?: 'all' | 'tap' | 'passive';
+  /**
+   * Область множителя: production — оборудование с прямой прибавкой т/с,
+   * passive — суммарный дебит скважин (включая бонус комплекта бригады),
+   * all — оба источника.
+   */
+  scope?: 'all' | 'production' | 'passive';
   /** Канал сбыта (для type: 'sell'). */
   channel?: Channel;
   /**
@@ -362,11 +363,10 @@ export interface GameConfig {
   winRequirements: UnlockRequirement[];
   achievementsTickSeconds: number;
   particles: { maxParticles: number; maxFloating: number };
-  balance: { passiveScale: number; tapScale: number };
+  balance: { passiveScale: number };
 }
 
 export type AchievementRule =
-  | { kind: 'taps'; value: number }
   | { kind: 'earned'; value: number }
   | { kind: 'taxRate'; value: number }
   | { kind: 'costCut'; value: number }
@@ -473,9 +473,9 @@ export interface ReprivatizationPrize {
 
 export interface Well {
   /** Класс скважины: обычная, хорошая или уникальная. */
-  kind: 'ordinary' | 'good' | 'unique';
+  readonly kind: 'ordinary' | 'good' | 'unique';
   /** Дебит, тонн в сутки. Выпадает случайно при бурении. */
-  dailyTonnes: number;
+  readonly dailyTonnes: number;
 }
 
 /** Полный снимок прогресса, который сохраняется в localStorage. */
@@ -504,8 +504,9 @@ export interface GameState {
   spillCrudePerSecond: number;
   spillProductsPerSecond: number;
   totalEarned: number;
-  totalTaps: number;
   totalPurchases: number;
+  /** Режимы маршрутизации сырья. auto распределяет доступный остаток по цене. */
+  flowControl: FlowControls;
   /** Всего продано нефти, тонн. */
   totalSold: number;
   luxurySpent: number;
@@ -542,6 +543,14 @@ export interface GameState {
   /** Игровое время покупки карточки вывоза капитала; null — ещё не куплена. */
   capitalFlightStartedAtMs: number | null;
 }
+
+export interface FlowControl {
+  mode: 'auto' | 'fixed';
+  /** Фиксированный поток, т/с; используется только при mode='fixed'. */
+  value: number;
+}
+
+export type FlowControls = Record<Channel, FlowControl>;
 
 export interface ChannelRate {
   /** Пропускная способность канала, тонн в секунду. */
@@ -615,13 +624,10 @@ export interface OilFlows {
 }
 
 export interface DerivedStats {
-  /** Нефть за один тап, тонн. */
-  tapValue: number;
-  /** Деньги за один тап при текущей цене (справочно, для интерфейса). */
-  tapRevenue: number;
-  autoTapsPerSecond: number;
-  /** Автодобыча, тонн/с. */
+  /** Текущая непрерывная добыча скважин и оборудования, тонн/с. */
   oilPerSecond: number;
+  /** Физический максимум фиксированного потока с учётом других фиксированных направлений. */
+  flowLimits: Record<Channel, number>;
   /** Сколько нефти реально уходит в сбыт за секунду (добыча, влезшая в каналы). */
   sellPerSecond: number;
   /** Раскладка продаж сырой нефти по каналам за секунду, тонн. */
@@ -716,8 +722,8 @@ export interface DerivedStats {
   taxRate: number;
   costCutPercent: number;
   multiplier: number;
-  /** Раздельные множители ручной и пассивной добычи. */
-  tapMultiplier: number;
+  /** Множители производственной добычи. */
+  productionMultiplier: number;
   passiveMultiplier: number;
   priceMultiplier: number;
   salaries: number;
@@ -738,7 +744,6 @@ export interface DerivedStats {
 }
 
 export type GameEvent =
-  | { type: 'tap'; amount: number }
   | { type: 'income' }
   | { type: 'purchase'; id: string; level: number; cost: number }
   | { type: 'oneShot'; id: string; amount: number }

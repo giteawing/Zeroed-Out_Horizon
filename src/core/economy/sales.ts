@@ -9,6 +9,7 @@ import type {
   DerivedStats,
   ExportMode,
   GameConfig,
+  FlowControls,
   OilFlows,
   Product,
   UpgradeDef,
@@ -44,6 +45,50 @@ export function allocateByPrice<Key extends string>(
     remaining -= taken;
   }
   return { byMarket, remaining };
+}
+
+/** Распределяет сырьё: фиксированные потоки резервируются, остальные делят остаток по цене. */
+function allocateCrude(
+  volume: number,
+  markets: Array<{ key: 'export' | 'refine' | 'domestic'; channel: 'export' | 'refine' | 'contract'; price: number; capacity: number }>,
+  controls?: FlowControls,
+  scale = 1,
+): { byMarket: Record<'export' | 'refine' | 'domestic', number>; remaining: number } {
+  const byMarket = { export: 0, refine: 0, domestic: 0 };
+  const remainingCapacity = new Map(markets.map((market) => [
+    market.key,
+    market.capacity === Number.POSITIVE_INFINITY
+      ? Number.MAX_SAFE_INTEGER
+      : Number.isFinite(market.capacity) ? Math.max(0, market.capacity) : 0,
+  ]));
+  let remaining = Number.isFinite(volume) ? Math.max(0, volume) : 0;
+
+  // Фиксированные заявки выполняются первыми; при нехватке добычи ничего не
+  // отправляем сверх доступного объёма. Лимит мощности применяется отдельно.
+  for (const market of markets) {
+    const setting = controls?.[market.channel];
+    if (!setting || setting.mode !== 'fixed') continue;
+    const capacity = remainingCapacity.get(market.key) ?? 0;
+    const requested = Math.max(0, Number.isFinite(setting.value) ? setting.value * scale : 0);
+    const taken = Math.min(remaining, capacity, requested);
+    byMarket[market.key] = taken;
+    remaining -= taken;
+    remainingCapacity.set(market.key, Math.max(0, capacity - taken));
+  }
+
+  const automatic = markets
+    .filter((market) => !controls || controls[market.channel].mode !== 'fixed')
+    .map((market) => ({
+      key: market.key,
+      price: market.price,
+      capacity: remainingCapacity.get(market.key) ?? 0,
+    }));
+  const plan = allocateByPrice(remaining, automatic);
+  for (const market of automatic) byMarket[market.key] = plan.byMarket[market.key] ?? 0;
+  return {
+    byMarket,
+    remaining: plan.remaining,
+  };
 }
 
 /** Объём нефти для разовой экспортной акции. */
@@ -88,6 +133,8 @@ export function oilFlowsOf(
     /** Длительность окна пакетной отгрузки: ёмкость переводится в т/с. */
     storageHorizonSeconds?: number;
     modeShares?: Record<ExportMode, number>;
+    /** Настройки маршрутизации сырой нефти из состояния игры. */
+    flowControl?: FlowControls;
     prices?: {
       crudeDomestic: number;
       crudeExport: number;
@@ -117,14 +164,8 @@ export function oilFlowsOf(
     (config.oil.channels.refine.priceFactor /
       Math.max(1e-9, config.oil.channels.export.priceFactor));
 
-  // Труба продаёт добычу напрямую до пакетной маршрутизации. Сначала
-  // резервируем её мощность, а остаток распределяем между другими каналами.
   const pipelineShare = Math.max(0, Math.min(1, options.pipeline ?? 0));
   const pipelineCapacity = safe(capacities.export.crude) * pipelineShare;
-  const pipelineTonnes = Math.min(total, pipelineCapacity);
-  const exportCapacityRemaining = config.oil.channels.export.unlimited
-    ? Number.MAX_SAFE_INTEGER
-    : Math.max(0, safe(capacities.export.crude) - pipelineCapacity);
 
   const productCapacity = Math.max(0, options.productStorage ?? config.product.baseStorage);
   const productStorageFree = Math.max(0, options.productStorageFree ?? productCapacity);
@@ -164,17 +205,17 @@ export function oilFlowsOf(
     (productMarketRate + productStorageRate) / Math.max(1e-9, config.oil.refineryYield),
   );
 
-  const crude = allocateByPrice(total - pipelineTonnes, [
-    { key: 'export', price: prices.crudeExport, capacity: exportCapacityRemaining },
-    { key: 'refine', price: refinePrice, capacity: refineryCapacity },
-    {
-      key: 'domestic',
-      price: prices.crudeDomestic,
-      capacity: config.oil.channels.contract.unlimited ? Number.MAX_SAFE_INTEGER : safe(capacities.domestic.crude),
-    },
-  ]);
+  const crude = allocateCrude(total, [
+    { key: 'export', channel: 'export', price: prices.crudeExport,
+      capacity: config.oil.channels.export.unlimited ? Number.MAX_SAFE_INTEGER : safe(capacities.export.crude) },
+    { key: 'refine', channel: 'refine', price: refinePrice,
+      capacity: config.oil.channels.refine.unlimited ? Number.MAX_SAFE_INTEGER : refineryCapacity },
+    { key: 'domestic', channel: 'contract', price: prices.crudeDomestic,
+      capacity: config.oil.channels.contract.unlimited ? Number.MAX_SAFE_INTEGER : safe(capacities.domestic.crude) },
+  ], options.flowControl);
 
-  const exportTonnes = pipelineTonnes + crude.byMarket.export;
+  const exportTonnes = crude.byMarket.export;
+  const pipelineTonnes = Math.min(exportTonnes, pipelineCapacity);
   const refined = crude.byMarket.refine;
   const domestic = crude.byMarket.domestic;
   const stored = crude.remaining;
@@ -206,8 +247,8 @@ export function oilFlowsOf(
     : shares
       ? {
         pipeline: pipelineTonnes,
-        rail: nonPipelineShare > 1e-9 ? crude.byMarket.export * shares.rail / nonPipelineShare : 0,
-        tanker: nonPipelineShare > 1e-9 ? crude.byMarket.export * shares.tanker / nonPipelineShare : 0,
+        rail: nonPipelineShare > 1e-9 ? Math.max(0, exportTonnes - pipelineTonnes) * shares.rail / nonPipelineShare : 0,
+        tanker: nonPipelineShare > 1e-9 ? Math.max(0, exportTonnes - pipelineTonnes) * shares.tanker / nonPipelineShare : 0,
       }
       : { pipeline: pipelineTonnes, rail: 0, tanker: 0 };
 
@@ -252,6 +293,7 @@ export function allocateBatch(
   } = { crudeDomestic: 1, crudeExport: 1, productDomestic: 1, productExport: 1 },
   productStorageFree = config.product.baseStorage,
   productStock = 0,
+  flowControl?: FlowControls,
 ): {
   domestic: number;
   export: number;
@@ -297,23 +339,13 @@ export function allocateBatch(
       Math.max(1e-9, config.oil.refineryYield),
   );
 
-  const crude = allocateByPrice(batch, [
-    {
-      key: 'export',
-      price: prices.crudeExport,
-      capacity: config.oil.channels.export.unlimited
-        ? Number.MAX_SAFE_INTEGER
-        : limit(capacities.export.crude),
-    },
-    { key: 'refine', price: refinePrice, capacity: refineBatchCapacity },
-    {
-      key: 'domestic',
-      price: prices.crudeDomestic,
-      capacity: config.oil.channels.contract.unlimited
-        ? Number.MAX_SAFE_INTEGER
-        : limit(capacities.domestic.crude),
-    },
-  ]);
+  const crude = allocateCrude(batch, [
+    { key: 'export', channel: 'export', price: prices.crudeExport,
+      capacity: config.oil.channels.export.unlimited ? Number.MAX_SAFE_INTEGER : limit(capacities.export.crude) },
+    { key: 'refine', channel: 'refine', price: refinePrice, capacity: refineBatchCapacity },
+    { key: 'domestic', channel: 'contract', price: prices.crudeDomestic,
+      capacity: config.oil.channels.contract.unlimited ? Number.MAX_SAFE_INTEGER : limit(capacities.domestic.crude) },
+  ], flowControl, span);
 
   const products = crude.byMarket.refine * config.oil.refineryYield;
   const productSale = allocateByPrice(products, [

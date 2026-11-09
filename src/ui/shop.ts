@@ -217,8 +217,8 @@ export class Shop {
     const t = (key: string, params: Record<string, string | number> = {}) =>
       this.texts.get(`shop.${key}`, params);
     switch (def.type) {
-      case 'perTap':
-        return t('effectPerTap', { value: formatNumber(e.value ?? 0) });
+      case 'production':
+        return t('effectProduction', { value: formatNumber(e.value ?? 0) });
       case 'passive': {
         const parts: string[] = [];
         if (this.game.config.oil.autoDrill.requires.includes(def.id)) {
@@ -298,8 +298,6 @@ export class Shop {
         return t('effectGamble', { seconds: e.seconds ?? 0, value: e.factor ?? 2 });
       case 'periodic':
         return t('effectPeriodic', { seconds: e.seconds ?? 0, value: (e.value ?? 0) * Math.max(1, level) });
-      case 'autoTap':
-        return t('effectAutoTap', { value: formatNumber(e.value ?? 0) });
       case 'sell': {
         const channel = e.channel ?? 'contract';
         const parts = [

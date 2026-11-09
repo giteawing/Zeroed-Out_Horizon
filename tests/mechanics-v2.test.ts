@@ -366,7 +366,7 @@ describe('скважины со случайным дебитом', () => {
     rich(state);
     for (let i = 0; i < 40; i++) game.buy('t_well');
     const sizes = new Set(state.wells.map((w) => w.dailyTonnes));
-    expect(state.wells.length).toBe(40);
+    expect(state.wells.length).toBe(41);
     expect(sizes.size).toBeGreaterThan(1);
   });
 

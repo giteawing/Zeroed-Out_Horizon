@@ -9,10 +9,10 @@ import { runSimulation } from '../src/core/simulator';
 const content = loadContent();
 
 const profiles = [
-  { name: 'ленивый', tapsPerSecond: 4, tapDiligence: 0.7, exportPatienceSeconds: 20 },
-  { name: 'обычный', tapsPerSecond: 5, tapDiligence: 0.85, exportPatienceSeconds: 40 },
-  { name: 'упорный', tapsPerSecond: 6, tapDiligence: 0.95, exportPatienceSeconds: 60 },
-  { name: 'оптимизатор', tapsPerSecond: 5, tapDiligence: 0.85, strategy: 'optimizer' as const },
+  { name: 'быстрый экспорт', exportPatienceSeconds: 20, seed: 101 },
+  { name: 'сбалансированная логистика', exportPatienceSeconds: 40, seed: 202 },
+  { name: 'терпеливый экспорт', exportPatienceSeconds: 60, seed: 303 },
+  { name: 'оптимизатор', exportPatienceSeconds: 40, seed: 404, strategy: 'optimizer' as const },
 ];
 
 const winCosts = process.argv.includes('--grid')
@@ -23,7 +23,7 @@ const winCosts = process.argv.includes('--grid')
   : [content.config.winCost];
 
 for (const profile of profiles) {
-  console.log(`\n=== Профиль: ${profile.name} (${profile.tapsPerSecond} тапов/с) ===`);
+  console.log(`\n=== Профиль: ${profile.name} ===`);
   for (const winCost of winCosts) {
     content.config.winCost = winCost;
     const winDef = content.upgrades.find((u) => u.win);
@@ -34,7 +34,7 @@ for (const profile of profiles) {
     console.log(
       `winCost=${winCost.toExponential(0).padEnd(6)} -> ` +
         `${result.won ? 'ПОБЕДА' : 'провал'} за ${minutes} мин, ` +
-        `покупок ${result.purchases}, тапов ${result.totalTaps}, ` +
+        `покупок ${result.purchases}, добыча ${result.samples.at(-1)?.productionRate.toFixed(1) ?? '—'} т/с, ` +
         `(${Date.now() - started} мс)`,
     );
   }
