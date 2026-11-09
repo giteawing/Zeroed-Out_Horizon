@@ -30,11 +30,11 @@ describe('нормализация сохранения', () => {
     const original = createInitialState(config, 7);
     original.coins = 12345;
     original.levels = { t_well: 3, d1_blade: 2 };
-    original.totalTaps = 55;
+    original.flowControl.export = { mode: 'fixed', value: 12.5 };
     const restored = normalizeState(JSON.parse(serializeState(original)), config, content);
     expect(restored.coins).toBe(12345);
     expect(restored.levels).toEqual({ t_well: 3, d1_blade: 2 });
-    expect(restored.totalTaps).toBe(55);
+    expect(restored.flowControl.export).toEqual({ mode: 'fixed', value: 12.5 });
   });
 
   it('старый сейв получает постоянный seed цены из RNG seed', () => {

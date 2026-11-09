@@ -11,7 +11,7 @@ const content = loadContent();
 
 describe('экономическая прогрессия и баланс', () => {
   it('целевой темп 15–20 минут выдерживается на обычном профиле', () => {
-    const result = runSimulation(content, { tapsPerSecond: 5, tapDiligence: 0.85, seed: 202 });
+    const result = runSimulation(content, { seed: 202 });
     const minutes = result.seconds / 60;
     expect(minutes).toBeGreaterThanOrEqual(15);
     expect(minutes).toBeLessThanOrEqual(20);
@@ -65,14 +65,14 @@ describe('экономическая прогрессия и баланс', () =
     expect(first).toBeDefined();
     expect(last).toBeDefined();
     expect(last!.netPerSecond).toBeGreaterThan(first!.netPerSecond * 100);
-    expect(last!.tapValue).toBeGreaterThan(first!.tapValue * 10);
+    expect(last!.productionRate).toBeGreaterThan(first!.productionRate * 1.1);
   });
 
   it('симулятор детерминирован при одном сиде', () => {
     const a = runSimulation(content, { seed: 555, maxSeconds: 300 });
     const b = runSimulation(content, { seed: 555, maxSeconds: 300 });
     expect(a.totalEarned).toBe(b.totalEarned);
-    expect(a.totalTaps).toBe(b.totalTaps);
+    expect(a.samples).toEqual(b.samples);
   });
 
 });

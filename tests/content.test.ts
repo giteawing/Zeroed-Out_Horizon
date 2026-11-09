@@ -280,7 +280,7 @@ describe('целостность данных', () => {
   it('все типы из ТЗ §5.2 используются', () => {
     const types = new Set(content.upgrades.map((u) => u.type));
     for (const type of [
-      'perTap',
+      'production',
       'passive',
       'multiplier',
       'taxCut',
