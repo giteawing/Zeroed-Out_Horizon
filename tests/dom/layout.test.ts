@@ -71,6 +71,8 @@ describe('раскладка', () => {
           : n.className);
     expect(blocks).toEqual(['hud', 'flow-controls', 'oplog', 'stage__production']);
     expect(side?.querySelector('[data-testid="flow-controls"]')).not.toBeNull();
+    expect(side?.querySelectorAll('[data-flow-max]')).toHaveLength(3);
+    expect(side?.querySelectorAll('[data-flow-auto]')).toHaveLength(3);
     expect(side?.querySelector('[data-testid="production-stage"]')).not.toBeNull();
     expect(side?.querySelector('[data-testid="drill"]')).toBeNull();
     expect(side?.querySelector('.drill')).toBeNull();
