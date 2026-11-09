@@ -2,7 +2,7 @@
  * Производство и базовые коэффициенты расходов: ёмкости, скважины, налог и штрафы.
  * Все функции чистые: состояние и конфиг только читаются.
  */
-import type { Content, GameConfig, GameState } from '../types';
+import type { Content, GameConfig, GameState, Well } from '../types';
 import { levelOf } from './purchases';
 
 // Дебит меняется только при добавлении скважины; кешируем сумму по массиву.
