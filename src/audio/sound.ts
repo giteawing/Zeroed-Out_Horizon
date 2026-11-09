@@ -152,7 +152,7 @@ export class SoundEngine {
     osc.stop(at + duration + 0.05);
   }
 
-  /** Короткий шум (бурение, касса, аплодисменты) без внешних файлов. */
+  /** Короткий шумовой слой для звуковых событий без внешних файлов. */
   private noise(ctx: Ctx, at: number, duration: number, gain: number, cutoff: number): void {
     if (!this.master) return;
     if (!this.noiseBuffer) {
