@@ -96,17 +96,12 @@ export function wellsTonnesPerSecond(config: GameConfig, state: GameState): numb
   const wells = state.wells ?? [];
   if (wells.length === 0) return 0;
   const perDay = config.oil.wells?.secondsPerDay || 1;
-  let daily = 0;
-  for (const well of wells) daily += Math.max(0, well.dailyTonnes);
-  return (daily / perDay) * wellDeclineFactor(config, state);
+  return (totalDailyWellTonnes(wells) / perDay) * wellDeclineFactor(config, state);
 }
 
 /** Суммарный суточный дебит, тонн в сутки (с учётом падения) — для панели. */
 export function wellsDailyTonnes(state: GameState, config?: GameConfig): number {
-  const total = (state.wells ?? []).reduce(
-    (sum, well) => sum + Math.max(0, well.dailyTonnes),
-    0,
-  );
+  const total = totalDailyWellTonnes(state.wells ?? []);
   if (!config) return total;
   return total * wellDeclineFactor(config, state);
 }
