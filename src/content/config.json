@@ -105,15 +105,6 @@
     "starterWellDailyTonnes": 8
   },
   "influence": {
-    "perGroup": {
-      "grants": 1,
-      "taxes": 3,
-      "deals": 2,
-      "conquest": 6,
-      "favors": 2,
-      "pmc": 8,
-      "media": 2
-    },
     "cap": 400
   },
   "autosaveSeconds": 10,

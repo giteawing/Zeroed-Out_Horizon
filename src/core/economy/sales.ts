@@ -174,8 +174,7 @@ export function saleProceeds(
 ): number {
   const channel = def.effect.burstChannel ?? 'export';
   const rate = derived.channels[channel];
-  const bonus = 1 + (def.effect.exportBonus ?? 0);
-  return Math.max(0, tonnes * rate.price * bonus);
+  return Math.max(0, tonnes * rate.price);
 }
 
 /**

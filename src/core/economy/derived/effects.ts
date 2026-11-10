@@ -21,7 +21,6 @@ export interface UpgradeEffects {
   exchangeRateMultiplier: number;
   exportMultiplier: number;
   salariesGrowth: number;
-  taxAdd: number;
   staffLevels: number;
   officialLevels: number;
   totalLevels: number;
@@ -55,7 +54,6 @@ export function collectUpgradeEffects(
     exchangeRateMultiplier: 1,
     exportMultiplier: 1,
     salariesGrowth: 0,
-    taxAdd: 0,
     staffLevels: 0,
     officialLevels: 0,
     totalLevels: 0,
@@ -102,10 +100,8 @@ export function collectUpgradeEffects(
           result.capitalFlightPerSecond += effect.capitalFlightPerSecond * level;
           result.capitalFlightGrowthPerMinute += (effect.capitalFlightGrowthPerMinute ?? 0) * level;
         }
-        if (effect.costCut) result.costCutFraction += effect.costCut * level;
         if (effect.exportBonus) result.exportMultiplier += effect.exportBonus * level;
         if (effect.salaryAdd) result.salariesGrowth += effect.salaryAdd * level;
-        if (effect.taxAdd) result.taxAdd += effect.taxAdd * level;
         break;
       case 'storage':
         result.capacityBonus += (effect.value ?? 0) * level;

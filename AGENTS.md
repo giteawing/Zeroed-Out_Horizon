@@ -219,6 +219,12 @@ production-сборки, а не только dev-сервера. В CI посл
   и существующий SVG в `public/images/icons/`. `loadContent()` проверяет
   локализацию, тип канала, способ экспорта, диапазоны `channelSplit` и
   `unlockAt.influence`.
+- Поле `effect` работает только у своего `type`. Разрешённые поля перечислены
+  в `EFFECT_FIELDS` (`src/core/content.ts`, пересказ — `docs/ECONOMY.md`,
+  «Поля `effect` покупок»); покупка с чужим полем не загрузится.
+  `tests/effect-fields.test.ts` меняет каждое поле каждой карточки и требует,
+  чтобы игра это заметила: поле, которое ничего не делает, в контенте не
+  остаётся. Описание карточки обещает только то, что делают её поля.
 - DOM-тест после `querySelector()` сначала явно проверяет элемент через
   `expect(element).not.toBeNull()`, затем использует его без optional chaining.
   Не допускай тестов вида `expect(element?.querySelector(...)).not.toBeNull()`:

@@ -611,7 +611,7 @@ export class Game {
         const { channel, price, tonnes } = this.exportBurstPlan(def, derived);
         // Нулевой объём отсекает checkBuy(); здесь — защита от прямого вызова.
         if (tonnes <= 0) return payouts;
-        const gross = tonnes * price * (1 + (def.effect.exportBonus ?? 0));
+        const gross = tonnes * price;
         this.state.oil -= tonnes;
         this.state.totalSold += tonnes;
         this.pendingSalesGross += gross;

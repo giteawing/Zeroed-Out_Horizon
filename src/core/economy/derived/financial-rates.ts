@@ -31,7 +31,7 @@ export function calculateFinancialRates(
   const influence = Math.max(0, Math.round(effects.influenceFromLevels));
   const taxRate = Math.min(
     config.tax.baseRate,
-    taxRateOf(config, influence, effects.taxCutPoints + effects.taxAdd * 100),
+    taxRateOf(config, influence, effects.taxCutPoints),
   );
   const costCutFactor = Math.max(
     config.expenses.minCutFactor,

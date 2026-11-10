@@ -15,6 +15,8 @@ import type {
   TextsFile,
   UnlockRequirement,
   UpgradeDef,
+  UpgradeEffect,
+  UpgradeType,
   UpgradesFile,
 } from './types';
 
@@ -23,7 +25,41 @@ const TYPES = new Set([
   'production', 'well', 'passive', 'multiplier', 'taxCut', 'costCut', 'periodic',
   'oneShot', 'gamble', 'priceBoost', 'luxury', 'sell', 'storage', 'field', 'win',
 ]);
+/**
+ * Поля `effect`, которые ядро применяет для каждого типа покупки.
+ *
+ * Поле вне списка игра молча игнорирует, а карточка продолжает его обещать:
+ * так постройки сбыта несли `exportBonus`, работающий только у пассивных
+ * покупок (REVIEW A4). Поэтому контент с лишним полем не загружается.
+ *
+ * Чтобы разрешить типу новое поле, добавьте его сюда и поставьте хотя бы
+ * одной карточке: `tests/effect-fields.test.ts` меняет каждое поле каждой
+ * карточки и требует, чтобы игра это заметила. Запись `Record<UpgradeType, …>`
+ * не даст забыть новый тип, `keyof UpgradeEffect` — опечататься в названии.
+ */
+export const EFFECT_FIELDS: Record<UpgradeType, ReadonlyArray<keyof UpgradeEffect>> = {
+  production: ['value'],
+  well: [],
+  field: [],
+  passive: [
+    'exportBonus', 'salaryAdd', 'influence',
+    'capitalFlightPerSecond', 'capitalFlightGrowthPerMinute',
+  ],
+  multiplier: ['factor', 'scope', 'influence', 'conquestCut', 'fuelDamper'],
+  taxCut: ['percent', 'bankScale', 'influence'],
+  costCut: ['percent'],
+  periodic: ['seconds', 'value'],
+  oneShot: ['value', 'bankScale', 'launder', 'sellsOil', 'usesWorldPrice', 'burstChannel'],
+  gamble: ['factor', 'seconds', 'chance'],
+  priceBoost: ['domesticPriceMultiplier', 'exportPriceMultiplier', 'exchangeRateDevaluation'],
+  luxury: [],
+  sell: ['channel', 'value', 'channelSplit', 'exportMode', 'percent', 'costCut'],
+  storage: ['value'],
+  win: [],
+};
 const CHANNELS = new Set(['contract', 'export', 'refine']);
+/** Разовая акция продаёт сырую нефть: переработки в ней нет. */
+const BURST_CHANNELS = new Set(['contract', 'export']);
 const EXPORT_MODES = new Set(['pipeline', 'rail', 'tanker']);
 const PRODUCTS = new Set(['crude', 'products']);
 const STORAGE_KINDS = new Set(['oil', 'products']);
@@ -160,6 +196,26 @@ export function validateUpgrades(upgrades: UpgradeDef[], texts?: TextsFile): voi
     if (u.effect.burstChannel && !CHANNELS.has(u.effect.burstChannel)) {
       throw new Error(`upgrades.json: неизвестный burstChannel «${u.effect.burstChannel}» у ${u.id}`);
     }
+    // Продажа нефти со склада включается двумя признаками сразу. Один без
+    // другого даёт карточку, которая требует нефть, но платит «из воздуха».
+    if (!!u.effect.sellsOil !== !!u.effect.usesWorldPrice) {
+      throw new Error(
+        `upgrades.json: ${u.id}: effect.sellsOil и effect.usesWorldPrice задаются только вместе`,
+      );
+    }
+    if (u.effect.burstChannel) {
+      if (!u.effect.sellsOil) {
+        throw new Error(
+          `upgrades.json: ${u.id}: effect.burstChannel работает только у разовой продажи нефти (effect.sellsOil)`,
+        );
+      }
+      if (!BURST_CHANNELS.has(u.effect.burstChannel)) {
+        throw new Error(
+          `upgrades.json: ${u.id}: effect.burstChannel «${u.effect.burstChannel}» — ` +
+          'разовая акция продаёт сырую нефть, допустимы contract и export',
+        );
+      }
+    }
     if (u.effect.exportMode && !EXPORT_MODES.has(u.effect.exportMode)) {
       throw new Error(`upgrades.json: неизвестный способ экспорта ${u.effect.exportMode} у ${u.id}`);
     }
@@ -180,6 +236,16 @@ export function validateUpgrades(upgrades: UpgradeDef[], texts?: TextsFile): voi
       if (entries.length === 0 || total <= 0 || total > 2) {
         throw new Error(`upgrades.json: пустой или некорректный channelSplit у ${u.id}`);
       }
+    }
+    // Значения полей проверены выше; здесь — что поле вообще работает у этого
+    // типа покупки. Иначе карточка обещает эффект, которого ядро не применяет.
+    const allowed: ReadonlyArray<string> = EFFECT_FIELDS[u.type];
+    const ignored = Object.keys(u.effect).filter((key) => !allowed.includes(key));
+    if (ignored.length > 0) {
+      throw new Error(
+        `upgrades.json: ${u.id}: поле effect.${ignored.join(', effect.')} не работает у покупки type «${u.type}» — ` +
+        `ядро его не читает. Доступные поля: ${allowed.length > 0 ? allowed.join(', ') : 'нет'}`,
+      );
     }
     if (u.type === 'gamble') {
       if (!within(u.effect.chance, 0, 1)) {
@@ -371,10 +437,10 @@ export function validateConfig(config: GameConfig, upgrades: UpgradeDef[]): void
     fail(`oil.wells.classes: сумма вероятностей должна быть 1, сейчас ${chanceSum}`);
   }
 
-  const groups = new Set(upgrades.map((u) => u.group));
-  for (const [group, value] of Object.entries(config.influence?.perGroup ?? {})) {
-    if (!groups.has(group)) fail(`influence.perGroup: нет покупок с группой «${group}»`);
-    if (!nonNegative(value)) fail(`influence.perGroup.${group} должен быть неотрицательным числом`);
+  // Влияние начисляется только за effect.influence покупок. Таблица по
+  // группам осталась от прежней механики и ничего не делала (REVIEW A4).
+  if (config.influence && 'perGroup' in config.influence) {
+    fail('influence.perGroup больше не используется: влияние задаётся полем effect.influence у покупок');
   }
   if (!positive(config.influence?.cap)) fail('influence.cap должен быть больше 0');
 

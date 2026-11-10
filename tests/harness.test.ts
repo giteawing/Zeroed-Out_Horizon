@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { loadContent } from '../src/core/content';
+import { EFFECT_FIELDS, loadContent } from '../src/core/content';
 import { BALANCE_PROFILES } from '../src/core/simulator';
 import { balanceProfiles } from './helpers/balance-profiles';
 
@@ -236,6 +236,31 @@ describe('инструкции совпадают с настройками пр
     const superscript = String(level).replace(/\d/g, (digit) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[Number(digit)]!);
     expect(economy).toContain(`${comma(step)}${superscript} ≈ ${comma(Math.pow(step, level))}`);
     expect(level).toBeLessThanOrEqual(byId.get('p_devalue_currency')!.maxLevel);
+  });
+
+  it('таблица полей effect в ECONOMY совпадает с проверкой контента (REVIEW A4)', () => {
+    const economy = read('docs/ECONOMY.md');
+    const start = economy.indexOf('## Поля `effect` покупок');
+    expect(start).toBeGreaterThanOrEqual(0);
+    const section = economy.slice(start, economy.indexOf('\n## ', start + 1));
+    const names = (cell: string): string[] => [...cell.matchAll(/`([^`]+)`/g)].map((match) => match[1]!);
+
+    const lines = section.split('\n');
+    const header = lines.findIndex((line) => line.startsWith('|---'));
+    expect(header).toBeGreaterThan(0);
+    const documented: Record<string, string[]> = {};
+    for (const line of lines.slice(header + 1)) {
+      if (!line.startsWith('|')) break;
+      const [, types = '', fields = ''] = line.split('|');
+      for (const type of names(types)) {
+        expect(documented, `тип ${type} описан дважды`).not.toHaveProperty(type);
+        documented[type] = names(fields).sort();
+      }
+    }
+    const actual = Object.fromEntries(
+      Object.entries(EFFECT_FIELDS).map(([type, fields]) => [type, [...fields].sort()]),
+    );
+    expect(documented).toEqual(actual);
   });
 
   it('README не обещает игроку инженерное меню в production (REVIEW B6)', () => {

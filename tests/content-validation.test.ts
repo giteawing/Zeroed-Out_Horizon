@@ -138,10 +138,13 @@ describe('validateConfig (REVIEW C6)', () => {
   it('налог и влияние', () => {
     expect(broken((config) => { config.tax.minRate = 0.5; })).toThrow(/tax/);
     expect(broken((config) => { config.tax.baseRate = 1.5; })).toThrow(/tax/);
-    expect(broken((config) => { config.influence.perGroup = { 'нет-такой-группы': 2 }; }))
-      .toThrow(/influence\.perGroup.*нет-такой-группы/);
-    expect(broken((config) => { config.influence.perGroup.grants = -1; }))
-      .toThrow(/influence\.perGroup.*grants/);
+    // Влияние задаётся только полем effect.influence у покупок (аудит A11).
+    // Таблица «влияние по группам» ни на что не влияла и вводила в заблуждение,
+    // поэтому её больше нет, а устаревший конфиг с ней не загружается (REVIEW A4).
+    expect(content.config.influence).not.toHaveProperty('perGroup');
+    expect(broken((config) => {
+      (config.influence as unknown as Record<string, unknown>).perGroup = { grants: 1 };
+    })).toThrow(/influence\.perGroup.*effect\.influence/);
     expect(broken((config) => { config.influence.cap = 0; })).toThrow(/influence\.cap/);
   });
 });
@@ -168,6 +171,37 @@ describe('validateUpgrades: новые проверки (REVIEW C6)', () => {
       .toThrow(/storage.*gas.*t_depot/);
     expect(broken('p_export', (def) => { def.effect.burstChannel = 'sea' as never; }))
       .toThrow(/burstChannel.*sea.*p_export/);
+  });
+
+  it('поле effect, которое ядро не читает для этого типа покупки, — ошибка (REVIEW A4)', () => {
+    // Так и было в контенте: постройка сбыта с бонусом пассивной покупки.
+    expect(broken('t_terminal', (def) => { def.effect.exportBonus = 0.15; }))
+      .toThrow(/t_terminal.*exportBonus.*sell/);
+    // Сообщение подсказывает, какие поля этому типу доступны.
+    expect(broken('t_terminal', (def) => { def.effect.exportBonus = 0.15; }))
+      .toThrow(/channel.*value/);
+    expect(broken('d1_blade', (def) => { def.effect.percent = 5; }))
+      .toThrow(/d1_blade.*percent.*production/);
+    expect(broken('l_cane', (def) => { def.effect.value = 1; }))
+      .toThrow(/l_cane.*value.*luxury/);
+    // Опечатка в названии поля раньше молча выключала эффект.
+    expect(broken('t_roga', (def) => { (def.effect as Record<string, unknown>).exportBouns = 0.1; }))
+      .toThrow(/t_roga.*exportBouns/);
+  });
+
+  it('разовая продажа нефти описана целиком или никак (REVIEW A4)', () => {
+    // Один признак без другого: карточка требует нефть, но платит «из воздуха»,
+    // либо признак мировой цены не делает ничего.
+    expect(broken('p_export', (def) => { delete def.effect.usesWorldPrice; }))
+      .toThrow(/p_export.*sellsOil.*usesWorldPrice/);
+    expect(broken('p_monarch', (def) => { def.effect.usesWorldPrice = true; }))
+      .toThrow(/p_monarch.*sellsOil.*usesWorldPrice/);
+    // Канал сброса без самой продажи нефти ядро не читает.
+    expect(broken('p_monarch', (def) => { def.effect.burstChannel = 'export'; }))
+      .toThrow(/p_monarch.*burstChannel/);
+    // Разовая акция продаёт сырую нефть: переработки в ней нет.
+    expect(broken('p_export', (def) => { def.effect.burstChannel = 'refine'; }))
+      .toThrow(/p_export.*burstChannel.*refine/);
   });
 
   it('названия моделей: только у staged, без пустых и недостижимых', () => {

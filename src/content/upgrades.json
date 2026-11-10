@@ -95,8 +95,7 @@
         "channelSplit": {
           "crude": 0,
           "products": 1
-        },
-        "exportMode": "tanker"
+        }
       },
       "unlockAt": {
         "balance": 30000000
@@ -158,7 +157,7 @@
       "tab": "sales",
       "group": "infrastructure",
       "name": "Построить морской терминал с собственным танкером",
-      "description": "Усиливает «пихнуть нефть заграницу». Танкер гудит на удачу.",
+      "description": "Свой причал и свой танкер: за границу уходит и сырая нефть, и нефтепродукты. Танкер гудит на удачу.",
       "icon": "terminal",
       "type": "sell",
       "baseCost": 1005077,
@@ -166,7 +165,6 @@
       "effect": {
         "channel": "export",
         "value": 43200,
-        "exportBonus": 0.15,
         "exportMode": "tanker",
         "channelSplit": {
           "crude": 1,
@@ -288,7 +286,6 @@
       "effect": {
         "channel": "export",
         "value": 72000,
-        "exportBonus": 0.02,
         "channelSplit": {
           "crude": 1,
           "products": 0
@@ -314,12 +311,10 @@
       "effect": {
         "channel": "export",
         "value": 96000,
-        "exportBonus": 0.03,
         "channelSplit": {
           "crude": 0,
           "products": 1
-        },
-        "exportMode": "tanker"
+        }
       },
       "unlockAt": {
         "balance": 400000000
@@ -1113,7 +1108,6 @@
       "maxLevel": 1,
       "cooldownSeconds": 45,
       "effect": {
-        "value": 40,
         "usesWorldPrice": true,
         "sellsOil": true,
         "burstChannel": "export"
@@ -2111,7 +2105,6 @@
       "maxLevel": 1,
       "effect": {
         "factor": 1,
-        "scope": "passive",
         "fuelDamper": true
       },
       "unlockAt": {
@@ -2386,7 +2379,6 @@
       "effect": {
         "channel": "export",
         "value": 4800,
-        "exportMode": "tanker",
         "channelSplit": {
           "crude": 0,
           "products": 1
@@ -2438,7 +2430,6 @@
       "effect": {
         "channel": "export",
         "value": 43200,
-        "exportMode": "tanker",
         "channelSplit": {
           "crude": 0,
           "products": 1
@@ -2463,7 +2454,6 @@
       "effect": {
         "channel": "export",
         "value": 124800,
-        "exportMode": "tanker",
         "channelSplit": {
           "crude": 0,
           "products": 1

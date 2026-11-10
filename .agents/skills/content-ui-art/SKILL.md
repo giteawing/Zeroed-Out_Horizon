@@ -17,6 +17,13 @@ description: Use when modifying content JSON, Russian UI copy, shop cards, HUD, 
 - `src/content/credits.txt` — текст финальных титров, который предоставляется
   владельцем; не сочиняй и не вставляй защищённый текст по памяти.
 
+Поле `effect` работает только у своего `type`: список — `EFFECT_FIELDS` в
+`src/core/content.ts`, смысл полей — `docs/ECONOMY.md`, «Поля `effect`
+покупок». Чужое или неработающее поле не пройдёт `loadContent()` и
+`tests/effect-fields.test.ts`. Описание (`description`) обещает только то, что
+делают поля карточки: «усиливает…», «влияние растёт» без соответствующего
+поля — ошибка контента, а не художественный приём.
+
 Не добавляй русские строки интерфейса в `src/ui/` или `src/main.ts`.
 Добавляй ключ в JSON, используй типизированный accessor `texts.get()` и
 проверяй `tests/content.test.ts`. Исключения допустимы для технических
