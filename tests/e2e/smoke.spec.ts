@@ -45,7 +45,8 @@ test('игра запускается без ошибок в консоли', as
   await start(page);
   // Кошелёк с нефтефаниками живёт в шапке, а не в панели.
   await expect(page.locator('.topbar__coins')).toContainText('₦');
-  await expect(page.locator('[data-testid="production-stage"]')).toBeVisible();
+  await expect(page.locator('.stage__overlay')).toBeVisible();
+  await expect(page.locator('[data-testid="production-stage"]')).toHaveCount(0);
   await expect(page.locator('[data-testid="flow-controls"]')).toBeVisible();
   await expect(page.locator('[data-testid="drill"]')).toHaveCount(0);
   await expect(page.locator('.news__item').first()).toBeVisible();
@@ -235,20 +236,42 @@ test('панель империи видна всегда и держит все
   const autoDrill = hud.locator('.hud__row-value--wide');
   await expect(autoDrill).toHaveText(/^буровая бригада (в сборе|не укомплектована)$/);
   expect((await autoDrill.boundingBox())?.width ?? 0).toBeGreaterThan(250);
-  // Правая колонка: статистика, маршрутизация, журнал и статус производства.
+  // Рыночные цены находятся в шапке рядом с балансом и влиянием.
+  const marketPrices = page.locator('.topbar__market .hud__prices');
+  await expect(marketPrices).toBeVisible();
+  for (const label of [
+    'мировая цена',
+    'внутренняя цена',
+    'экспортная цена',
+    'продукты, внутр. цена',
+    'продукты, экспорт',
+    'Нефтефантиков за $1',
+  ]) {
+    await expect(marketPrices).toContainText(label);
+  }
+  await expect(hud.locator('.hud__prices')).toHaveCount(0);
+
+  // Правая колонка: статистика, маршруты и журнал операций.
   const side = page.locator('.stage__side');
   const shopBox = await page.locator('.shop').boundingBox();
   const hudBox = await hud.boundingBox();
-  const flowBox = await page.locator('[data-testid="flow-controls"]').boundingBox();
+  const flowPanel = page.locator('[data-testid="flow-controls"]');
+  const flowBox = await flowPanel.boundingBox();
   const oplogBox = await page.locator('[data-testid="oplog"]').boundingBox();
-  const productionBox = await page.locator('[data-testid="production-stage"]').boundingBox();
   expect(hudBox?.width ?? 0).toBeGreaterThan(200);
   expect(flowBox?.width ?? 0).toBeGreaterThan(200);
   expect(flowBox?.height ?? 0).toBeGreaterThan(80);
   expect(oplogBox?.width ?? 0).toBeGreaterThan(200);
-  expect(productionBox?.height ?? 0).toBeGreaterThan(70);
   expect(oplogBox!.y).toBeGreaterThan(flowBox!.y + flowBox!.height - 1);
-  expect(productionBox!.y).toBeGreaterThan(oplogBox!.y + oplogBox!.height - 1);
+
+  const flowOverflow = await flowPanel.evaluate((node) => ({
+    overflowY: getComputedStyle(node).overflowY,
+    scrollHeight: node.scrollHeight,
+    clientHeight: node.clientHeight,
+  }));
+  expect(['auto', 'scroll']).not.toContain(flowOverflow.overflowY);
+  expect(flowOverflow.scrollHeight).toBeLessThanOrEqual(flowOverflow.clientHeight + 1);
+
   // Панель империи стала широкой: 460–620 px на десктопе. Магазин при этом
   // не схлопывается — иначе карточки покупок не читаются.
   expect(side).toBeTruthy();

@@ -59,6 +59,7 @@ describe('непрерывная добыча и маршрутизация', ()
     for (const channel of ['export', 'refine', 'contract'] as const) {
       const { game, state } = setup();
       state.levels.t_refinery = 2;
+      state.levels.t_pipeline = 1;
       game.invalidate();
       const maximum = game.derived().flowLimits[channel];
       expect(maximum).toBeGreaterThan(0);

@@ -89,12 +89,16 @@ describe('стартовый экран', () => {
   });
 });
 
-describe('производственная сцена и маршрутизация', () => {
-  it('показывает статус промышленной добычи вместо кнопки долота', () => {
-    expect(document.querySelector('[data-testid="production-stage"]')).not.toBeNull();
+describe('слой эффектов и маршрутизация', () => {
+  it('не создаёт карточку промышленной добычи, но сохраняет слой эффектов', () => {
+    expect(document.querySelector('[data-testid="production-stage"]')).toBeNull();
+    expect(document.querySelector('.stage__production')).toBeNull();
     expect(document.querySelector('[data-testid="drill"]')).toBeNull();
     expect(document.querySelector('.drill__art')).toBeNull();
-    expect(document.querySelector('.stage__fx')).not.toBeNull();
+    const overlay = document.querySelector('.stage__overlay');
+    expect(overlay).not.toBeNull();
+    expect(overlay?.querySelector('canvas.stage__fx')).not.toBeNull();
+    expect(overlay?.querySelector('.badge')).not.toBeNull();
   });
 
   it('показывает три числовых маршрута и режим авто', () => {
@@ -127,7 +131,8 @@ describe('HUD', () => {
     // Панель империи: резервуары, сырая нефть, нефтепродукты, прибыль.
     expect(document.querySelector('.hud__oilbar')).not.toBeNull();
     expect(document.querySelector('[data-row="productsStorageEta"]')).not.toBeNull();
-    expect(document.querySelector('.hud__prices')?.textContent).toContain('мировая цена');
+    expect(document.querySelector('.topbar__market .hud__prices')?.textContent).toContain('мировая цена');
+    expect(document.querySelector('.hud .hud__prices')).toBeNull();
     const text = document.querySelector('.hud')?.textContent ?? '';
     expect(text).toContain('Сырая нефть');
     expect(text).toContain('Нефтепродукты');
