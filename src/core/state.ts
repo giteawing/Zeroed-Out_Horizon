@@ -1,7 +1,7 @@
 /**
  * Состояние игры: создание, миграция (мягкое слияние), сериализация, офлайн-доход.
  */
-import type { Content, GameConfig, GameState } from './types';
+import type { Content, GameConfig, GameState, Well } from './types';
 import { randomSeed } from './rng';
 
 export const SAVE_KEY = 'zeroed-out-horizon:save:v2';
@@ -140,7 +140,7 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
   state.timers = timers;
 
   // Скважины: дебит каждой сохраняется, потому что он выпал случайно.
-  const wells: GameState['wells'] = [];
+  const wells: Well[] = [];
   if (Array.isArray(src.wells)) {
     for (const w of src.wells.slice(0, 5000)) {
       if (!w || typeof w !== 'object') continue;

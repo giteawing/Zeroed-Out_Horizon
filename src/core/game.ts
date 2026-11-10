@@ -493,10 +493,12 @@ export class Game {
       this.derived().exchangeRate,
     );
     // Разбиваем суммарный дебит на скважины разных классов — «месторождение».
-    for (const share of prize.shares) {
-      const kind: Well['kind'] = share >= 500 ? 'unique' : share >= 50 ? 'good' : 'ordinary';
-      this.state.wells.push({ kind, dailyTonnes: share });
-    }
+    // Массив скважин неизменяемый: добавляем заменой, а не push (см. GameState.wells).
+    const field = prize.shares.map((share): Well => ({
+      kind: share >= 500 ? 'unique' : share >= 50 ? 'good' : 'ordinary',
+      dailyTonnes: share,
+    }));
+    this.state.wells = [...this.state.wells, ...field];
     this.pushLog({
       kind: 'conquest',
       upgradeId,
@@ -537,7 +539,7 @@ export class Game {
       chosen.minDailyTonnes + Math.round(this.rng.next() * Math.max(0, steps)) * step,
     );
     const well: Well = { kind: chosen.key, dailyTonnes };
-    this.state.wells.push(well);
+    this.state.wells = [...this.state.wells, well];
     this.pushLog({ kind: 'drill', tonnes: dailyTonnes });
     this.invalidate();
     this.emit({ type: 'drilled', kind: well.kind, dailyTonnes });

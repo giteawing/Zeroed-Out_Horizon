@@ -521,8 +521,12 @@ export interface GameState {
   /**
    * Пробуренные скважины в порядке бурения. Дебит каждой выпал случайно
    * при покупке и больше не меняется — это «характер» месторождения.
+   *
+   * Массив неизменяемый: новая скважина добавляется заменой массива
+   * (`state.wells = [...state.wells, well]`), а не `push`. По самому массиву
+   * кешируется сумма дебита, и после первого расчёта он заморожен.
    */
-  wells: Well[];
+  wells: readonly Well[];
   /** Гэмблы «в полёте». */
   gambles: Array<{ id: string; amount: number; factor: number; resolveAt: number }>;
   achievements: string[];

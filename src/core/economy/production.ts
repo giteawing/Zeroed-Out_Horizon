@@ -1,19 +1,33 @@
 /**
  * Производство и базовые коэффициенты расходов: ёмкости, скважины, налог и штрафы.
- * Все функции чистые: состояние и конфиг только читаются.
+ * Функции не меняют игровые величины: состояние и конфиг только читаются.
+ * Единственное исключение — посчитанный массив скважин замораживается,
+ * см. `totalDailyWellTonnes`.
  */
 import type { Content, GameConfig, GameState, Well } from '../types';
 import { levelOf } from './purchases';
 
-// Дебит меняется только при добавлении скважины; кешируем сумму по массиву.
-const wellDailyTotals = new WeakMap<readonly Well[], { length: number; total: number }>();
+/**
+ * Сумма суточного дебита, кеш по массиву скважин.
+ *
+ * `GameState.wells` — неизменяемое значение: скважины добавляются заменой
+ * массива (`state.wells = [...state.wells, well]`), поэтому сам массив служит
+ * ключом кеша. Чтобы правило нельзя было нарушить незаметно, посчитанный
+ * массив и его скважины замораживаются: запись на месте бросает TypeError,
+ * а не оставляет устаревшую сумму (AUDIT F10).
+ */
+const wellDailyTotals = new WeakMap<readonly Well[], number>();
 
 function totalDailyWellTonnes(wells: readonly Well[]): number {
   const cached = wellDailyTotals.get(wells);
-  if (cached && cached.length === wells.length) return cached.total;
+  if (cached !== undefined) return cached;
   let total = 0;
-  for (const well of wells) total += Math.max(0, well.dailyTonnes);
-  wellDailyTotals.set(wells, { length: wells.length, total });
+  for (const well of wells) {
+    total += Math.max(0, well.dailyTonnes);
+    Object.freeze(well);
+  }
+  Object.freeze(wells);
+  wellDailyTotals.set(wells, total);
   return total;
 }
 

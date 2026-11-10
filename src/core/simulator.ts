@@ -334,7 +334,7 @@ export function estimatedGain(
   const next: GameState = {
     ...game.state,
     levels: { ...game.state.levels, [def.id]: level + 1 },
-    wells: game.state.wells.map((well) => ({ ...well })),
+    // Массив скважин неизменяемый, поэтому копия не нужна: ссылка общая.
     capitalFlightStartedAtMs: e.capitalFlightPerSecond && game.state.capitalFlightStartedAtMs === null
       ? game.state.clockMs
       : game.state.capitalFlightStartedAtMs,
@@ -343,7 +343,7 @@ export function estimatedGain(
     const daily = def.id === 't_well'
       ? averageWellDaily(content)
       : (cost * 7.5) / wellPricePerDailyTonne(content.config, undefined, game.derived().exchangeRate);
-    next.wells.push({ kind: 'unique', dailyTonnes: Math.max(1, daily) });
+    next.wells = [...game.state.wells, { kind: 'unique', dailyTonnes: Math.max(1, daily) }];
   }
   const after = derivedForSimulation(content, next);
   return Math.max(0, after.netPerSecond - before.netPerSecond);
