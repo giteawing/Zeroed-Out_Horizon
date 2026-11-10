@@ -80,7 +80,6 @@ export class Rules {
     const oil = config.oil;
     const contract = oil.channels.contract;
     const exportChannel = oil.channels.export;
-    const refine = oil.channels.refine;
     const base = oil.basePricePerTon;
     const daySeconds = oil.wells.secondsPerDay;
     const shipSeconds = oil.shipDays * daySeconds;
@@ -161,8 +160,7 @@ export class Rules {
           price: price(base * exportChannel.priceFactor),
         }),
         t('rules.channelRefine', {
-          rate: rate(refine.baseRate),
-          price: price(base * refine.priceFactor),
+          yield: formatPercent(oil.refineryYield, 0),
         }),
         // Сколько рынок готов принять и как поставки выбирают, куда идти.
         t('rules.marketsText', {}),

@@ -301,9 +301,19 @@ export function validateConfig(config: GameConfig, upgrades: UpgradeDef[]): void
 
   const oil = config.oil;
   for (const channel of CHANNELS) {
-    const channelConfig = oil.channels?.[channel as keyof typeof oil.channels];
-    if (!channelConfig) fail(`oil.channels.${channel}: канал не описан`);
-    if (!nonNegative(channelConfig.priceFactor)) {
+    const channelConfig: { priceFactor?: unknown; baseRate?: unknown } =
+      oil.channels?.[channel as keyof typeof oil.channels] ??
+      fail(`oil.channels.${channel}: канал не описан`);
+    if (channel === 'refine') {
+      // Выгода НПЗ считается по ценам нефтепродуктов и выходу. Множитель цены
+      // здесь выглядел бы настройкой баланса, но ничего бы не менял.
+      if (channelConfig.priceFactor !== undefined) {
+        fail(
+          'oil.channels.refine.priceFactor не используется: выгоду переработки задают ' +
+          'product.domesticPriceFactor, product.exportPriceFactor и oil.refineryYield',
+        );
+      }
+    } else if (!nonNegative(channelConfig.priceFactor)) {
       fail(`oil.channels.${channel}.priceFactor должен быть неотрицательным числом`);
     }
     if (!nonNegative(channelConfig.baseRate)) {

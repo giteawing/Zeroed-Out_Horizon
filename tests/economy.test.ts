@@ -499,10 +499,11 @@ describe('штраф за разлив', () => {
 
 describe('товарная модель: сырая нефть → нефтепродукты', () => {
   /*
-   * При равных ценах порядок задают цены каналов из конфига: переработка
-   * (priceFactor 2.6) дороже экспорта (1.0), а внутренний рынок (0.35) —
-   * самый дешёвый. То есть даже при «равных» переданных ценах нефть сначала
-   * идёт в НПЗ, потом на экспорт, и только остаток — на внутренний рынок.
+   * Сырьё делится по выручке с тонны. Для НПЗ это выход продуктов × цена
+   * рынка, который их примет (REVIEW A3), а не условная цена канала из
+   * конфига. При равных ценах тонна сырья (1) дороже 0,85 т продуктов из
+   * неё, поэтому НПЗ получает нефть последним. Подробные проверки порядка —
+   * в tests/auto-routing.test.ts.
    */
   const capacities = {
     domestic: { crude: 100, products: 100 },
@@ -578,17 +579,25 @@ describe('товарная модель: сырая нефть → нефтеп�
     const plan = allocateBatch(limitedConfig, capacities, 500, 1, equalPrices);
     expect(plan.domestic + plan.export + plan.refined + plan.rest).toBeCloseTo(500, 6);
     expect(plan.rest).toBeGreaterThan(0); // мощностей не хватило — осталось в резервуарах
+    // Продукты вчетверо дороже сырья: тонна на НПЗ приносит 0,85 × 4 = 3,4,
+    // на экспорте — 2, на внутреннем рынке — 1.
+    const refineFirst = { crudeDomestic: 1, crudeExport: 2, productDomestic: 4, productExport: 4 };
     // Малая партия уходит в самый дорогой канал — переработку.
-    const small = allocateBatch(limitedConfig, capacities, 50, 1, equalPrices);
+    const small = allocateBatch(limitedConfig, capacities, 50, 1, refineFirst);
     expect(small.rest).toBe(0);
     expect(small.refined).toBeCloseTo(50, 6);
     expect(small.export).toBe(0);
     expect(small.domestic).toBe(0);
     // Когда НПЗ загружен, дальше идёт экспорт, а остаток — внутренний рынок.
-    const rest = allocateBatch(limitedConfig, capacities, 200, 1, equalPrices);
+    const rest = allocateBatch(limitedConfig, capacities, 200, 1, refineFirst);
     expect(rest.refined).toBeCloseTo(50, 6);
     expect(rest.export).toBeCloseTo(80, 6);
     expect(rest.domestic).toBeCloseTo(70, 6);
+    // При равных ценах порядок обратный: сырьё продаётся, НПЗ берёт остаток.
+    const crudeFirst = allocateBatch(limitedConfig, capacities, 200, 1, equalPrices);
+    expect(crudeFirst.export).toBeCloseTo(80, 6);
+    expect(crudeFirst.domestic).toBeCloseTo(100, 6);
+    expect(crudeFirst.refined).toBeCloseTo(20, 6);
   });
 
   it('запас нефтепродуктов использует рыночную мощность до свежего выхода НПЗ', () => {

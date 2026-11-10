@@ -62,9 +62,17 @@ export type AssetKind =
  *   refine   — мощность переработки: сколько тонн сырья в секунду забирают НПЗ.
  * Продажа нефтепродуктов считается отдельно (см. `ProductConfig`).
  */
-export interface ChannelConfig {
+export interface ChannelConfig extends RefineChannelConfig {
   /** Множитель к мировой цене тонны. */
   priceFactor: number;
+}
+
+/**
+ * Переработка. Своей цены у канала нет: сырьё на НПЗ не продаётся, а
+ * превращается в нефтепродукты. Выгода тонны считается по их ценам
+ * (`ProductConfig`) и выходу (`OilConfig.refineryYield`).
+ */
+export interface RefineChannelConfig {
   /** Базовая пропускная способность, тонн в секунду. */
   baseRate: number;
   /** Канал берёт любой объём сырой нефти: ёмкость не ограничена. */
@@ -83,7 +91,7 @@ export interface OilConfig {
   /** Дебит стартовой скважины, т/сут. */
   starterWellDailyTonnes: number;
   /** Каналы сбыта. */
-  channels: Record<Channel, ChannelConfig>;
+  channels: { contract: ChannelConfig; export: ChannelConfig; refine: RefineChannelConfig };
   /**
    * Сколько игровых суток нефть копится в резервуарах, прежде чем уехать
    * на сбыт. По требованию заказчика — 5 суток (5 реальных секунд).
@@ -562,7 +570,10 @@ export type FlowControls = Record<Channel, FlowControl>;
 export interface ChannelRate {
   /** Пропускная способность канала, тонн в секунду. */
   rate: number;
-  /** Цена тонны через этот канал, ₦. */
+  /**
+   * Выручка с тонны сырья через этот канал, ₦. Для переработки — выход
+   * продуктов × лучшая из двух цен нефтепродуктов.
+   */
   price: number;
   /** Сколько тонн канал реально продаёт в секунду (учитывая запас нефти). */
   sold: number;

@@ -107,6 +107,19 @@ describe('validateConfig (REVIEW C6)', () => {
       .toThrow(/channels\.contract.*baseRate/);
   });
 
+  it('у переработки нет своего множителя цены (REVIEW A3)', () => {
+    // Выгода НПЗ считается по ценам нефтепродуктов и выходу. Число в конфиге
+    // выглядело бы настройкой баланса, но ничего бы не меняло.
+    expect(broken((config) => {
+      (config.oil.channels.refine as { priceFactor?: number }).priceFactor = 2.6;
+    })).toThrow(/channels\.refine.*priceFactor/);
+    expect(broken((config) => { config.oil.channels.refine.baseRate = -1; }))
+      .toThrow(/channels\.refine.*baseRate/);
+    expect(broken((config) => {
+      delete (config.oil.channels.contract as { priceFactor?: number }).priceFactor;
+    })).toThrow(/channels\.contract.*priceFactor/);
+  });
+
   it('коридор мировой цены, такт и кривая цен', () => {
     expect(broken((config) => { config.worldPrice.min = 2; })).toThrow(/worldPrice/);
     expect(broken((config) => { config.worldPrice.startPrice = 5; })).toThrow(/worldPrice.*startPrice/);

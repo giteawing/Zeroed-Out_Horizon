@@ -98,3 +98,52 @@ describe('правила: внутренний рынок сырой нефти 
     expect(channels).toContain('весь остаток');
   });
 });
+
+describe('правила: переработка и режим «Авто» (REVIEW A3, B2)', () => {
+  it('выход НПЗ в описании «Авто» берётся из конфига', () => {
+    const content = structuredClone(loadContent());
+    const { section } = rulesOf(content);
+    const channels = section('rules.channelsTitle');
+    expect(channels).toContain(formatPercent(content.config.oil.refineryYield, 0));
+    expect(channels).not.toMatch(/\{[a-zA-Z]+\}/);
+
+    const other = structuredClone(loadContent());
+    other.config.oil.refineryYield = 0.62;
+    const changed = rulesOf(other).section('rules.channelsTitle');
+    expect(changed).toContain(formatPercent(0.62, 0));
+    expect(changed).not.toContain(formatPercent(content.config.oil.refineryYield, 0));
+  });
+
+  it('правила говорят то же, что делает распределитель', () => {
+    // Текст обещает: при дорогом экспорте сырья нефть идёт за границу, а на
+    // склад НПЗ работает в последнюю очередь. Проверяем это на движке.
+    const content = structuredClone(loadContent());
+    const { section } = rulesOf(content);
+    const channels = section('rules.channelsTitle');
+    expect(channels).toContain('сначала идёт за границу');
+    expect(channels).toContain('в последнюю очередь');
+
+    content.config.worldPrice.min = 1;
+    content.config.worldPrice.max = 1;
+    content.config.worldPrice.startPrice = 1;
+    const state = createInitialState(content.config, 1);
+    state.wells = [{ kind: 'unique', dailyTonnes: 1_500 }];
+    // НПЗ и экспорт сырья по железной дороге; терминала для экспорта продуктов нет.
+    state.levels = { t_refinery: 16, x_cistern: 25, p_devalue_currency: 20 };
+    const dear = computeDerived(content.config, content.upgrades, state, [], content);
+    expect(dear.exportPricePerTon)
+      .toBeGreaterThan(dear.productPriceDomestic * content.config.oil.refineryYield);
+    expect(dear.flows.export).toBeCloseTo(dear.flows.produced, 6);
+    expect(dear.flows.refined).toBe(0);
+
+    // Рынок продуктов закрыт, есть только нефтебаза: без девальвации экспорт
+    // сырья всё равно идёт раньше работы на склад.
+    state.levels = { t_refinery: 16, x_cistern: 25, t_depot: 5 };
+    content.config.oil.channels.contract.baseRate = 0;
+    const storageOnly = computeDerived(content.config, content.upgrades, state, [], content);
+    expect(storageOnly.capacities.domestic.products).toBe(0);
+    expect(storageOnly.productCapacity).toBeGreaterThan(0);
+    expect(storageOnly.flows.export).toBeCloseTo(storageOnly.flows.produced, 6);
+    expect(storageOnly.flows.refined).toBe(0);
+  });
+});

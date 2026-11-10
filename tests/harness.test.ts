@@ -211,6 +211,33 @@ describe('инструкции совпадают с настройками пр
     expect(readme).not.toMatch(/±\s*30/);
   });
 
+  it('README и ECONOMY описывают «Авто» числами из конфига (REVIEW A3, B2)', () => {
+    const { config, byId } = loadContent();
+    const share = config.oil.refineryYield;
+    const comma = (value: number): string => String(Math.round(value * 100) / 100).replace('.', ',');
+    const readme = read('README.md');
+    expect(readme).toContain(`${Math.round(share * 100)} % от цены`);
+    expect(readme).toContain('config.oil.refineryYield');
+    // Прежняя формулировка не говорила, по какому правилу «Авто» выбирает канал.
+    expect(readme).not.toContain('с учётом\n   цен и физических ограничений');
+
+    const economy = read('docs/ECONOMY.md');
+    const domestic = config.product.domesticPriceFactor;
+    const exported = config.product.exportPriceFactor;
+    expect(economy).toContain(`${comma(share)} × ${comma(domestic)} = ${comma(share * domestic)}`);
+    expect(economy).toContain(`${comma(share)} × ${comma(exported)} = ${comma(share * exported)}`);
+
+    // Уровень девальвации, с которого экспорт сырья дороже продуктов внутри страны.
+    const step = 1 + (byId.get('p_devalue_currency')?.effect.exchangeRateDevaluation ?? 0);
+    expect(step).toBeGreaterThan(1);
+    const crudeExport = config.oil.channels.export.priceFactor * config.exchangeRate.initial;
+    let level = 0;
+    while (crudeExport * Math.pow(step, level) <= share * domestic) level++;
+    const superscript = String(level).replace(/\d/g, (digit) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[Number(digit)]!);
+    expect(economy).toContain(`${comma(step)}${superscript} ≈ ${comma(Math.pow(step, level))}`);
+    expect(level).toBeLessThanOrEqual(byId.get('p_devalue_currency')!.maxLevel);
+  });
+
   it('README не обещает игроку инженерное меню в production (REVIEW B6)', () => {
     const main = read('src/main.ts');
     // Пункт меню добавляется только под import.meta.env.DEV.

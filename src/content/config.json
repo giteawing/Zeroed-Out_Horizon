@@ -50,7 +50,6 @@
         "baseRate": 0
       },
       "refine": {
-        "priceFactor": 2.6,
         "baseRate": 0
       }
     },

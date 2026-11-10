@@ -73,14 +73,25 @@ export function calculateMarket(
   const exportOilPricePerTon = oilPricePerTon * exchangeRate * effects.exportPriceMultiplier;
   const channels = {} as Record<Channel, ChannelRate>;
 
+  const productPriceDomestic = domesticOilPricePerTon * config.product.domesticPriceFactor;
+  const productPriceExport = exportOilPricePerTon * config.product.exportPriceFactor;
+  const crudePrice = (channel: 'contract' | 'export'): number =>
+    (channel === 'export' ? exportOilPricePerTon : domesticOilPricePerTon) *
+    config.oil.channels[channel].priceFactor *
+    (1 + effects.priceBonus[channel]);
+  const priceOf: Record<Channel, number> = {
+    contract: crudePrice('contract'),
+    export: crudePrice('export'),
+    // Сырьё на НПЗ не продаётся: его цена — то, что дадут продукты из тонны.
+    refine: config.oil.refineryYield * Math.max(productPriceDomestic, productPriceExport),
+  };
+
   for (const channel of CHANNELS) {
     const channelConfig = config.oil.channels[channel];
     const rate = Math.max(0, channelConfig.baseRate + effects.rateFlat[channel]) *
       (1 + effects.throughputBonus[channel]);
-    const channelOilPrice = channel === 'export' ? exportOilPricePerTon : domesticOilPricePerTon;
-    const price = channelOilPrice * channelConfig.priceFactor * (1 + effects.priceBonus[channel]);
     const boostedRate = channel === 'export' ? rate * effects.exportMultiplier : rate;
-    channels[channel] = { rate: boostedRate, price, sold: boostedRate };
+    channels[channel] = { rate: boostedRate, price: priceOf[channel], sold: boostedRate };
   }
 
   const domesticPricePerTon = channels.contract.price;
@@ -129,8 +140,6 @@ export function calculateMarket(
   const productStorage = content
     ? productCapacityOf(config, content, state)
     : config.product.baseStorage;
-  const productPriceDomestic = domesticOilPricePerTon * config.product.domesticPriceFactor;
-  const productPriceExport = exportOilPricePerTon * config.product.exportPriceFactor;
 
   // Пакетная отгрузка использует мощности за весь закрываемый интервал
   // (Game.tickShipping → allocateBatch), а не только оставшееся время
