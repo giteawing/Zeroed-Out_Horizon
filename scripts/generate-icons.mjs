@@ -3,14 +3,26 @@
  * Запуск: npm run art
  *
  * Каждая иконка — самостоятельный SVG 100×100 в едином стиле (см. art.mjs).
- * Файлы можно править руками: генератор перезапишет только при повторном запуске,
- * а тест content.test.ts проверяет, что файл для каждой покупки существует.
+ *
+ * Готовые файлы — финальная графика: многие из них правились руками, а три
+ * (`domestic-cartel`, `export-cartel`, `devalue`) нарисованы вручную и в
+ * словаре генератора отсутствуют. Поэтому:
+ *   • по умолчанию генератор создаёт только НЕДОСТАЮЩИЕ файлы и ничего не
+ *     перезаписывает;
+ *   • `--force` перегенерирует иконки, описанные в словаре `icons`;
+ *   • рукописная иконка без записи в словаре не заменяется заглушкой никогда;
+ *   • `--out <папка>` собирает иконки в другую папку (проверка без записи
+ *     в `public/images`).
+ * Тест content.test.ts проверяет, что файл для каждой покупки существует,
+ * а svg.test.ts — что генератор не выдаёт битых SVG.
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   PALETTE as P,
+  argValue,
+  assertSvg,
   character,
   chimney,
   circle,
@@ -23,6 +35,7 @@ import {
   fill,
   group,
   icon,
+  isMainModule,
   line,
   path,
   poly,
@@ -36,7 +49,7 @@ import {
 } from './lib/art.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const outDir = resolve(here, '../public/images/icons');
+const defaultOutDir = resolve(here, '../public/images/icons');
 
 // ------------------------------------------------------------ примитивы сцены
 
@@ -598,7 +611,7 @@ const buildings = {
     16,
     0.6,
   )}${line(36, 78, 30, 84, 4)}${line(64, 78, 70, 84, 4)}`,
-  well: `${fill('M12 78q38 -9 76 0v8H12Z', '#8a5c2c', 0.9)}${derrick(38, 76, 46)}${pumpjack(70, 80, 0.72)}${drop(50, 34, 1)}${drop(66, 22, 0.6)}${circle(38, 76, 0)}`,
+  well: `${fill('M12 78q38 -9 76 0v8H12Z', '#8a5c2c', 0.9)}${derrick(38, 76, 46)}${pumpjack(70, 80, 0.72)}${drop(50, 34, 1)}${drop(66, 22, 0.6)}`,
   motor: `${rect(28, 36, 44, 30, 'url(#steel)', 8)}${path('M72 46l14 6-14 6Z', 'url(#gold)')}${line(
     34,
     30,
@@ -1067,32 +1080,81 @@ const FALLBACKS = {
   goals: (def) => `${star(50, 50, 22)}`,
 };
 
-function build(iconName) {
+/** Имена иконок, для которых в генераторе есть рисунок. */
+export function generatedIconNames() {
+  return Object.keys(icons).filter((name) => icons[name] && icons[name].trim());
+}
+
+/** SVG иконки из словаря генератора или null, если рисунка нет. */
+export function buildIcon(iconName) {
   if (icons[iconName] && icons[iconName].trim()) return icon(icons[iconName]);
   return null;
+}
+
+/**
+ * Что генератор собирается сделать, без записи на диск.
+ *
+ * @param {Array<{ icon: string, tab: string }>} upgrades определения покупок
+ * @param {{ exists: (iconName: string) => boolean, force?: boolean }} options
+ *   `exists` — есть ли уже файл иконки; `force` — перезаписывать ли
+ *   существующие файлы, для которых в генераторе есть рисунок.
+ * @returns {{
+ *   write: Array<{ name: string, svg: string }>,
+ *   kept: string[],
+ *   handmade: string[],
+ *   fallback: string[],
+ * }} `write` — файлы к записи; `kept` — существующие, оставлены как есть;
+ *   `handmade` — рукописные без рисунка в генераторе (не трогаются никогда);
+ *   `fallback` — недостающие иконки, собранные из заглушки.
+ */
+export function planIcons(upgrades, { exists, force = false }) {
+  const plan = { write: [], kept: [], handmade: [], fallback: [] };
+  const seen = new Set();
+  for (const def of upgrades) {
+    if (seen.has(def.icon)) continue;
+    seen.add(def.icon);
+    const present = exists(def.icon);
+    const svg = buildIcon(def.icon);
+    if (svg) {
+      if (present && !force) plan.kept.push(def.icon);
+      else plan.write.push({ name: def.icon, svg });
+      continue;
+    }
+    // Рисунка в генераторе нет. Готовый файл — ручная работа: не трогаем.
+    if (present) {
+      plan.handmade.push(def.icon);
+      continue;
+    }
+    const body = (FALLBACKS[def.tab] ?? FALLBACKS.technical)(def);
+    plan.fallback.push(def.icon);
+    plan.write.push({ name: def.icon, svg: icon(body) });
+  }
+  return plan;
 }
 
 function main() {
   const contentPath = resolve(here, '../src/content/upgrades.json');
   const data = JSON.parse(readFileSync(contentPath, 'utf8'));
-  mkdirSync(outDir, { recursive: true });
+  const outDir = resolve(argValue('--out') ?? defaultOutDir);
+  const force = process.argv.includes('--force');
 
-  let created = 0;
-  const missing = [];
-  for (const def of data.upgrades) {
-    const svg = build(def.icon);
-    if (!svg) {
-      missing.push(def.icon);
-      const fallback = (FALLBACKS[def.tab] ?? FALLBACKS.technical)(def);
-      writeFileSync(resolve(outDir, `${def.icon}.svg`), icon(fallback), 'utf8');
-      created++;
-      continue;
-    }
-    writeFileSync(resolve(outDir, `${def.icon}.svg`), svg, 'utf8');
-    created++;
+  const plan = planIcons(data.upgrades, {
+    exists: (name) => existsSync(resolve(outDir, `${name}.svg`)),
+    force,
+  });
+  // Сначала проверяем всё, потом пишем: битая иконка не затрёт рабочую.
+  for (const { name, svg } of plan.write) assertSvg(`${name}.svg`, svg);
+  mkdirSync(outDir, { recursive: true });
+  for (const { name, svg } of plan.write) {
+    writeFileSync(resolve(outDir, `${name}.svg`), svg, 'utf8');
   }
-  if (missing.length) console.log('собрано из фолбэка:', missing.join(', '));
-  console.log(`готово: ${created} иконок в public/images/icons`);
+
+  if (plan.fallback.length) console.log('собрано из заглушки:', plan.fallback.join(', '));
+  if (plan.handmade.length) console.log('рукописные, не тронуты:', plan.handmade.join(', '));
+  if (plan.kept.length) {
+    console.log(`уже существуют, оставлены как есть: ${plan.kept.length} (перегенерировать: --force)`);
+  }
+  console.log(`готово: записано ${plan.write.length} иконок в ${outDir}`);
 }
 
-main();
+if (isMainModule(import.meta.url)) main();

@@ -1,6 +1,10 @@
 /**
  * Генератор крупной графики: фон, логотип и финал.
  * Запуск: npm run art.
+ *
+ * Модуль можно импортировать: `buildScenes()` возвращает готовые SVG и ничего
+ * не пишет. Файлы создаются только при прямом запуске; `--out <папка>`
+ * позволяет собрать сцены во временную папку и сравнить с `public/images`.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -8,6 +12,8 @@ import { fileURLToPath } from 'node:url';
 import {
   PALETTE as P,
   STROKE,
+  argValue,
+  assertSvg,
   character,
   chimney,
   circle,
@@ -18,6 +24,7 @@ import {
   ellipse,
   fill,
   group,
+  isMainModule,
   line,
   path,
   poly,
@@ -31,6 +38,26 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const imgDir = resolve(here, '../public/images');
+
+/**
+ * Примитивы из art.mjs (`coin`, `drop`, `character`…) ссылаются на градиенты
+ * иконок: `url(#gold)`, `url(#oil)`. У сцен свои градиенты с суффиксом Grad,
+ * поэтому без перевода имён ссылка указывала в пустоту: монеты и капли в
+ * логотипе и финале теряли заливку. Раньше это чинили руками в готовых
+ * файлах — до следующего `npm run art`.
+ */
+const SCENE_GRADIENTS = {
+  gold: 'goldGrad',
+  oil: 'oilGrad',
+  skin: 'skinGrad',
+  steel: 'steelGrad',
+};
+
+/** Перевести ссылки на градиенты иконок в градиенты сцены. */
+function scene(svg) {
+  return svg.replace(/url\(#([A-Za-z0-9_-]+)\)/g, (match, id) =>
+    Object.hasOwn(SCENE_GRADIENTS, id) ? `url(#${SCENE_GRADIENTS[id]})` : match);
+}
 
 const DEFS = `
 <defs>
@@ -235,12 +262,25 @@ ${DEFS}
 </svg>
 `;
 
+/** Готовые сцены: имя файла → SVG. Ничего не пишет на диск. */
+export function buildScenes() {
+  return {
+    'bg.svg': scene(bg),
+    'logo.svg': scene(logo),
+    'finale.svg': scene(finale),
+  };
+}
+
 function main() {
-  mkdirSync(imgDir, { recursive: true });
-  writeFileSync(resolve(imgDir, 'bg.svg'), bg, 'utf8');
-  writeFileSync(resolve(imgDir, 'logo.svg'), logo, 'utf8');
-  writeFileSync(resolve(imgDir, 'finale.svg'), finale, 'utf8');
-  console.log('готово: bg.svg, logo.svg, finale.svg');
+  const outDir = resolve(argValue('--out') ?? imgDir);
+  const scenes = buildScenes();
+  // Сначала проверяем всё, потом пишем: битая сцена не затрёт рабочую.
+  for (const [name, svg] of Object.entries(scenes)) assertSvg(name, svg);
+  mkdirSync(outDir, { recursive: true });
+  for (const [name, svg] of Object.entries(scenes)) {
+    writeFileSync(resolve(outDir, name), svg, 'utf8');
+  }
+  console.log(`готово: ${Object.keys(scenes).join(', ')} в ${outDir}`);
 }
 
 void STROKE;
@@ -263,4 +303,4 @@ void line;
 void path;
 void rect;
 
-main();
+if (isMainModule(import.meta.url)) main();

@@ -42,7 +42,8 @@ npx playwright install chromium
 ### Прочие команды
 
 ```bash
-npm run art                          # перегенерировать SVG (иконки, фон, лого, финал)
+npm run art                          # создать недостающие иконки, пересобрать фон, лого, финал
+npm run art:force                    # перезаписать иконки из генератора (сотрёт ручные правки)
 npx tsx scripts/balance-report.ts    # таблица баланса по профилям игрока
 npx tsx scripts/auto-balance.ts      # отчёт по подбору цен (с --write — записать)
 ```

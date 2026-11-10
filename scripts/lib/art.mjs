@@ -1,13 +1,17 @@
 /**
- * Арт-движок игры. Единый стиль (см. AGENTS.md → «Арт-гайд»):
+ * Арт-движок игры. Единый стиль (см. skill content-ui-art):
  *   • viewBox 0 0 100 100, всё векторное, без растровых вставок;
  *   • толстая тёмная обводка 3.4 px, round join/cap;
  *   • плоские заливки + мягкий градиент + блик;
  *   • не больше 8 основных цветов.
  *
  * Иконки собираются из примитивов ниже. Сгенерированные файлы — финальная
- * графика, а не заглушки: их можно менять руками, генератор перезапишет.
+ * графика, а не заглушки. Их можно менять руками: генератор по умолчанию не
+ * трогает существующие файлы (см. generate-icons.mjs, флаг --force).
  */
+import { realpathSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export const PALETTE = {
   ink: '#17110c',
@@ -45,7 +49,7 @@ const BACKDROP = `
   <circle cx="50" cy="50" r="47" fill="none" stroke="${PALETTE.ink}" stroke-width="2.2" opacity="0.14" />`;
 
 /** Дефолтные градиенты, доступные всем иконкам по id: soft, gold, green, oil, sky, crimson, steel. */
-const DEFS = `
+export const DEFS = `
 <defs>
   <radialGradient id="soft" cx="38%" cy="28%" r="85%">
     <stop offset="0%" stop-color="#ffffff" stop-opacity="0.98" />
@@ -96,6 +100,69 @@ const DEFS = `
     <stop offset="100%" stop-color="${PALETTE.skin}" />
   </linearGradient>
 </defs>`;
+
+/**
+ * Что не так с готовым SVG: ссылки `url(#id)` на неопределённые градиенты и
+ * следы незаполненных шаблонов (`undefined`, `NaN`). Пустой список — файл цел.
+ *
+ * Генераторы вызывают проверку перед записью, а тест `tests/svg.test.ts` —
+ * для каждого результата: битый ресурс не должен попасть в `public/images`.
+ *
+ * @param {string} svg
+ * @returns {string[]}
+ */
+export function svgProblems(svg) {
+  const ids = new Set([...svg.matchAll(/\bid=["']([^"']+)["']/g)].map((match) => match[1]));
+  const refs = [...svg.matchAll(/url\(#([^)]+)\)/g)].map((match) => match[1]);
+  const missing = [...new Set(refs.filter((id) => !ids.has(id)))];
+  const problems = missing.map((id) => `ссылка на неопределённый id: url(#${id})`);
+  if (svg.includes('undefined')) problems.push('в разметке есть undefined');
+  if (/\bNaN\b/.test(svg)) problems.push('в разметке есть NaN');
+  return problems;
+}
+
+/**
+ * Вернуть SVG или упасть с понятной ошибкой, если ресурс битый.
+ *
+ * @param {string} name
+ * @param {string} svg
+ * @returns {string}
+ */
+export function assertSvg(name, svg) {
+  const problems = svgProblems(svg);
+  if (problems.length > 0) throw new Error(`${name}: ${problems.join('; ')}`);
+  return svg;
+}
+
+/**
+ * Запущен ли модуль как скрипт (`node file.mjs`), а не импортирован тестом.
+ * Генераторы пишут файлы только при прямом запуске.
+ *
+ * @param {string} metaUrl
+ * @returns {boolean}
+ */
+export function isMainModule(metaUrl) {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    // Сравниваем настоящие пути: скрипт могли запустить через симлинк.
+    return realpathSync(resolve(entry)) === realpathSync(fileURLToPath(metaUrl));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Значение аргумента `--name value` из командной строки.
+ *
+ * @param {string} name
+ * @param {string[]} [argv]
+ * @returns {string | undefined}
+ */
+export function argValue(name, argv = process.argv.slice(2)) {
+  const index = argv.indexOf(name);
+  return index >= 0 && index + 1 < argv.length ? argv[index + 1] : undefined;
+}
 
 /** Собирает готовый SVG-файл иконки. */
 export function icon(body, { backdrop = true } = {}) {
