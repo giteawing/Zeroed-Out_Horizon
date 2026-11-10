@@ -15,7 +15,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "balance": "vitest run tests/balance.test.ts tests/balance-profiles.test.ts --reporter=verbose",
+    "balance": "vitest run tests/balance --reporter=verbose",
     "balance:report": "tsx scripts/balance-report.ts",
     "balance:auto": "tsx scripts/auto-balance.ts",
     "art": "node scripts/generate-icons.mjs && node scripts/generate-scenes.mjs",

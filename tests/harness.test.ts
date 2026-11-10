@@ -7,6 +7,8 @@
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { BALANCE_PROFILES } from '../src/core/simulator';
+import { balanceProfiles } from './helpers/balance-profiles';
 
 const root = resolve(__dirname, '..');
 const read = (path: string): string => readFileSync(resolve(root, path), 'utf8');
@@ -114,9 +116,48 @@ describe('npm-скрипты проверок (REVIEW H5)', () => {
     expect(matched.some((title) => title.includes('в коде интерфейса нет'))).toBe(true);
   });
 
-  it('скрипт balance называет существующие файлы тестов', () => {
-    const files = [...scripts.balance.matchAll(/tests\/[\w./-]+\.test\.ts/g)].map((match) => match[0]);
-    expect(files.length).toBeGreaterThan(0);
-    for (const file of files) expect(() => read(file), file).not.toThrow();
+  it('скрипт balance запускает все балансовые тесты', () => {
+    // Vitest отбирает файлы по подстроке пути: один фильтр покрывает весь
+    // набор, и новый balance-файл не выпадает из `npm run balance`.
+    const filter = /vitest run (\S+)/.exec(scripts.balance)?.[1];
+    expect(filter).toBe('tests/balance');
+    const balanceFiles = readdirSync(resolve(root, 'tests'))
+      .filter((name) => name.startsWith('balance') && name.endsWith('.test.ts'));
+    expect(balanceFiles.sort()).toEqual([
+      'balance-content.test.ts',
+      'balance-growth.test.ts',
+      'balance-pace.test.ts',
+      'balance-profiles-extra.test.ts',
+      'balance-profiles.test.ts',
+    ]);
+  });
+});
+
+describe('профили баланса (REVIEW H1, AUDIT F08)', () => {
+  it('профилей четыре, имена и сиды не повторяются', () => {
+    expect(BALANCE_PROFILES).toHaveLength(4);
+    expect(new Set(BALANCE_PROFILES.map((profile) => profile.name)).size).toBe(4);
+    expect(new Set(BALANCE_PROFILES.map((profile) => profile.options.seed)).size).toBe(4);
+    expect(BALANCE_PROFILES.filter((profile) => profile.options.strategy === 'optimizer')).toHaveLength(1);
+  });
+
+  it('каждый профиль прогоняется ровно в одном тест-файле', () => {
+    // Раньше базовый файл гонял все четыре профиля, а дополнительный
+    // повторял два из них: одни и те же симуляции шли дважды.
+    const base = balanceProfiles('base');
+    const extra = balanceProfiles('extra');
+    expect(base.length).toBeGreaterThan(0);
+    expect(extra.length).toBeGreaterThan(0);
+    expect([...base, ...extra]).toEqual([...BALANCE_PROFILES]);
+
+    const runsOf = (file: string): string[] =>
+      [...read(file).matchAll(/describeBalanceProfiles\(\s*'(base|extra)'/g)].map((match) => match[1]);
+    expect(runsOf('tests/balance-profiles.test.ts')).toEqual(['base']);
+    expect(runsOf('tests/balance-profiles-extra.test.ts')).toEqual(['extra']);
+    // Других запусков профилей в тестах нет.
+    const others = readdirSync(resolve(root, 'tests'))
+      .filter((name) => name.endsWith('.test.ts') && !name.startsWith('balance-profiles') && name !== 'harness.test.ts')
+      .filter((name) => read(`tests/${name}`).includes('describeBalanceProfiles('));
+    expect(others).toEqual([]);
   });
 });

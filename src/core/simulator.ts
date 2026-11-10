@@ -72,6 +72,27 @@ export interface SimulatorResult {
   purchasedIds: string[];
 }
 
+/** Профиль игрока для проверки баланса. */
+export interface BalanceProfile {
+  name: string;
+  options: SimulatorOptions;
+}
+
+/**
+ * Четыре профиля, на которых проверяется длительность партии (12–25 минут).
+ * Единственный список: его используют балансовые тесты и
+ * `scripts/balance-report.ts`, поэтому отчёт и тесты не расходятся.
+ */
+export const BALANCE_PROFILES: readonly BalanceProfile[] = [
+  { name: 'быстрый экспорт', options: { exportPatienceSeconds: 20, seed: 101 } },
+  { name: 'сбалансированная логистика', options: { exportPatienceSeconds: 40, seed: 202 } },
+  { name: 'терпеливый экспорт', options: { exportPatienceSeconds: 60, seed: 303 } },
+  {
+    name: 'оптимизатор повторяемых действий',
+    options: { exportPatienceSeconds: 40, seed: 404, strategy: 'optimizer' },
+  },
+];
+
 const STEP_MS = 1000;
 
 export function runSimulation(content: Content, options: SimulatorOptions = {}): SimulatorResult {

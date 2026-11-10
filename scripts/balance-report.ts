@@ -4,16 +4,12 @@
  * Скрипт намеренно не входит в сборку — это инструмент разработки.
  */
 import { loadContent } from '../src/core/content';
-import { runSimulation } from '../src/core/simulator';
+import { BALANCE_PROFILES, runSimulation } from '../src/core/simulator';
 
 const content = loadContent();
 
-const profiles = [
-  { name: 'быстрый экспорт', exportPatienceSeconds: 20, seed: 101 },
-  { name: 'сбалансированная логистика', exportPatienceSeconds: 40, seed: 202 },
-  { name: 'терпеливый экспорт', exportPatienceSeconds: 60, seed: 303 },
-  { name: 'оптимизатор', exportPatienceSeconds: 40, seed: 404, strategy: 'optimizer' as const },
-];
+// Те же четыре профиля, что и в балансовых тестах.
+const profiles = BALANCE_PROFILES;
 
 const winCosts = process.argv.includes('--grid')
   ? [
@@ -29,7 +25,7 @@ for (const profile of profiles) {
     const winDef = content.upgrades.find((u) => u.win);
     if (winDef) winDef.baseCost = winCost;
     const started = Date.now();
-    const result = runSimulation(content, { ...profile, maxSeconds: 60 * 40 });
+    const result = runSimulation(content, { ...profile.options, maxSeconds: 60 * 40 });
     const minutes = (result.seconds / 60).toFixed(1);
     console.log(
       `winCost=${winCost.toExponential(0).padEnd(6)} -> ` +
