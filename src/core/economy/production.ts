@@ -105,6 +105,21 @@ export function wellDeclineFactor(config: GameConfig, state: GameState): number 
   return Math.min(1, Math.max(decline.minFactor, raw));
 }
 
+/**
+ * Через сколько секунд партии дебит упирается в пол `decline.minFactor`.
+ * 0 — падения нет (пол равен 1). Формула та же, что в `wellDeclineFactor`:
+ * 0.5^(t / halfLife) = minFactor  ⇒  t = halfLife · log2(1 / minFactor).
+ * Нужна «Правилам игры», чтобы текст не расходился с движком.
+ */
+export function wellDeclineFloorSeconds(config: GameConfig): number {
+  const decline = config.oil.wells?.decline;
+  if (!decline) return 0;
+  const floor = Math.min(1, Math.max(0, decline.minFactor));
+  if (floor >= 1) return 0;
+  if (floor <= 0) return Number.POSITIVE_INFINITY;
+  return Math.max(1, decline.halfLifeSeconds) * Math.log2(1 / floor);
+}
+
 /** Дебит всех скважин, тонн в секунду (с учётом естественного падения). */
 export function wellsTonnesPerSecond(config: GameConfig, state: GameState): number {
   const wells = state.wells ?? [];

@@ -103,7 +103,8 @@ describe('финальная цель: подсказка на карточке 
   const RAW_BALANCE = 1e14;
 
   function setup(totalEarnedOf: (adjusted: number) => number) {
-    const content = loadContent();
+    // loadContent() отдаёт общий объект config: меняем только копию.
+    const content = structuredClone(loadContent());
     content.config.winRequirements = [{ balance: RAW_BALANCE }];
     const adjusted = adjustCurrencyCost(content.config, RAW_BALANCE);
     const state = createInitialState(content.config, 79);
@@ -142,11 +143,52 @@ describe('финальная цель: подсказка на карточке 
     expect(lock.hidden).toBe(true);
     expect(lock.textContent).toBe('');
   });
+
+  function winCardDescription(content: ReturnType<typeof loadContent>): { text: string; texts: Texts } {
+    const game = new Game(content, createInitialState(content.config, 80));
+    const texts = new Texts(content.texts);
+    const shop = new Shop(game, texts, content.config.currency, { onBuy: () => undefined });
+    shop.setTab('goals');
+    const desc = shop.root.querySelector<HTMLElement>('[data-id="win_pump"] .card__desc');
+    expect(desc).not.toBeNull();
+    return { text: desc!.textContent ?? '', texts };
+  }
+
+  it('описание карточки перечисляет условия финала из config, а не из текста покупки', () => {
+    const content = structuredClone(loadContent());
+    content.config.winRequirements = [{ upgrade: 't_pump4', level: 7 }, { upgrade: 't_smart', level: 2 }];
+    const { text, texts } = winCardDescription(content);
+    const nameOf = (id: string): string => content.byId.get(id)!.name;
+
+    expect(text).toContain(texts.get('shop.unlockHintUpgrade', { name: nameOf('t_pump4'), level: 7 }));
+    expect(text).toContain(texts.get('shop.unlockHintUpgrade', { name: nameOf('t_smart'), level: 2 }));
+    // Раньше уровни были вписаны в текст покупки и расходились с config.
+    expect(text).not.toContain(texts.get('shop.unlockHintUpgrade', { name: nameOf('t_pump4'), level: 5 }));
+    expect(text).not.toMatch(/уровень 5|уровень 3/);
+  });
+
+  it('с настоящим config описание называет каждое условие финала', () => {
+    const content = loadContent();
+    const { text, texts } = winCardDescription(content);
+    const upgrades = content.config.winRequirements.filter((req) => req.upgrade);
+    expect(upgrades.length).toBeGreaterThan(0);
+    for (const req of upgrades) {
+      expect(text).toContain(texts.get('shop.unlockHintUpgrade', {
+        name: content.byId.get(req.upgrade!)!.name,
+        level: req.level ?? 1,
+      }));
+    }
+    // Числа условий живут только в config.json: в тексте покупки их нет.
+    const win = content.upgrades.find((def) => def.win);
+    expect(win).toBeDefined();
+    expect(win!.description).not.toMatch(/\d/);
+    expect(text.startsWith(win!.description)).toBe(true);
+  });
 });
 
 describe('«Правила»: условия финала из того же расчёта (AUDIT F03)', () => {
   it('порог заработка показан после кривой цен, а не «сырым»', () => {
-    const content = loadContent();
+    const content = structuredClone(loadContent());
     const raw = 1e14;
     content.config.winRequirements = [{ upgrade: 't_pump4', level: 5 }, { balance: raw, influence: 4 }];
     const adjusted = adjustCurrencyCost(content.config, raw);

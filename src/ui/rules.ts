@@ -11,7 +11,8 @@ import { describeRequirementTerm } from './requirements';
 import type { Texts } from './texts';
 import { formatMoney, formatNumber, formatPercent } from '../core/format';
 import type { Content } from '../core/types';
-import { winCostOf, winRequirementTerms } from '../core/economy';
+import { computeDerived, wellDeclineFloorSeconds, winCostOf, winRequirementTerms } from '../core/economy';
+import { createInitialState } from '../core/state';
 
 export class Rules {
   readonly root: HTMLElement;
@@ -85,6 +86,10 @@ export class Rules {
     const shipSeconds = oil.shipDays * daySeconds;
     const crew = oil.autoDrill.requires.map((id) => this.content.byId.get(id)?.name ?? id);
     const winTerms = winRequirementTerms(config);
+    // Стартовые мощности берём у движка, а не пересчитываем формулой здесь:
+    // так правила показывают ровно тот предел, которым ограничена продажа.
+    const initial = computeDerived(config, upgrades, createInitialState(config, 1), [], this.content);
+    const declineFloorSeconds = wellDeclineFloorSeconds(config);
 
     return [
       this.section('rules.goalTitle', [
@@ -110,11 +115,14 @@ export class Rules {
       ]),
 
       this.section('rules.wellsTitle', [
-        t('rules.wellsText', {
-          day: daySeconds,
-          min: formatPercent(oil.wells.decline.minFactor, 0),
-          halfLife: oil.wells.decline.halfLifeSeconds,
-        }),
+        t('rules.wellsText', { day: daySeconds }),
+        // Время до пола считает ядро по той же формуле, что и сам дебит.
+        declineFloorSeconds > 0 && Number.isFinite(declineFloorSeconds)
+          ? t('rules.wellsDecline', {
+              min: formatPercent(oil.wells.decline.minFactor, 0),
+              minutes: Math.max(1, Math.round(declineFloorSeconds / 60)),
+            })
+          : t('rules.wellsNoDecline'),
         t('rules.wellsClasses', {
           list: oil.wells.classes
             .map((cls) =>
@@ -142,10 +150,12 @@ export class Rules {
       ]),
 
       this.section('rules.channelsTitle', [
-        t('rules.channelDomestic', {
-          rate: rate(contract.baseRate),
-          price: price(base * contract.priceFactor),
-        }),
+        contract.unlimited
+          ? t('rules.channelDomesticUnlimited')
+          : t('rules.channelDomestic', {
+              rate: rate(initial.capacities.domestic.crude),
+              price: price(base * contract.priceFactor),
+            }),
         t('rules.channelExport', {
           rate: rate(exportChannel.baseRate),
           price: price(base * exportChannel.priceFactor),

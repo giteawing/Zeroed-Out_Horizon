@@ -12,7 +12,7 @@ import type { Texts } from './texts';
 import { formatMoney, formatNumber, formatPercent } from '../core/format';
 import { icon as iconPath } from '../core/assets';
 import { isRepeatable, type BuyCheck, type Game } from '../core/game';
-import { winRequirementBlocker, type RequirementTerm } from '../core/economy';
+import { winRequirementBlocker, winRequirementTerms, type RequirementTerm } from '../core/economy';
 import type { Tab, UpgradeDef } from '../core/types';
 
 interface CardRefs {
@@ -136,7 +136,7 @@ export class Shop {
       el('div', { class: 'card__art' }, [icon, level]),
       el('div', { class: 'card__body' }, [
         el('h3', { class: 'card__name' }, this.cardName(def)),
-        el('p', { class: 'card__desc' }, def.description),
+        el('p', { class: 'card__desc' }, this.descriptionOf(def)),
         el('div', { class: 'card__meta' }, [effect, cost]),
         lock,
       ]),
@@ -353,6 +353,18 @@ export class Shop {
       return '';
     }
     return check.blocker ? this.describeTerm(check.blocker) : this.texts.get('shop.locked');
+  }
+
+  /**
+   * Описание карточки. У финальной цели условия дописываются из
+   * config.winRequirements — тем же расчётом, по которому движок разрешает
+   * финал: в тексте покупки чисел нет, поэтому разойтись им не с чем.
+   */
+  private descriptionOf(def: UpgradeDef): string {
+    if (!def.win) return def.description;
+    const terms = winRequirementTerms(this.game.config);
+    if (terms.length === 0) return def.description;
+    return [def.description, ...terms.map((term) => `${this.describeTerm(term)}.`)].join(' ');
   }
 
   /** Невыполненное условие словами: порог уже итоговый, после кривой цен. */
