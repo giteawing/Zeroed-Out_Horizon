@@ -20,7 +20,7 @@ import {
 } from './economy';
 import { isRepeatable } from './game';
 import { createInitialState } from './state';
-import type { Content, GameState, UpgradeDef } from './types';
+import type { Content, DerivedStats, GameState, UpgradeDef } from './types';
 
 export interface SimulatorOptions {
   /** Стандартная стратегия игнорирует cooldown-действия; optimizer оценивает и использует их. */
@@ -257,6 +257,9 @@ export function decide(
   }
 
   const candidates: Array<{ def: UpgradeDef; score: number }> = [];
+  // Пока идёт перебор, состояние не меняется: экономика «до покупки» у всех
+  // кандидатов одна, и считать её для каждого заново незачем.
+  let before: DerivedStats | undefined;
   for (const def of content.upgrades) {
     if (def.win || (isRepeatable(def) && (!allowRepeatables || def.id === 'p_export'))) continue;
     const level = levelOf(state, def.id);
@@ -265,7 +268,8 @@ export function decide(
     if (!check.unlocked || check.cooldownMs > 0) continue;
     const cost = check.cost;
     if (cost > state.coins) continue;
-    const gain = estimatedGain(game, def, cost);
+    before ??= derivedForSimulation(content, state);
+    const gain = estimatedGain(game, def, cost, before);
     if (allowRepeatables && isRepeatable(def) && gain <= 0) continue;
     candidates.push({
       def,
@@ -302,14 +306,17 @@ function averageWellDaily(content: Content): number {
  * Оценка прироста — разница фактической производной экономики до и после
  * условного уровня. Для скважин добавляется их математическое ожидание;
  * реприватизация оценивается по её реальному бюджету 5–10× (среднее 7,5×).
+ *
+ * `before` — экономика текущего состояния. Её можно передать, если она уже
+ * посчитана для этого же состояния; по умолчанию считается здесь.
  */
 export function estimatedGain(
   game: Game,
   def: UpgradeDef,
   cost: number,
-  ): number {
+  before: DerivedStats = derivedForSimulation(game.content, game.state),
+): number {
   const content = game.content;
-  const before = derivedForSimulation(content, game.state);
   const e = def.effect;
 
   // Считаем по той же денежной формуле, что и реальная выплата игры.

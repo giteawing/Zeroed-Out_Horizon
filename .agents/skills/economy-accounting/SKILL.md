@@ -14,6 +14,12 @@ description: Use when touching oil production, sales channels, pipeline/shipping
   `costFor`, `totalCostFor`, `taxRateOf`, `computeDerived`,
   `oilFlowsOf`, `allocateBatch`, `sellOil`, `eventPayout`,
   `assetsValueOf`, условия победы и оценки активов.
+- `ownedLevelsCost` (`src/core/economy/purchases.ts`) — запомненная сумма цен
+  купленных уровней для оценки имущества. Она обязана давать то же число, что
+  `totalCostFor(config, def, 0, level, курс)`. Если `costFor` начнёт зависеть
+  от нового поля конфигурации или покупки, добавь это поле в
+  `OwnedCostMemo` и в `ownedCostMemoFits`: иначе оценка имущества останется
+  старой. Расхождение ловит `tests/core-speed.test.ts`.
 - `src/core/game.ts`: реальные игровые операции — непрерывная добыча,
   фиксированная и автоматическая маршрутизация, покупка, тик, накопление,
   отгрузка, обработка продуктов, события и применение финансового результата.

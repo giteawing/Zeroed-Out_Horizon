@@ -3,7 +3,7 @@
  * Цена скважины едина для оценки активов и стоимости месторождения.
  */
 import type { AssetKind, GameConfig, GameState, ReprivatizationPrize, UpgradeDef } from '../types';
-import { levelOf, totalCostFor } from './purchases';
+import { levelOf, ownedLevelsCost } from './purchases';
 import { wellsDailyTonnes } from './production';
 
 export function assetCountsOf(upgrades: UpgradeDef[], state: GameState): Record<AssetKind, number> {
@@ -38,6 +38,20 @@ export interface AssetValueLine {
   value: number;
 }
 
+/**
+ * Только явно классифицированная собственность. Политические действия,
+ * взятки, найм, договоры, финансовые операции и прочие эффекты не активы;
+ * скважины и роскошь оцениваются отдельными строками.
+ */
+function isValuedAsset(def: UpgradeDef): boolean {
+  return Boolean(def.assetKind) && def.type !== 'luxury' && def.type !== 'well' && def.type !== 'win';
+}
+
+/** Стоимость всех скважин: суточный дебит по цене тонны дебита. */
+function wellsValueOf(config: GameConfig, state: GameState, exchangeRate: number): number {
+  return wellsDailyTonnes(state, config) * wellPricePerDailyTonne(config, undefined, exchangeRate);
+}
+
 /** Подробная оценка собственности; строки складываются в общую стоимость. */
 export function assetValueBreakdownOf(
   config: GameConfig,
@@ -47,30 +61,51 @@ export function assetValueBreakdownOf(
 ): AssetValueLine[] {
   const lines: AssetValueLine[] = [];
   for (const def of upgrades) {
+    if (!isValuedAsset(def)) continue;
     const level = levelOf(state, def.id);
-    // Только явно классифицированная собственность. Политические действия,
-    // взятки, найм, договоры, финансовые операции и прочие эффекты не активы.
-    if (level <= 0 || !def.assetKind || def.type === 'luxury' || def.type === 'well' || def.type === 'win') continue;
-    const value = totalCostFor(config, def, 0, level, exchangeRate);
+    if (level <= 0) continue;
+    // Сумма цен всех купленных уровней; она запомнена и не пересчитывается.
+    const value = ownedLevelsCost(config, def, level, exchangeRate);
     lines.push({ id: def.id, kind: 'upgrade', name: def.name, count: level, value });
   }
   const wellsCount = (state.wells ?? []).length;
-  const wellsValue = wellsDailyTonnes(state, config) * wellPricePerDailyTonne(config, undefined, exchangeRate);
-  if (wellsCount > 0) lines.push({ id: 'wells', kind: 'wells', count: wellsCount, value: wellsValue });
-  const luxuryCount = upgrades.reduce((sum, def) =>
-    def.type === 'luxury' ? sum + levelOf(state, def.id) : sum, 0);
-  if (state.luxurySpent > 0) lines.push({ id: 'luxury', kind: 'luxury', count: luxuryCount, value: state.luxurySpent });
+  if (wellsCount > 0) {
+    lines.push({ id: 'wells', kind: 'wells', count: wellsCount, value: wellsValueOf(config, state, exchangeRate) });
+  }
+  if (state.luxurySpent > 0) {
+    const luxuryCount = upgrades.reduce((sum, def) =>
+      def.type === 'luxury' ? sum + levelOf(state, def.id) : sum, 0);
+    lines.push({ id: 'luxury', kind: 'luxury', count: luxuryCount, value: state.luxurySpent });
+  }
   return lines.sort((a, b) => b.value - a.value);
 }
 
-/** Общая стоимость собственности — сумма строк подробной расшифровки. */
+/**
+ * Общая стоимость собственности — сумма строк подробной расшифровки.
+ *
+ * Считается в каждом `computeDerived`, поэтому строки с подписями здесь не
+ * создаются: берутся те же значения и складываются в том же порядке, по
+ * убыванию. Порядок менять нельзя: от него зависят младшие разряды суммы.
+ * Равенство с расшифровкой закреплено в tests/core-speed.test.ts.
+ */
 export function assetsValueOf(
   config: GameConfig,
   upgrades: UpgradeDef[],
   state: GameState,
   exchangeRate = config.exchangeRate.initial,
 ): number {
-  const total = assetValueBreakdownOf(config, upgrades, state, exchangeRate).reduce((sum, line) => sum + line.value, 0);
+  const values: number[] = [];
+  for (const def of upgrades) {
+    if (!isValuedAsset(def)) continue;
+    const level = levelOf(state, def.id);
+    if (level <= 0) continue;
+    values.push(ownedLevelsCost(config, def, level, exchangeRate));
+  }
+  if ((state.wells ?? []).length > 0) values.push(wellsValueOf(config, state, exchangeRate));
+  if (state.luxurySpent > 0) values.push(state.luxurySpent);
+  values.sort((a, b) => b - a);
+  let total = 0;
+  for (const value of values) total += value;
   return Math.max(0, Math.round(total));
 }
 

@@ -59,6 +59,109 @@ export function totalCostFor(
   return sum;
 }
 
+/**
+ * Запомненные суммы цен первых уровней одной покупки. Рядом лежат все входные
+ * данные `costFor`, при которых суммы посчитаны: если хоть одно из них
+ * изменилось, суммы считаются заново.
+ */
+interface OwnedCostMemo {
+  baseCost: number;
+  ownGrowth: number | undefined;
+  commonGrowth: number;
+  curveAnchor: number | undefined;
+  curveExponent: number | undefined;
+  assetKind: UpgradeDef['assetKind'];
+  type: UpgradeDef['type'];
+  initialRate: number;
+  elasticity: number;
+  exchangeRate: number;
+  /** sums[k] — сумма цен уровней 0…k−1, сложенная в том же порядке, что в totalCostFor. */
+  sums: number[];
+}
+
+/**
+ * Два набора на покупку: текущий курс и условный. Симулятор оценивает
+ * девальвацию на копии состояния с другим курсом и сразу возвращается.
+ */
+const OWNED_COST_SLOTS = 2;
+/** Выше этого уровня суммы не запоминаем: в контенте maxLevel не больше 50. */
+const OWNED_COST_MAX_LEVEL = 1024;
+const ownedCostMemos = new WeakMap<UpgradeDef, OwnedCostMemo[]>();
+
+function ownedCostMemoFits(
+  memo: OwnedCostMemo,
+  config: GameConfig,
+  def: UpgradeDef,
+  exchangeRate: number,
+): boolean {
+  return memo.exchangeRate === exchangeRate &&
+    memo.baseCost === def.baseCost &&
+    memo.ownGrowth === def.costGrowth &&
+    memo.commonGrowth === config.costGrowth &&
+    memo.curveAnchor === config.currencyCostCurve?.anchor &&
+    memo.curveExponent === config.currencyCostCurve?.exponent &&
+    memo.assetKind === def.assetKind &&
+    memo.type === def.type &&
+    memo.initialRate === config.exchangeRate.initial &&
+    memo.elasticity === config.exchangeRate.constructionCostElasticity;
+}
+
+/**
+ * Сколько стоили первые `level` уровней покупки: то же число, что
+ * `totalCostFor(config, def, 0, level, exchangeRate)`, бит в бит.
+ *
+ * Оценка имущества нужна в каждом `computeDerived`, а тот вызывается несколько
+ * раз за шаг игры. Пересчёт цены каждого купленного уровня занимал больше
+ * половины времени симуляции, поэтому суммы запоминаются по покупке и курсу.
+ */
+export function ownedLevelsCost(
+  config: GameConfig,
+  def: UpgradeDef,
+  level: number,
+  exchangeRate = config.exchangeRate.initial,
+): number {
+  // Столько слагаемых берёт цикл totalCostFor: при дробном уровне — с округлением вверх.
+  const count = Math.ceil(level);
+  if (!(count > 0)) return 0;
+  if (count > OWNED_COST_MAX_LEVEL) return totalCostFor(config, def, 0, level, exchangeRate);
+
+  let slots = ownedCostMemos.get(def);
+  if (!slots) {
+    slots = [];
+    ownedCostMemos.set(def, slots);
+  }
+  let memo = slots[0];
+  if (!memo || !ownedCostMemoFits(memo, config, def, exchangeRate)) {
+    const index = slots.findIndex((slot) => ownedCostMemoFits(slot, config, def, exchangeRate));
+    if (index > 0) {
+      memo = slots[index];
+      slots.splice(index, 1);
+    } else {
+      memo = {
+        baseCost: def.baseCost,
+        ownGrowth: def.costGrowth,
+        commonGrowth: config.costGrowth,
+        curveAnchor: config.currencyCostCurve?.anchor,
+        curveExponent: config.currencyCostCurve?.exponent,
+        assetKind: def.assetKind,
+        type: def.type,
+        initialRate: config.exchangeRate.initial,
+        elasticity: config.exchangeRate.constructionCostElasticity,
+        exchangeRate,
+        sums: [0],
+      };
+    }
+    // Последний использованный набор — первый; лишние вытесняются с конца.
+    slots.unshift(memo);
+    if (slots.length > OWNED_COST_SLOTS) slots.length = OWNED_COST_SLOTS;
+  }
+  const sums = memo.sums;
+  for (let next = sums.length; next <= count; next++) {
+    sums.push(sums[next - 1] + costFor(config, def, next - 1, exchangeRate));
+  }
+  return sums[count];
+}
+
 /** Сколько уровней можно купить на coins (с учётом maxLevel и лимита за раз). */
 export function affordableLevels(
   config: GameConfig,
