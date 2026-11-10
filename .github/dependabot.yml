@@ -1,0 +1,20 @@
+# Обновления зависимостей приходят pull request'ами и проходят CI.
+# Actions закреплены по SHA: Dependabot обновляет и SHA, и комментарий с версией.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      dev-tooling:
+        patterns: ["*"]
+        update-types: [minor, patch]

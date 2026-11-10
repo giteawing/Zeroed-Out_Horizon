@@ -9,6 +9,18 @@ import { defineConfig, devices } from '@playwright/test';
  * Тестируем собранную игру через `vite preview`, то есть ровно то,
  * что уедет на хостинг.
  */
+/**
+ * Свой Chromium для песочниц без доступа к CDN Playwright:
+ *   E2E_CHROMIUM_PATH=/путь/к/chromium npm run test:e2e
+ * Дополнительные флаги запуска — через E2E_CHROMIUM_ARGS (через пробел).
+ * В CI переменные не заданы: используется браузер из `playwright install`.
+ */
+const chromiumPath = process.env.E2E_CHROMIUM_PATH;
+const chromiumArgs = (process.env.E2E_CHROMIUM_ARGS ?? '').split(/\s+/).filter(Boolean);
+const launchOptions = chromiumPath
+  ? { launchOptions: { executablePath: chromiumPath, args: chromiumArgs } }
+  : {};
+
 export default defineConfig({
   testDir: './tests/e2e',
   timeout: 90_000,
@@ -31,6 +43,9 @@ export default defineConfig({
     timeout: 180_000,
   },
   projects: [
-    { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
+    {
+      name: 'desktop',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 }, ...launchOptions },
+    },
   ],
 });

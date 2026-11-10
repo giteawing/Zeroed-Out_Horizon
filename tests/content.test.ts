@@ -3,7 +3,7 @@
  * сохранены, тексты и иконки не «висят» в пустоте.
  */
 import { describe, expect, it } from 'vitest';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { creditsIsPlaceholder, loadContent, validateUpgrades } from '../src/core/content';
 import {
@@ -19,6 +19,16 @@ import type { UpgradeDef } from '../src/core/types';
 const content = loadContent();
 const byId = content.byId;
 const root = resolve(__dirname, '..');
+
+/**
+ * Строковые литералы с кириллицей в коде без комментариев.
+ * Кириллица допустима только в комментариях: всё, что видит игрок, лежит
+ * в texts.json.
+ */
+function cyrillicLiterals(source: string): string[] {
+  const code = source.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
+  return code.match(/['"`][^'"`]*[А-Яа-яЁё][^'"`]*['"`]/g) ?? [];
+}
 
 /** Обязательные формулировки из ТЗ («строго»). */
 const STRICT_NAMES = [
@@ -377,19 +387,33 @@ describe('тексты', () => {
   });
 
   it('в коде интерфейса нет «зашитых» русских строк в разметке экранов', () => {
-    // Проверяем именно UI: тексты должны приходить из texts.json.
-    const files = [
-      'src/ui/shop.ts',
-      'src/ui/hud.ts',
-      'src/ui/finale.ts',
-    ];
+    // Проверяем весь интерфейс, а не три файла: тексты приходят из texts.json
+    // (AGENTS.md запрещает русские строки во всём src/ui и в main.ts).
+    const listTs = (dir: string): string[] =>
+      readdirSync(resolve(root, dir), { withFileTypes: true }).flatMap((entry) =>
+        entry.isDirectory()
+          ? listTs(`${dir}/${entry.name}`)
+          : entry.name.endsWith('.ts') ? [`${dir}/${entry.name}`] : []);
+    const files = [...listTs('src/ui'), ...listTs('src/fx'), ...listTs('src/audio'), 'src/main.ts'];
+    // Список не пуст и включает экраны, которых раньше в проверке не было.
+    expect(files).toEqual(expect.arrayContaining([
+      'src/ui/shop.ts', 'src/ui/hud.ts', 'src/ui/finale.ts', 'src/ui/rules.ts',
+      'src/ui/settings.ts', 'src/ui/start.ts', 'src/ui/dev.ts', 'src/main.ts',
+    ]));
     for (const file of files) {
-      const source = readFileSync(resolve(root, file), 'utf8');
-      const latin = source.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
-      // Разрешаем кириллицу только в комментариях и в именах CSS-классов/данных.
-      const suspicious = latin.match(/['"`][^'"`]*[А-Яа-яЁё][^'"`]*['"`]/g) ?? [];
-      expect(suspicious, `${file}: строки должны браться из texts.json`).toEqual([]);
+      expect(cyrillicLiterals(readFileSync(resolve(root, file), 'utf8')),
+        `${file}: строки должны браться из texts.json`).toEqual([]);
     }
+  });
+
+  it('проверка русских строк ловит литералы и не трогает комментарии', () => {
+    expect(cyrillicLiterals("el('p', {}, 'Купить');")).toEqual(["'Купить'"]);
+    expect(cyrillicLiterals('const a = "Нефть";')).toEqual(['"Нефть"']);
+    expect(cyrillicLiterals('const a = `Итого: ${n}`;')).toEqual(['`Итого: ${n}`']);
+    expect(cyrillicLiterals("// Купить\nconst a = 'buy';")).toEqual([]);
+    expect(cyrillicLiterals("/* Купить\n   нефть */ const a = 'buy';")).toEqual([]);
+    expect(cyrillicLiterals("const a = texts.get('shop.buy'); // «Купить»")).toEqual([]);
+    expect(cyrillicLiterals("const icon = '🛠'; const dash = ' · ';")).toEqual([]);
   });
 });
 

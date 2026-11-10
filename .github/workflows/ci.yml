@@ -5,14 +5,29 @@ on:
     branches: [main, 'arena/**']
   pull_request:
 
+# Проверке достаточно читать код: токен без права записи.
+permissions:
+  contents: read
+
+concurrency:
+  # Одна проверка на ветку. Push и pull_request одной ветки этого репозитория
+  # попадают в общую группу, поэтому открытый PR не удваивает прогон, а новый
+  # push отменяет устаревший. У PR из форка группа своя: чужая ветка `main`
+  # не может отменить проверку нашего `main`.
+  group: ci-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    # Обычный прогон занимает 6–10 минут; зависший не должен жечь 6 часов.
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      # Actions закреплены по SHA коммита; версию в комментарии обновляет Dependabot.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - name: Типы и сборка
@@ -31,7 +46,7 @@ jobs:
         run: npm run test:e2e
       - name: Сохранить отчёты при падении
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-report
           path: |

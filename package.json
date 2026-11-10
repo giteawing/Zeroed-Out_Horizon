@@ -20,7 +20,7 @@
     "balance:auto": "tsx scripts/auto-balance.ts",
     "art": "node scripts/generate-icons.mjs && node scripts/generate-scenes.mjs",
     "art:force": "node scripts/generate-icons.mjs --force && node scripts/generate-scenes.mjs",
-    "lint:strings": "vitest run tests/content.test.ts -t \"зашитых русских строк\""
+    "lint:strings": "vitest run tests/content.test.ts -t \"русских строк\""
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",

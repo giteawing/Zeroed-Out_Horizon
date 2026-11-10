@@ -17,32 +17,63 @@ concurrency:
 
 jobs:
   build:
-    if: github.event.workflow_run.conclusion == 'success'
+    # Публикуем только успешную проверку push в main. Без условия на событие
+    # сюда попал бы и PR из форка, у которого ветка тоже называется `main`.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      fresh: ${{ steps.head.outputs.fresh }}
     steps:
-      - uses: actions/checkout@v7
+      # Actions закреплены по SHA коммита; версию в комментарии обновляет Dependabot.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
-      - uses: actions/setup-node@v7
+      - name: Проверенный коммит всё ещё вершина main
+        id: head
+        # CI старого коммита может завершиться позже, чем CI нового. Без этой
+        # проверки поздний прогон выложил бы старую сборку поверх свежей.
+        env:
+          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin main
+          main_sha="$(git rev-parse FETCH_HEAD)"
+          if [ "$main_sha" = "$TESTED_SHA" ]; then
+            echo "fresh=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "fresh=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Пропуск публикации: проверен $TESTED_SHA, а вершина main уже $main_sha."
+          fi
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.head.outputs.fresh == 'true'
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+        if: steps.head.outputs.fresh == 'true'
       # The CI workflow already passed npm test + desktop E2E on this exact SHA.
       # Avoid duplicating CPU-bound Vitest while CI is running.
       - name: Production build
+        if: steps.head.outputs.fresh == 'true'
         run: npm run build
-      - uses: actions/configure-pages@v6
-      - uses: actions/upload-pages-artifact@v5
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+        if: steps.head.outputs.fresh == 'true'
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        if: steps.head.outputs.fresh == 'true'
         with:
           path: dist
 
   deploy:
     needs: build
+    if: needs.build.outputs.fresh == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
