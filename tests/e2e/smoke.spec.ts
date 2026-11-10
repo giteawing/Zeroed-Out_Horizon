@@ -35,10 +35,19 @@ async function waitForSale(page: Page): Promise<void> {
   ).toBeGreaterThan(before);
 }
 
-/** Дождаться, пока добыча и отгрузка обеспечат первую покупку. */
+/**
+ * Дождаться, пока добыча и отгрузка обеспечат первую покупку.
+ *
+ * Денег на неё хватает после третьей или четвёртой отгрузки — через 15 или
+ * 20 игровых секунд, смотря в какой фазе мировая цена (сид новой партии
+ * случайный). Игра стоит до кнопки «Начать», поэтому отсчёт идёт от неё.
+ * Прежний запас в 20 секунд совпадал с худшим случаем, и тест падал примерно
+ * в каждом десятом прогоне. Саму границу «не позже четвёртой отгрузки»
+ * проверяет tests/game.test.ts; здесь — только запас на медленный раннер.
+ */
 async function waitUntilAffordable(page: Page): Promise<void> {
   const buyButtons = page.locator('.card__buy:not([disabled])');
-  await expect.poll(() => buyButtons.count(), { timeout: 20_000 }).toBeGreaterThan(0);
+  await expect.poll(() => buyButtons.count(), { timeout: 45_000 }).toBeGreaterThan(0);
 }
 
 test('игра запускается без ошибок в консоли', async ({ page }) => {
@@ -147,6 +156,16 @@ test('меню шапки закрыто, пока его не открыли', 
   await expect(menu).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test('в production-сборке нет инженерного меню', async ({ page }) => {
+  await start(page);
+  await page.locator('.iconbtn--menu').click();
+  await expect(page.locator('[data-menu="settings"]')).toBeVisible();
+  // Пункт 🛠 добавляется только в dev-сборке (import.meta.env.DEV):
+  // игрок на опубликованном сайте до читерской панели добраться не может.
+  await expect(page.locator('[data-menu="dev"]')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 

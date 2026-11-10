@@ -25,6 +25,29 @@ npx playwright install chromium
 - В CI при падении сохраняются `playwright-report/` и `test-results/`;
   изучай trace, screenshot и error context до правки теста.
 
+### E2E там, где `npx playwright install` недоступен
+
+В песочницах без доступа к CDN Playwright браузер не скачивается. E2E
+всё равно можно и нужно прогнать — на своём Chromium:
+
+```bash
+E2E_CHROMIUM_PATH=/путь/к/chromium \
+E2E_CHROMIUM_ARGS="--no-sandbox --disable-gpu" \
+npm run test:e2e
+```
+
+- `playwright.config.ts` читает обе переменные; в CI они не заданы, там
+  работает браузер из `playwright install`.
+- Chromium без системной установки даёт npm-пакет `@sparticuz/chromium`
+  (ставь во временный каталог, не в проект): `executablePath()` распаковывает
+  бинарник, а архивы `bin/al2023.tar.br` и `bin/fonts.tar.br` — библиотеки и
+  шрифты. Каталог с библиотеками укажи в `LD_LIBRARY_PATH`, со шрифтами —
+  в `FONTCONFIG_PATH`.
+- Не добавляй `--single-process` и `--no-zygote`: браузер закрывается между
+  тестами, и прогон падает с «Target page, context or browser has been closed».
+- Если своего Chromium тоже нет, так и напиши в отчёте: «E2E не запускался»,
+  а не «E2E зелёный».
+
 ## Карта тестов
 
 | Что проверяется | Где |
@@ -35,8 +58,10 @@ npx playwright install chromium
 | Баги, найденные аудитами | `tests/regressions.test.ts` |
 | Сохранения, миграция, офлайн | `tests/state.test.ts` |
 | Схема/целостность контента и локализация | `tests/content.test.ts` |
-| Три профиля прохождения | `tests/balance-profiles.test.ts` |
-| Темп и устойчивость экономики | `tests/balance.test.ts` |
+| Четыре профиля прохождения | `tests/balance-profiles.test.ts`, `tests/balance-profiles-extra.test.ts` |
+| Темп, выкуп контента, рост экономики | `tests/balance-pace.test.ts`, `tests/balance-content.test.ts`, `tests/balance-growth.test.ts` |
+| CI, деплой, npm-скрипты, генераторы графики | `tests/harness.test.ts`, `tests/svg.test.ts` |
+| Проверка контента при загрузке | `tests/content-validation.test.ts` |
 | DOM-магазин, HUD, раскладка | `tests/dom/` |
 | Реальный desktop-путь игрока | `tests/e2e/smoke.spec.ts` |
 
@@ -88,10 +113,13 @@ npx playwright install chromium
 ## Длительные симуляционные тесты
 
 - Разделяй CPU-bound тесты симулятора на отдельные файлы так, чтобы один файл
-  не выполнялся более 60 секунд. В Vitest 3 worker RPC имеет внутренний
-  таймаут, который не увеличивается через `testTimeout`; большой файл может
-  завершить все assertions, но уронить раннер на `onTaskUpdate`.
+  не выполнялся более 60 секунд. У worker RPC Vitest есть внутренний
+  таймаут, который не увеличивается через `testTimeout` (падение наблюдалось
+  на Vitest 3; после перехода на Vitest 4 правило сохранено): большой файл
+  может завершить все assertions, но уронить раннер на `onTaskUpdate`.
 - Не маскируй эту проблему увеличением `testTimeout`: разделяй сценарии на
   независимые группы и сохраняй все проверки.
-- В проекте установлен предел `maxWorkers: 2`, чтобы тяжёлые симуляции не
-  перегружали CI runner.
+- В `vitest.config.ts` стоят `pool: 'threads'` и `maxWorkers: 1`: симуляции
+  CPU-bound, и один worker исключает конкуренцию двух длинных прогонов на
+  CI runner. `tests/harness.test.ts` следит, чтобы эти значения и текст
+  навыка не расходились.

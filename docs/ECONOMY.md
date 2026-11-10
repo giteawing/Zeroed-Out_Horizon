@@ -1,7 +1,8 @@
 # Экономическое ядро
 
-Карта модулей и потоков расчёта для разработчиков и coding agents. Историческое
-ТЗ находится в `docs/TZ.md`; актуальные правила — в коде, тестах и этом документе.
+Карта модулей и потоков расчёта для разработчиков и coding agents. Архив
+исходного ТЗ — `docs/archive/TZ.md` (числа в нём устарели); актуальные
+правила — в коде, тестах и этом документе.
 
 ## Карта модулей
 
@@ -119,8 +120,10 @@ net   = max(0, EBT - tax)
 - Добыча, налог и продажи: `tests/economy.test.ts`,
   `tests/mechanics-v2.test.ts`, `tests/regressions.test.ts`.
 - Сохранения и новые поля: `tests/state.test.ts`.
-- Профили прохождения: `tests/balance-profiles.test.ts`; проверка
-  экономической прогрессии: `tests/balance.test.ts`; аналитический отчёт —
+- Четыре профиля прохождения: `tests/balance-profiles.test.ts` и
+  `tests/balance-profiles-extra.test.ts`; экономическая прогрессия:
+  `tests/balance-pace.test.ts`, `tests/balance-content.test.ts`,
+  `tests/balance-growth.test.ts`; аналитический отчёт —
   `npm run balance:report`.
 - Перед передачей: `npm run build && npm test`; UI также требует
   `npm run test:e2e`.

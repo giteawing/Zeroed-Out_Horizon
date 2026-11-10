@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { loadContent } from '../src/core/content';
 import { BALANCE_PROFILES } from '../src/core/simulator';
 import { balanceProfiles } from './helpers/balance-profiles';
 
@@ -159,5 +160,74 @@ describe('профили баланса (REVIEW H1, AUDIT F08)', () => {
       .filter((name) => name.endsWith('.test.ts') && !name.startsWith('balance-profiles') && name !== 'harness.test.ts')
       .filter((name) => read(`tests/${name}`).includes('describeBalanceProfiles('));
     expect(others).toEqual([]);
+  });
+});
+
+describe('инструкции совпадают с настройками проекта (REVIEW H7, AUDIT F07)', () => {
+  const pkg = JSON.parse(read('package.json')) as { devDependencies: Record<string, string> };
+  const majorOf = (name: string): string => {
+    const version = pkg.devDependencies[name];
+    expect(version, name).toBeDefined();
+    return /(\d+)\./.exec(version)![1];
+  };
+
+  it('AGENTS.md называет установленные мажорные версии инструментов', () => {
+    const stack = /^- TypeScript [^\n]*Vitest[^\n]*$/m.exec(read('AGENTS.md'))?.[0];
+    expect(stack).toBeDefined();
+    expect(stack).toContain(`Vite ${majorOf('vite')},`);
+    expect(stack).toContain(`Vitest ${majorOf('vitest')},`);
+    expect(stack).toContain(`Playwright ${majorOf('@playwright/test')}.`);
+    const typescript = /(\d+\.\d+)\./.exec(pkg.devDependencies.typescript)![1];
+    expect(stack).toContain(`TypeScript ${typescript},`);
+  });
+
+  it('инструментальные зависимости закреплены точной версией', () => {
+    // Диапазон вида ^3.2.7 при обновлении lock-файла молча меняет версию
+    // раннера; точная версия меняется только осознанным коммитом.
+    expect(pkg.devDependencies.vitest).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  it('навык тестирования описывает тот же пул Vitest, что и vitest.config.ts', () => {
+    const config = read('vitest.config.ts');
+    const pool = /pool: '(\w+)'/.exec(config)?.[1];
+    const workers = /maxWorkers: (\d+)/.exec(config)?.[1];
+    expect(pool).toBeDefined();
+    expect(workers).toBeDefined();
+    const skill = read('.agents/skills/testing-regressions/SKILL.md');
+    expect(skill).toContain(`pool: '${pool}'`);
+    const mentioned = [...skill.matchAll(/maxWorkers: (\d+)/g)].map((match) => match[1]);
+    expect(mentioned.length).toBeGreaterThan(0);
+    expect(new Set(mentioned)).toEqual(new Set([workers]));
+  });
+
+  it('README называет коридор мировой цены из config.worldPrice (REVIEW B5)', () => {
+    const { min, max } = loadContent().config.worldPrice;
+    const comma = (value: number): string => String(value).replace('.', ',');
+    const percent = (value: number): number => Math.round(Math.abs(value - 1) * 100);
+    const readme = read('README.md');
+    expect(readme).toContain(`${comma(min)}–${comma(max)}`);
+    expect(readme).toContain(`от −${percent(min)} % до +${percent(max)} %`);
+    // Раньше README обещал симметричные ±30 %.
+    expect(readme).not.toMatch(/±\s*30/);
+  });
+
+  it('README не обещает игроку инженерное меню в production (REVIEW B6)', () => {
+    const main = read('src/main.ts');
+    // Пункт меню добавляется только под import.meta.env.DEV.
+    expect(main).toMatch(/import\.meta\.env\.DEV\s*\?\s*\[\{ id: 'dev'/);
+    const readme = read('README.md');
+    expect(readme).toContain('только в dev-сборке');
+    expect(readme).not.toContain('Кнопка 🛠 в шапке');
+    expect(readme).not.toContain('остаётся в игре');
+  });
+
+  it('инструкции по e2e называют переменные, которые читает playwright.config.ts', () => {
+    const config = read('playwright.config.ts');
+    const skill = read('.agents/skills/testing-regressions/SKILL.md');
+    for (const variable of ['E2E_CHROMIUM_PATH', 'E2E_CHROMIUM_ARGS']) {
+      expect(config).toContain(`process.env.${variable}`);
+      expect(skill).toContain(variable);
+      expect(read('README.md')).toContain(variable);
+    }
   });
 });

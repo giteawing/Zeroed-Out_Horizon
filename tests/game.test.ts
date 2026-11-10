@@ -331,11 +331,41 @@ describe('экономика во времени', () => {
     expect(state.oil).toBeCloseTo(0, 6);
   });
 
-  it('мировая цена нефти остаётся в коридоре 0.7–1.3', () => {
+  it('мировая цена нефти не выходит из коридора config.worldPrice', () => {
+    // Границы берутся из конфигурации (сейчас 0,75–1,28), а не из названия
+    // теста; проверяется каждая секунда, а не только последняя.
     const { game, state } = setup();
-    for (let i = 0; i < 600; i++) game.update(1000);
-    expect(state.worldPrice).toBeGreaterThanOrEqual(config.worldPrice.min - 1e-9);
-    expect(state.worldPrice).toBeLessThanOrEqual(config.worldPrice.max + 1e-9);
+    let low = Number.POSITIVE_INFINITY;
+    let high = Number.NEGATIVE_INFINITY;
+    for (let i = 0; i < 600; i++) {
+      game.update(1000);
+      low = Math.min(low, state.worldPrice);
+      high = Math.max(high, state.worldPrice);
+    }
+    expect(low).toBeGreaterThanOrEqual(config.worldPrice.min - 1e-9);
+    expect(high).toBeLessThanOrEqual(config.worldPrice.max + 1e-9);
+    // Цена действительно ходит по коридору, а не стоит на месте.
+    expect(high - low).toBeGreaterThan((config.worldPrice.max - config.worldPrice.min) * 0.25);
+  });
+
+  it('первая покупка доступна не позже четвёртой отгрузки при любой фазе мировой цены', () => {
+    // От фазы цены зависит, хватит ли денег после третьей отгрузки или
+    // понадобится четвёртая. На эту границу опирается запас ожидания первой
+    // покупки в tests/e2e/smoke.spec.ts (waitUntilAffordable).
+    const shipmentMs = config.oil.shipDays * config.oil.wells.secondsPerDay * 1000;
+    const waits: number[] = [];
+    for (let seed = 1; seed <= 60; seed++) {
+      const game = new Game(content, createInitialState(config, seed * 7919));
+      let elapsedMs = 0;
+      while (elapsedMs <= shipmentMs * 8 && !content.upgrades.some((def) => game.checkBuy(def.id).ok)) {
+        game.update(100);
+        elapsedMs += 100;
+      }
+      waits.push(elapsedMs);
+    }
+    // Без первой выручки купить нечего; дольше четырёх отгрузок не ждём.
+    expect(Math.min(...waits)).toBeGreaterThan(shipmentMs);
+    expect(Math.max(...waits)).toBeLessThanOrEqual(shipmentMs * 4);
   });
 });
 
