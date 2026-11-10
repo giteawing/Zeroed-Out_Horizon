@@ -15,7 +15,7 @@ const content = loadContent();
 let state: GameState;
 let game: Game;
 let panel: FlowControlsPanel;
-let onChange: ReturnType<typeof vi.fn>;
+let onChange: ReturnType<typeof vi.fn<() => void>>;
 
 const inputOf = (channel: Channel): HTMLInputElement => {
   const input = panel.root.querySelector<HTMLInputElement>(`[data-flow-input="${channel}"]`);
@@ -34,7 +34,7 @@ beforeEach(() => {
   state = createInitialState(content.config, 5);
   state.wells = [{ kind: 'unique', dailyTonnes: 1000 }];
   game = new Game(content, state);
-  onChange = vi.fn();
+  onChange = vi.fn<() => void>();
   panel = new FlowControlsPanel(game, new Texts(content.texts), onChange);
   document.body.append(panel.root);
   panel.update(state, game.derived());
