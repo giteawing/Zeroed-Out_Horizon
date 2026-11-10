@@ -1,12 +1,11 @@
 /**
  * Магазин: вкладки «Политические / Технические / Роскошь / Цель» и список покупок.
  *
- * Два режима работы:
- *   • в браузере (main.ts) — обновляет существующие карточки, чтобы не
- *     пересобирать DOM каждый кадр (важно для 60 fps на телефоне);
- *   • в тестах (happy-dom) — просто render(), чтобы проверять разметку.
+ * Карточки собираются один раз, при открытии вкладки. Дальше `update()`
+ * только меняет их содержимое — и только там, где оно изменилось: main.ts
+ * зовёт его до пяти раз в секунду, а на вкладке десятки карточек.
  */
-import { clear, el } from './dom';
+import { clear, el, setClass, setHidden, setText } from './dom';
 import { describeRequirementTerm } from './requirements';
 import type { Texts } from './texts';
 import { formatMoney, formatNumber, formatPercent } from '../core/format';
@@ -17,6 +16,7 @@ import type { Tab, UpgradeDef } from '../core/types';
 
 interface CardRefs {
   root: HTMLElement;
+  name: HTMLElement;
   level: HTMLElement;
   effect: HTMLElement;
   cost: HTMLElement;
@@ -37,7 +37,10 @@ export class Shop {
   private readonly cards = new Map<string, CardRefs>();
   private readonly buttons = new Map<Tab, HTMLButtonElement>();
   private active: Tab = 'technical';
-  private visibleSignature = '';
+  /** Покупки открытой вкладки по возрастанию цены; список собирается при её открытии. */
+  private defs: UpgradeDef[] = [];
+  /** Какие покупки открывает данная. Контент не меняется, поэтому считается один раз. */
+  private readonly unlockedNames = new Map<string, string[]>();
 
   constructor(
     private readonly game: Game,
@@ -76,21 +79,24 @@ export class Shop {
     this.buildList();
   }
 
-  /** Полная перерисовка списка (при смене вкладки или разблокировке). */
+  /**
+   * Полная сборка списка — только при смене вкладки. Состав вкладки от хода
+   * игры не зависит: заблокированные карточки тоже показаны. Разблокировка,
+   * новый уровень и новая игра меняют содержимое карточек в `update()`.
+   */
   private buildList(): void {
     clear(this.list);
     this.cards.clear();
-    const defs = this.defsFor(this.active);
-    if (defs.length === 0) {
+    this.defs = this.defsFor(this.active);
+    if (this.defs.length === 0) {
       this.list.append(el('p', { class: 'shop__empty' }, this.texts.get('shop.emptyTab')));
       return;
     }
-    for (const def of defs) {
+    for (const def of this.defs) {
       const card = this.buildCard(def);
       this.cards.set(def.id, card.refs);
       this.list.append(card.node);
     }
-    this.visibleSignature = this.signature(defs);
   }
 
   private defsFor(tab: Tab): UpgradeDef[] {
@@ -99,10 +105,6 @@ export class Shop {
     return this.game.content.upgrades
       .filter((u) => u.tab === tab)
       .sort((a, b) => a.baseCost - b.baseCost);
-  }
-
-  private signature(defs: UpgradeDef[]): string {
-    return defs.map((def) => `${def.id}:${this.game.checkBuy(def.id).unlocked ? 1 : 0}`).join('|');
   }
 
   private buildCard(def: UpgradeDef): { node: HTMLElement; refs: CardRefs } {
@@ -130,12 +132,13 @@ export class Shop {
       this.options.onBuy(def.id, count);
     });
 
-    const refs: CardRefs = { root: el('article'), level, effect, cost, button, lock };
+    const name = el('h3', { class: 'card__name' }, this.cardName(def));
+    const refs: CardRefs = { root: el('article'), name, level, effect, cost, button, lock };
 
     const node = el('article', { class: 'card', 'data-id': def.id }, [
       el('div', { class: 'card__art' }, [icon, level]),
       el('div', { class: 'card__body' }, [
-        el('h3', { class: 'card__name' }, this.cardName(def)),
+        name,
         el('p', { class: 'card__desc' }, this.descriptionOf(def)),
         el('div', { class: 'card__meta' }, [effect, cost]),
         lock,
@@ -159,7 +162,11 @@ export class Shop {
     return this.game.stagedName(def.id, level);
   }
 
-  /** Применить текущее состояние к карточке (дешёвая операция, вызывается часто). */
+  /**
+   * Применить текущее состояние к карточке. Вызывается часто, поэтому покупка
+   * проверяется один раз (и ещё раз — только для цены пачки), а DOM меняется
+   * лишь там, где значение стало другим.
+   */
   private refreshCard(def: UpgradeDef, refs: CardRefs): void {
     let check = this.game.checkBuy(def.id);
     const level = check.level;
@@ -170,15 +177,13 @@ export class Shop {
 
     // У покупок-действий уровень не растёт — показываем уровень коротко,
     // иначе бейдж «1/1» выглядел бы как ошибка.
-    refs.level.textContent = repeatable ? '×' : `${level}/${check.maxLevel}`;
-    refs.level.hidden = level <= 0 && !repeatable;
-    const name = this.cardName(def);
-    const nameNode = refs.root.querySelector('.card__name');
-    if (nameNode && nameNode.textContent !== name) nameNode.textContent = name;
-    refs.effect.textContent = this.describeEffect(def, level);
+    setText(refs.level, repeatable ? '×' : `${level}/${check.maxLevel}`);
+    setHidden(refs.level, level <= 0 && !repeatable);
+    setText(refs.name, this.cardName(def));
+    setText(refs.effect, this.describeEffect(def, level));
     const lockText = this.describeLock(def, check);
-    if (refs.lock.textContent !== lockText) refs.lock.textContent = lockText;
-    refs.lock.hidden = lockText.length === 0;
+    setText(refs.lock, lockText);
+    setHidden(refs.lock, lockText.length === 0);
 
     const maxed = !repeatable && !def.win && level >= check.maxLevel;
     const onCooldown = check.cooldownMs > 0;
@@ -188,10 +193,11 @@ export class Shop {
       ? Math.min(check.affordable, 10, this.game.config.maxBuyLevels)
       : 1;
     if (bulkCount > 1) check = this.game.checkBuy(def.id, bulkCount);
-    refs.button.dataset.count = String(Math.max(1, check.count));
-    refs.cost.textContent = maxed
+    const count = String(Math.max(1, check.count));
+    if (refs.button.dataset.count !== count) refs.button.dataset.count = count;
+    setText(refs.cost, maxed
       ? this.texts.get('shop.maxLevel')
-      : formatMoney(check.cost, this.currency);
+      : formatMoney(check.cost, this.currency));
 
     let label = this.texts.get('shop.buy');
     if (def.win) label = this.texts.get('finale.buyButton');
@@ -201,15 +207,16 @@ export class Shop {
     } else if (check.affordable > 1 && !repeatable) {
       label = this.texts.get('shop.buyMax', { n: Math.min(check.affordable, 10) });
     }
-    refs.button.textContent = label;
-    refs.button.disabled = !check.ok;
-    refs.button.dataset.reason = check.reason ?? 'ok';
+    setText(refs.button, label);
+    if (refs.button.disabled === check.ok) refs.button.disabled = !check.ok;
+    const reason = check.reason ?? 'ok';
+    if (refs.button.dataset.reason !== reason) refs.button.dataset.reason = reason;
 
-    refs.root.classList.toggle('card--locked', !check.unlocked);
-    refs.root.classList.toggle('card--maxed', maxed);
-    refs.root.classList.toggle('card--conquest', !!def.conquest);
-    refs.root.classList.toggle('card--win', !!def.win);
-    refs.root.classList.toggle('card--ready', def.win ? check.ok : false);
+    setClass(refs.root, 'card--locked', !check.unlocked);
+    setClass(refs.root, 'card--maxed', maxed);
+    setClass(refs.root, 'card--conquest', !!def.conquest);
+    setClass(refs.root, 'card--win', !!def.win);
+    setClass(refs.root, 'card--ready', def.win ? check.ok : false);
   }
 
   private describeEffect(def: UpgradeDef, level: number): string {
@@ -242,9 +249,7 @@ export class Shop {
             growth: formatPercent(e.capitalFlightGrowthPerMinute ?? 0, 0),
           }));
         }
-        const unlocks = this.game.content.upgrades
-          .filter((upgrade) => upgrade.unlockAt?.upgrade === def.id)
-          .map((upgrade) => upgrade.name);
+        const unlocks = this.unlockedNamesOf(def);
         if (unlocks.length > 0) {
           parts.push(t('effectUnlocks', { names: unlocks.slice(0, 3).join(', ') }));
         }
@@ -331,6 +336,18 @@ export class Shop {
     }
   }
 
+  /** Названия покупок, которым нужна данная: одна выборка на покупку, а не на каждое обновление. */
+  private unlockedNamesOf(def: UpgradeDef): string[] {
+    let names = this.unlockedNames.get(def.id);
+    if (!names) {
+      names = this.game.content.upgrades
+        .filter((upgrade) => upgrade.unlockAt?.upgrade === def.id)
+        .map((upgrade) => upgrade.name);
+      this.unlockedNames.set(def.id, names);
+    }
+    return names;
+  }
+
   /**
    * Что нужно, чтобы карточка открылась. Пишется красным прямо в карточке:
    * заблокированные покупки видит вся вкладка, а не только «следующие две».
@@ -372,15 +389,13 @@ export class Shop {
     return describeRequirementTerm(term, this.game.content, this.texts, this.currency);
   }
 
-  /** Частое обновление: только значения, без пересборки DOM. */
+  /**
+   * Частое обновление: только значения, без пересборки DOM. Узлы карточек
+   * остаются теми же, поэтому фокус клавиатуры не теряется, когда покупка
+   * открывает соседние карточки.
+   */
   update(): void {
-    const defs = this.defsFor(this.active);
-    const signature = this.signature(defs);
-    if (signature !== this.visibleSignature) {
-      this.buildList();
-      return;
-    }
-    for (const def of defs) {
+    for (const def of this.defs) {
       const refs = this.cards.get(def.id);
       if (refs) this.refreshCard(def, refs);
     }

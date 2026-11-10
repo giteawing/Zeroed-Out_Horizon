@@ -34,6 +34,25 @@ export function clear(node: HTMLElement): void {
   while (node.firstChild) node.removeChild(node.firstChild);
 }
 
+/**
+ * Пишет текст, только если он изменился. Запись того же текста всё равно
+ * заменяет текстовый узел: браузер заново считает раскладку, а выделение
+ * мышью сбрасывается. Для узлов, которые обновляются несколько раз в секунду.
+ */
+export function setText(node: Element, text: string): void {
+  if (node.textContent !== text) node.textContent = text;
+}
+
+/** Скрывает или показывает узел, не трогая атрибут без необходимости. */
+export function setHidden(node: HTMLElement, hidden: boolean): void {
+  if (node.hidden !== hidden) node.hidden = hidden;
+}
+
+/** Включает или выключает класс, только если его состояние другое. */
+export function setClass(node: Element, name: string, on: boolean): void {
+  if (node.classList.contains(name) !== on) node.classList.toggle(name, on);
+}
+
 export function raf(callback: () => void): number {
   return requestAnimationFrame(callback);
 }
