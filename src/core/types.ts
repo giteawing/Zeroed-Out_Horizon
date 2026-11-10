@@ -371,6 +371,8 @@ export type AchievementRule =
   | { kind: 'taxRate'; value: number }
   | { kind: 'costCut'; value: number }
   | { kind: 'own'; upgrade: string; value?: number }
+  /** Куплена хотя бы одна покупка из списка. */
+  | { kind: 'ownAny'; upgrades: string[] }
   | { kind: 'ownGroup'; group: string }
   | { kind: 'influence'; value: number }
   | { kind: 'sold'; value: number }
@@ -759,4 +761,8 @@ export type GameEvent =
   | { type: 'achievement'; id: string }
   | { type: 'win' }
   | { type: 'offline'; seconds: number; coins: number }
-  | { type: 'error'; code: 'noMoney' | 'cooldown' | 'locked' | 'maxLevel' | 'noOil'; id?: string };
+  | {
+      type: 'error';
+      code: 'noMoney' | 'cooldown' | 'locked' | 'maxLevel' | 'won' | 'noOil' | 'noCapacity';
+      id?: string;
+    };

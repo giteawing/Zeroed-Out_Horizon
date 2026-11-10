@@ -7,10 +7,12 @@
  *   • в тестах (happy-dom) — просто render(), чтобы проверять разметку.
  */
 import { clear, el } from './dom';
+import { describeRequirementTerm } from './requirements';
 import type { Texts } from './texts';
 import { formatMoney, formatNumber, formatPercent } from '../core/format';
 import { icon as iconPath } from '../core/assets';
 import { isRepeatable, type BuyCheck, type Game } from '../core/game';
+import { winRequirementBlocker, type RequirementTerm } from '../core/economy';
 import type { Tab, UpgradeDef } from '../core/types';
 
 interface CardRefs {
@@ -24,7 +26,6 @@ interface CardRefs {
 
 export interface ShopOptions {
   onBuy: (id: string, count: number) => void;
-  onError: (check: BuyCheck) => void;
 }
 
 const TABS: Tab[] = ['technical', 'production', 'sales', 'political', 'luxury', 'goals'];
@@ -122,11 +123,10 @@ export class Shop {
 
     button.addEventListener('click', () => {
       const count = Math.max(1, Number(button.dataset.count ?? 1));
-      const check = this.game.checkBuy(def.id, count);
-      if (!check.ok) {
-        this.options.onError(check);
-        return;
-      }
+      // Кнопка недоступной покупки выключена (`disabled`), а причина уже
+      // написана на карточке. Проверка здесь — защита от устаревшей карточки:
+      // состояние могло измениться между обновлениями интерфейса.
+      if (!this.game.checkBuy(def.id, count).ok) return;
       this.options.onBuy(def.id, count);
     });
 
@@ -337,42 +337,27 @@ export class Shop {
    */
   private describeLock(def: UpgradeDef, check: BuyCheck): string {
     if (check.unlocked) {
-      // У финальной цели обязательные уровни лежат в config.winRequirements,
-      // а не в unlockAt самой карточки. Показываем первое невыполненное.
+      // У финальной цели обязательные условия лежат в config.winRequirements,
+      // а не в unlockAt самой карточки. Показываем первое невыполненное —
+      // из того же расчёта, по которому движок разрешает финал.
       if (def.win) {
-        for (const req of this.game.config.winRequirements) {
-          if (req.upgrade && this.game.level(req.upgrade) < (req.level ?? 1)) {
-            const target = this.game.content.byId.get(req.upgrade);
-            return this.texts.get('shop.unlockHintUpgrade', {
-              name: target?.name ?? req.upgrade,
-              level: req.level ?? 1,
-            });
-          }
-          if (req.balance !== undefined && this.game.state.totalEarned < req.balance) {
-            return this.texts.get('shop.unlockHint', { cost: formatMoney(req.balance, this.currency) });
-          }
-          if (req.influence !== undefined && this.game.derived().influence < req.influence) {
-            return this.texts.get('shop.unlockHintInfluence', { value: req.influence });
-          }
-        }
+        const blocker = winRequirementBlocker(
+          this.game.config, this.game.state, this.game.derived().influence,
+        );
+        if (blocker) return this.describeTerm(blocker);
       }
+      // Открытая карточка с выключенной кнопкой тоже объясняет причину:
+      // на недоступной кнопке клик не срабатывает, поэтому пишем на карточке.
+      if (check.reason === 'noOil') return this.texts.get('shop.buyFailOil');
+      if (check.reason === 'noCapacity') return this.texts.get('shop.buyFailCapacity');
       return '';
     }
-    const blocker = check.blocker;
-    if (!blocker) return this.texts.get('shop.locked');
-    if (blocker.kind === 'balance') {
-      return this.texts.get('shop.unlockHint', {
-        cost: formatMoney(blocker.value, this.currency),
-      });
-    }
-    if (blocker.kind === 'influence') {
-      return this.texts.get('shop.unlockHintInfluence', { value: blocker.value });
-    }
-    const target = this.game.content.byId.get(blocker.id);
-    return this.texts.get('shop.unlockHintUpgrade', {
-      name: target?.name ?? blocker.id,
-      level: blocker.level,
-    });
+    return check.blocker ? this.describeTerm(check.blocker) : this.texts.get('shop.locked');
+  }
+
+  /** Невыполненное условие словами: порог уже итоговый, после кривой цен. */
+  private describeTerm(term: RequirementTerm): string {
+    return describeRequirementTerm(term, this.game.content, this.texts, this.currency);
   }
 
   /** Частое обновление: только значения, без пересборки DOM. */

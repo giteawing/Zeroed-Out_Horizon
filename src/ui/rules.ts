@@ -7,10 +7,11 @@
  * физически не могут разойтись с игрой. Формулировки — из `texts.json`.
  */
 import { el } from './dom';
+import { describeRequirementTerm } from './requirements';
 import type { Texts } from './texts';
 import { formatMoney, formatNumber, formatPercent } from '../core/format';
 import type { Content } from '../core/types';
-import { winCostOf } from '../core/economy';
+import { winCostOf, winRequirementTerms } from '../core/economy';
 
 export class Rules {
   readonly root: HTMLElement;
@@ -38,6 +39,10 @@ export class Rules {
         close,
       ]),
     ]);
+    // Клик по затемнению вокруг листа закрывает окно — как в остальных шторках.
+    this.root.addEventListener('pointerdown', (event) => {
+      if (event.target === this.root) this.onClose();
+    });
   }
 
   get visible(): boolean {
@@ -79,6 +84,7 @@ export class Rules {
     const daySeconds = oil.wells.secondsPerDay;
     const shipSeconds = oil.shipDays * daySeconds;
     const crew = oil.autoDrill.requires.map((id) => this.content.byId.get(id)?.name ?? id);
+    const winTerms = winRequirementTerms(config);
 
     return [
       this.section('rules.goalTitle', [
@@ -86,19 +92,12 @@ export class Rules {
           cost: formatMoney(winCostOf(config, upgrades), this.currency),
           pump: this.texts.get('finale.pumpName'),
         }),
-        ...(config.winRequirements.length > 0 ? [t('rules.goalRequirements', {
-          requirements: config.winRequirements.map((req) => {
-            if (req.upgrade) {
-              return t('shop.unlockHintUpgrade', {
-                name: this.content.byId.get(req.upgrade)?.name ?? req.upgrade,
-                level: req.level ?? 1,
-              });
-            }
-            if (req.influence !== undefined) {
-              return t('shop.unlockHintInfluence', { value: req.influence });
-            }
-            return t('shop.unlockHint', { cost: formatMoney(req.balance ?? 0, this.currency) });
-          }).join('; '),
+        // Условия берутся из того же расчёта, что и проверка финала в ядре:
+        // пороги итоговые, а требование из нескольких условий печатается целиком.
+        ...(winTerms.length > 0 ? [t('rules.goalRequirements', {
+          requirements: winTerms
+            .map((term) => describeRequirementTerm(term, this.content, this.texts, this.currency))
+            .join('; '),
         })] : []),
       ]),
 

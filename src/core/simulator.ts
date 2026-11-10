@@ -7,7 +7,17 @@
  * Бот детерминированный (свой ГПСЧ) — тесты не «мигают».
  */
 import { Game } from './game';
-import { adjustCurrencyCost, bankScaleOf, computeDerived, eventPayout, isUnlocked, levelOf, unlockBlocker, wellPricePerDailyTonne, winCostOf } from './economy';
+import {
+  bankScaleOf,
+  computeDerived,
+  eventPayout,
+  isUnlocked,
+  levelOf,
+  unlockBlocker,
+  wellPricePerDailyTonne,
+  winCostOf,
+  winRequirementBlocker,
+} from './economy';
 import { isRepeatable } from './game';
 import { createInitialState } from './state';
 import type { Content, GameState, UpgradeDef } from './types';
@@ -185,12 +195,8 @@ export function decide(
   const derived = game.derived();
 
   const winDef = content.upgrades.find((u) => u.win);
-  const requirementsMet = (): boolean => content.config.winRequirements.every((req) => {
-    if (req.upgrade && levelOf(state, req.upgrade) < (req.level ?? 1)) return false;
-    if (req.balance !== undefined && state.totalEarned < adjustCurrencyCost(content.config, req.balance)) return false;
-    if (req.influence !== undefined && derived.influence < req.influence) return false;
-    return true;
-  });
+  const requirementsMet = (): boolean =>
+    winRequirementBlocker(content.config, state, derived.influence) === null;
 
   if (winDef) {
     const blocker = unlockBlocker(winDef, state, derived.influence, content.config);

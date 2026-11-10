@@ -5,8 +5,13 @@
  *   • тексты только из texts.json (никаких русских строк в коде);
  *   • главный цикл на requestAnimationFrame; экономика тикает раз в 100 мс,
  *     DOM-панели обновляются не чаще пяти раз в секунду;
+ *   • до нажатия кнопки на стартовом экране игра стоит: ни тиков, ни
+ *     сохранений, иначе офлайн-доход теряется или считается дважды;
+ *   • реальное время между кадрами не обрезается: его учитывает FrameClock
+ *     (ограниченная работа за кадр, перенос остатка, долгий простой — офлайн);
  *   • сохранение при visibilitychange/pagehide и раз в autosaveSeconds;
- *   • звук «разблокируется» на первом pointerdown (требование iOS).
+ *   • звук «разблокируется» внутри пользовательского жеста (клик по старту
+ *     или по переключателю звука).
  */
 import './styles/base.css';
 import { loadContent, creditsIsPlaceholder } from './core/content';
@@ -21,6 +26,7 @@ import {
 import { archiveCorruptSave, clearSave, readSave, writeSave } from './core/storage';
 import { formatMoney, formatNumber } from './core/format';
 import { Rng } from './core/rng';
+import { FrameClock } from './core/clock';
 import { image } from './core/assets';
 import { SoundEngine } from './audio/sound';
 import { Effects } from './fx/particles';
@@ -66,6 +72,20 @@ function boot(): void {
 
   const sound = new SoundEngine(state.soundOn);
 
+  // ------------------------------------------------------------- часы цикла
+  // Игра стоит на паузе, пока игрок не нажал кнопку на стартовом экране.
+  let started = false;
+  const TICK_MS = config.tickMs;
+  /** Сколько тиков можно прожить за кадр: кадр не должен быть бесконечным. */
+  const MAX_TICKS_PER_FRAME = 10;
+  /** Простой дольше этого считается отсутствием и идёт по правилам офлайна. */
+  const AWAY_AFTER_MS = 10_000;
+  const clock = new FrameClock({
+    tickMs: TICK_MS,
+    maxTicksPerFrame: MAX_TICKS_PER_FRAME,
+    awayAfterMs: AWAY_AFTER_MS,
+  });
+
   document.title = texts.data.meta.title;
 
   // ------------------------------------------------------------------ разметка
@@ -82,6 +102,8 @@ function boot(): void {
   });
   const settings = new Settings(texts, {
     onToggleSound: (enabled) => {
+      // Вызов идёт из обработчика клика, поэтому звуковой движок может
+      // создать AudioContext прямо сейчас (см. SoundEngine.setEnabled).
       sound.setEnabled(enabled);
       game.setSound(enabled);
       save();
@@ -126,7 +148,6 @@ function boot(): void {
 
   const shop = new Shop(game, texts, currency, {
     onBuy: (id, count) => buy(id, count),
-    onError: (check) => reportBuyError(check.reason),
   });
 
   const oplog = new OperationLog(texts, currency);
@@ -179,7 +200,6 @@ function boot(): void {
         sound.setEnabled(next);
         game.setSound(next);
         settings.setSound(next);
-        if (next) sound.unlock();
         save();
       },
       isOn: () => game.state.soundOn,
@@ -193,7 +213,7 @@ function boot(): void {
       onSelect: () => toggleStats(),
     },
     ...(import.meta.env.DEV
-      ? [{ id: 'dev', icon: '🛠', label: texts.get('panel.dev'), onSelect: () => dev.open(state.coins) }]
+      ? [{ id: 'dev', icon: '🛠', label: texts.get('panel.dev'), onSelect: () => dev.open(game.state.coins) }]
       : []),
     { id: 'settings', icon: '⚙️', label: texts.get('panel.settings'), onSelect: () => settings.open() },
   ]);
@@ -255,13 +275,19 @@ function boot(): void {
 
   function onStart(fresh: boolean): void {
     sound.unlock();
+    // С этого момента игра идёт: разрешены тики и сохранения.
+    started = true;
     if (fresh) {
       state = createInitialState(config);
       restartWith(state);
+      // Новая партия сразу заменяет старый сейв, а не через autosaveSeconds.
+      if (hasSave) save();
     } else if (hasSave) {
       applyOfflineIncome();
       if (game.state.won) finale.show(game.state);
     }
+    // Время на стартовом экране игрой не считается: отсчёт начинается сейчас.
+    clock.reset(performance.now());
     start.hide();
     scheduleUi();
     news.push('start');
@@ -302,12 +328,21 @@ function boot(): void {
     refreshUi();
   }
 
-  function applyOfflineIncome(): void {
+  /**
+   * Начислить доход за время отсутствия.
+   *
+   * Без аргумента интервал считается от последнего сохранения (запуск игры,
+   * возврат в скрытую вкладку). С `awayMs` — за известный простой видимой
+   * вкладки: последнее автосохранение было раньше начала простоя, и расчёт
+   * «от сейва» посчитал бы уже прожитые секунды повторно.
+   */
+  function applyOfflineIncome(awayMs?: number): void {
+    const nowWallMs = Date.now();
     const report = offlineReport(
       config,
       game.derived().netPerSecond,
-      state.savedAtWallMs,
-      Date.now(),
+      awayMs === undefined ? game.state.savedAtWallMs : nowWallMs - awayMs,
+      nowWallMs,
     );
     if (report.seconds > 0) {
       game.applyOffline(report.seconds, report.coins);
@@ -322,6 +357,8 @@ function boot(): void {
   let lastSaveAt = 0;
   let saveWarningShown = false;
   function save(): void {
+    // До старта нельзя перезаписывать savedAtWallMs: от него считается офлайн.
+    if (!started) return;
     const snapshot = game.snapshot();
     const stored = writeSave(serializeState(snapshot));
     if (!stored && !saveWarningShown) {
@@ -341,10 +378,8 @@ function boot(): void {
   function buy(id: string, count = 1): void {
     const def = content.byId.get(id);
     const result = game.buy(id, count);
-    if (!result.ok) {
-      if (result.reason === 'noMoney' || result.reason === 'noOil') sound.event(false);
-      return;
-    }
+    // Отказ озвучивает обработчик события `error` ниже.
+    if (!result.ok) return;
     sound.purchase();
     const gain = result.payouts.reduce((sum, payout) => sum + payout.amount, 0);
     if (gain > 0) {
@@ -372,18 +407,7 @@ function boot(): void {
     return 'milestone';
   }
 
-  function reportBuyError(reason: string | undefined): void {
-    const key =
-      reason === 'cooldown' ? 'shop.buyFailCooldown' :
-      reason === 'locked' ? 'shop.buyFailLocked' :
-      'shop.buyFail';
-    showBadge(texts.get(key));
-  }
-
   // ------------------------------------------------------------------ цикл
-  const TICK_MS = config.tickMs;
-  let lastFrame = performance.now();
-  let accumulator = 0;
   let uiDirty = true;
   let uiRefreshElapsed = 0;
   const UI_REFRESH_INTERVAL_MS = 200;
@@ -410,7 +434,7 @@ function boot(): void {
         showBadge(
           event.won
             ? `+${formatMoney(event.amount, currency)}`
-            : texts.get('shop.buyFail'),
+            : texts.get('shop.gambleLost'),
         );
         news.push(event.won ? 'gambleWin' : 'gambleLose');
         break;
@@ -441,11 +465,18 @@ function boot(): void {
       case 'oilFull':
         if (!oilFullShown) {
           oilFullShown = true;
-          showBadge(texts.get('shop.buyFailOil'));
+          showBadge(texts.get('shop.oilFull'));
           window.setTimeout(() => { oilFullShown = false; }, 8000);
         }
         break;
       case 'offline':
+        break;
+      case 'error':
+        // Покупка не состоялась. Кнопка недоступной карточки выключена, а
+        // причина написана на ней; сюда попадает только устаревшая карточка.
+        if (event.code === 'noMoney' || event.code === 'noOil' || event.code === 'noCapacity') {
+          sound.event(false);
+        }
         break;
       default:
         break;
@@ -468,32 +499,32 @@ function boot(): void {
   }
 
   function frame(now: number): void {
-    const dt = Math.min(250, now - lastFrame);
-    lastFrame = now;
-    if (!hidden) {
-      accumulator += dt;
-      // Экономический тик ровно раз в TICK_MS, независимо от fps.
-      let ticks = 0;
-      while (accumulator >= TICK_MS && ticks < 20) {
-        accumulator -= TICK_MS;
-        game.update(TICK_MS);
-        ticks++;
+    const running = started && !hidden;
+    const step = clock.advance(now, running);
+    if (running) {
+      if (step.awayMs > 0) {
+        // Видимая вкладка стояла слишком долго (сон ноутбука, отладчик):
+        // это время начисляется как отсутствие, а не симулируется тиками.
+        applyOfflineIncome(step.awayMs);
+        scheduleUi();
       }
-      newsTimer += dt;
+      // Экономический тик ровно раз в TICK_MS, независимо от fps. Остаток
+      // времени FrameClock переносит на следующие кадры.
+      for (let tick = 0; tick < step.ticks; tick++) game.update(TICK_MS);
+      newsTimer += step.elapsedMs;
       if (newsTimer > 15000) {
         newsTimer = 0;
         news.pushRandom();
       }
-      if (now - lastSaveAt > config.autosaveSeconds * 1000) save();
+      if (performance.now() - lastSaveAt > config.autosaveSeconds * 1000) save();
     }
     if (uiDirty) {
-      uiRefreshElapsed += dt;
+      uiRefreshElapsed += step.elapsedMs;
       if (uiRefreshElapsed >= UI_REFRESH_INTERVAL_MS) refreshUi();
     }
     requestAnimationFrame(frame);
   }
 
-  let lastWinShown = false;
   function refreshUi(): void {
     uiDirty = false;
     uiRefreshElapsed = 0;
@@ -502,9 +533,6 @@ function boot(): void {
     flowControls.update(game.state, derived);
     oplog.update(game.state.log);
     shop.update();
-    if (game.state.won && !lastWinShown) {
-      lastWinShown = true;
-    }
   }
 
   function toggleStats(): void {
@@ -519,22 +547,29 @@ function boot(): void {
   // Пауза, когда вкладка не видна: экономим батарею и не начисляем «за кадром».
   document.addEventListener('visibilitychange', () => {
     hidden = document.visibilityState === 'hidden';
-    lastFrame = performance.now();
-    if (!hidden) {
-      accumulator = 0;
+    clock.reset(performance.now());
+    // До старта возвращение во вкладку ничего не начисляет: офлайн-доход
+    // считается один раз, при нажатии «Продолжить».
+    if (!hidden && started) {
       applyOfflineIncome();
       scheduleUi();
     }
   });
 
   // ------------------------------------------------------- диалоги-хелперы
+  // Escape закрывает только верхнее окно. Порядок — обратный порядку
+  // добавления в DOM: что добавлено позже, то нарисовано выше.
+  const sheets: Array<{ visible: boolean; close: () => void }> = [
+    assetDetails,
+    wealth,
+    dev,
+    { get visible() { return rules.visible; }, close: () => rules.hide() },
+    settings,
+  ];
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-      if (dev.visible) dev.close();
-      if (settings.visible) settings.close();
-      if (wealth.visible) wealth.close();
-      if (assetDetails.visible) assetDetails.close();
-    }
+    if (event.key !== 'Escape') return;
+    const top = sheets.find((sheet) => sheet.visible);
+    if (top) top.close();
   });
 
   window.addEventListener('resize', () => {

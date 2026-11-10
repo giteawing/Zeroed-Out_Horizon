@@ -2,7 +2,7 @@
  * Покупки: цены, пакетная доступность и условия разблокировки.
  * Только расчёты — состояние игры здесь не меняется.
  */
-import type { GameConfig, GameState, UpgradeDef } from '../types';
+import type { GameConfig, GameState, UnlockRequirement, UpgradeDef } from '../types';
 
 export function levelOf(state: GameState, id: string): number {
   return state.levels[id] ?? 0;
@@ -90,33 +90,86 @@ export function isUnlocked(
   return unlockBlocker(def, state, influence, config) === null;
 }
 
+/**
+ * Одно условие требования с итоговым порогом: именно это значение сравнивает
+ * движок и именно его показывает интерфейс.
+ */
+export type RequirementTerm =
+  | { kind: 'balance'; value: number }
+  | { kind: 'upgrade'; id: string; level: number }
+  | { kind: 'influence'; value: number };
+
+/**
+ * Все условия одного требования. Порог «заработано всего» проходит через
+ * `currencyCostCurve`, если передана конфигурация: в боевом коде она есть
+ * всегда, без неё работают только юнит-тесты отдельных определений.
+ */
+export function requirementTerms(req: UnlockRequirement, config?: GameConfig): RequirementTerm[] {
+  const terms: RequirementTerm[] = [];
+  if (req.balance !== undefined) {
+    terms.push({
+      kind: 'balance',
+      value: config ? adjustCurrencyCost(config, req.balance) : req.balance,
+    });
+  }
+  if (req.upgrade !== undefined) {
+    terms.push({ kind: 'upgrade', id: req.upgrade, level: req.level ?? 1 });
+  }
+  if (req.influence !== undefined) terms.push({ kind: 'influence', value: req.influence });
+  return terms;
+}
+
+function termMet(term: RequirementTerm, state: GameState, influence: number): boolean {
+  switch (term.kind) {
+    case 'balance':
+      return state.totalEarned >= term.value;
+    case 'upgrade':
+      return levelOf(state, term.id) >= term.level;
+    case 'influence':
+      return influence >= term.value;
+  }
+}
+
+/** Первое невыполненное условие требования или null, если выполнены все. */
+export function requirementBlocker(
+  req: UnlockRequirement,
+  state: GameState,
+  influence = 0,
+  config?: GameConfig,
+): RequirementTerm | null {
+  return requirementTerms(req, config).find((term) => !termMet(term, state, influence)) ?? null;
+}
+
 /** Чего не хватает для открытия покупки — для подсказки в интерфейсе. */
 export function unlockBlocker(
   def: UpgradeDef,
   state: GameState,
   influence = 0,
   config?: GameConfig,
-):
-  | { kind: 'balance'; value: number }
-  | { kind: 'upgrade'; id: string; level: number }
-  | { kind: 'influence'; value: number }
-  | null {
-  const req = def.unlockAt;
-  if (!req) return null;
-  if (req.balance !== undefined) {
-    const requiredBalance = config ? adjustCurrencyCost(config, req.balance) : req.balance;
-    if (state.totalEarned < requiredBalance) {
-      return { kind: 'balance', value: requiredBalance };
-    }
-  }
-  if (req.upgrade !== undefined) {
-    const need = req.level ?? 1;
-    if (levelOf(state, req.upgrade) < need) {
-      return { kind: 'upgrade', id: req.upgrade, level: need };
-    }
-  }
-  if (req.influence !== undefined && influence < req.influence) {
-    return { kind: 'influence', value: req.influence };
+): RequirementTerm | null {
+  return def.unlockAt ? requirementBlocker(def.unlockAt, state, influence, config) : null;
+}
+
+/** Все условия финала с итоговыми порогами — для «Правил» и подсказок. */
+export function winRequirementTerms(config: GameConfig): RequirementTerm[] {
+  return config.winRequirements.flatMap((req) => requirementTerms(req, config));
+}
+
+/**
+ * Первое невыполненное условие финала (`config.winRequirements`) или null.
+ *
+ * Единственный расчёт условий победы: его используют `isWinReady`, бот
+ * симулятора, карточка финальной цели и «Правила». Деньги на саму покупку
+ * сюда не входят — их проверяет `isWinReady`.
+ */
+export function winRequirementBlocker(
+  config: GameConfig,
+  state: GameState,
+  influence = 0,
+): RequirementTerm | null {
+  for (const req of config.winRequirements) {
+    const blocker = requirementBlocker(req, state, influence, config);
+    if (blocker) return blocker;
   }
   return null;
 }

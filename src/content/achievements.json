@@ -66,8 +66,13 @@
     {
       "id": "a_hat",
       "rule": {
-        "kind": "ownGroup",
-        "group": "bling"
+        "kind": "ownAny",
+        "upgrades": [
+          "l_jacket1",
+          "l_jacket2",
+          "l_jacket3",
+          "l_fur"
+        ]
       }
     },
     {
@@ -94,8 +99,13 @@
     {
       "id": "a_brilliant",
       "rule": {
-        "kind": "own",
-        "upgrade": "l_ring"
+        "kind": "ownAny",
+        "upgrades": [
+          "l_ring",
+          "l_signet",
+          "l_necklace",
+          "l_crown"
+        ]
       }
     },
     {
@@ -103,7 +113,7 @@
       "rule": {
         "kind": "own",
         "upgrade": "d1_blade",
-        "value": 5
+        "value": 8
       }
     },
     {

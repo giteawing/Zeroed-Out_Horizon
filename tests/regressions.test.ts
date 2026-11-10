@@ -189,6 +189,46 @@ describe('единая финансовая модель продаж', () => {
     expect(sale.tonnes).toBeCloseTo(200, 6);
   });
 
+  it('p_export без приёмной мощности не тратит перезарядку и ничего не меняет (REVIEW C7)', () => {
+    const content = freshContent();
+    // Экспорта нет, а запасной контрактный канал не принимает ни тонны.
+    content.config.oil.channels.contract.baseRate = 0;
+    const state = rich(content, 1e9);
+    state.oil = 400;
+    const game = new Game(content, state);
+    const events: GameEvent[] = [];
+    game.on((event) => events.push(event));
+    expect(game.derived().capacities.domestic.crude).toBe(0);
+    expect(game.derived().capacities.export.crude).toBe(0);
+
+    const check = game.checkBuy('p_export');
+    expect(check.ok).toBe(false);
+    expect(check.reason).toBe('noCapacity');
+
+    const before = structuredClone(state);
+    const result = game.buy('p_export');
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe('noCapacity');
+    expect(result.payouts).toEqual([]);
+    // Раньше покупка «проходила»: кулдаун и уровень менялись, а нефть оставалась.
+    expect(state.cooldowns.p_export ?? 0).toBe(0);
+    expect(state.levels).toEqual(before.levels);
+    expect(state.totalPurchases).toBe(before.totalPurchases);
+    expect(state.oil).toBe(400);
+    expect(state.coins).toBe(before.coins);
+    expect(state.log).toEqual(before.log);
+    expect(events.some((event) => event.type === 'purchase')).toBe(false);
+    expect(events).toContainEqual({ type: 'error', code: 'noCapacity', id: 'p_export' });
+
+    // Как только мощность появилась, та же акция срабатывает.
+    state.levels.x_cistern = 1;
+    game.invalidate();
+    expect(game.checkBuy('p_export').ok).toBe(true);
+    expect(game.buy('p_export').ok).toBe(true);
+    expect(state.oil).toBeLessThan(400);
+    expect(state.cooldowns.p_export).toBeGreaterThan(0);
+  });
+
   it('разлитые продукты не увеличивают выручку и чистую прибыль', () => {
     const content = freshContent();
     content.config.oil.channels.contract.unlimited = false;

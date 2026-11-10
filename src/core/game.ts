@@ -35,7 +35,15 @@ import type {
 import { Rng } from './rng';
 import { calculateSaleSettlement } from './accounting';
 
-export type BuyFailure = 'noMoney' | 'cooldown' | 'locked' | 'maxLevel' | 'won' | 'noOil';
+export type BuyFailure =
+  | 'noMoney'
+  | 'cooldown'
+  | 'locked'
+  | 'maxLevel'
+  | 'won'
+  | 'noOil'
+  /** Нефть есть, но ни один канал разовой акции не может её принять. */
+  | 'noCapacity';
 
 const MAX_LOG = 24;
 
@@ -371,6 +379,13 @@ export class Game {
     } else if (def.effect.sellsOil && this.state.oil < 0.001) {
       // Экспортная акция продаёт нефть со склада — без нефти продавать нечего.
       reason = 'noOil';
+    } else if (
+      def.effect.sellsOil && def.effect.usesWorldPrice &&
+      this.exportBurstPlan(def, derived).tonnes <= 0
+    ) {
+      // Нефть есть, но ни запрошенный канал, ни запасной контрактный её не
+      // примут. Покупка не должна сжигать перезарядку впустую.
+      reason = 'noCapacity';
     }
 
     return {
@@ -403,9 +418,9 @@ export class Game {
     if (!def) return { ok: false, reason: 'locked', payouts: [] };
     const check = this.checkBuy(id, count);
     if (!check.ok) {
-      if (check.reason === 'noMoney' || check.reason === 'cooldown') {
-        this.emit({ type: 'error', code: check.reason, id });
-      }
+      // Отказ сообщается и результатом, и событием: интерфейс подписан на
+      // события и сам решает, как показать причину.
+      this.emit({ type: 'error', code: check.reason ?? 'locked', id });
       return { ok: false, reason: check.reason, payouts: [] };
     }
     if (def.win) return this.buyWin(def, check.cost);
@@ -546,6 +561,41 @@ export class Game {
     return stagedNameOf(def, level ?? this.level(id));
   }
 
+  /**
+   * План разовой экспортной акции: канал, цена и объём, который реально уйдёт.
+   *
+   * Один расчёт для проверки покупки и для её исполнения: `checkBuy` отказывает
+   * при нулевом объёме, поэтому акция не может списать перезарядку впустую.
+   */
+  private exportBurstPlan(
+    def: UpgradeDef,
+    derived: DerivedStats,
+  ): { channel: Channel; price: number; tonnes: number } {
+    const crudeRateOf = (channel: Channel): number =>
+      channel === 'export'
+        ? derived.capacities.export.crude
+        : channel === 'contract'
+          ? derived.capacities.domestic.crude
+          : derived.capacities.refine;
+    // Экспортные акции продают реальную нефть со склада: тонны уходят,
+    // деньги приходят по цене канала (и по мировой цене).
+    // Если экспортный канал ещё не построен, акция всё равно работает:
+    // нефть уходит по цене контрактов — «сбагрили через границу».
+    const requested = def.effect.burstChannel ?? 'export';
+    const requestedCfg = this.config.oil.channels[requested];
+    // Цена канала существует и без инфраструктуры, поэтому выбирать
+    // fallback нужно по мощности ИМЕННО для сырой нефти.
+    const channel: Channel = requestedCfg.unlimited || crudeRateOf(requested) > 0
+      ? requested
+      : 'contract';
+    const channelCfg = this.config.oil.channels[channel];
+    const price = derived.channels[channel].price;
+    const desired = Math.min(this.state.oil, Math.max(1, this.state.oil * 0.5));
+    const capacity = crudeRateOf(channel) * this.config.oil.exportBurstSeconds;
+    const tonnes = channelCfg.unlimited ? desired : Math.min(desired, capacity);
+    return { channel, price, tonnes: Number.isFinite(tonnes) ? Math.max(0, tonnes) : 0 };
+  }
+
   private applyImmediateEffect(
     def: UpgradeDef,
     level: number,
@@ -556,30 +606,8 @@ export class Game {
     if (def.type === 'oneShot') {
       const derived = this.derived();
       if (def.effect.sellsOil && def.effect.usesWorldPrice) {
-        // Экспортные акции продают реальную нефть со склада: тонны уходят,
-        // деньги приходят по цене канала (и по мировой цене).
-        // Если экспортный канал ещё не построен, акция всё равно работает:
-        // нефть уходит по цене контрактов — «сбагрили через границу».
-        const requested = def.effect.burstChannel ?? 'export';
-        const requestedCfg = this.config.oil.channels[requested];
-        const crudeRate = requested === 'export'
-          ? derived.capacities.export.crude
-          : requested === 'contract'
-            ? derived.capacities.domestic.crude
-            : derived.capacities.refine;
-        // Цена канала существует и без инфраструктуры, поэтому выбирать
-        // fallback нужно по мощности ИМЕННО для сырой нефти.
-        const channel = requestedCfg.unlimited || crudeRate > 0 ? requested : 'contract';
-        const channelCfg = this.config.oil.channels[channel];
-        const actualRate = channel === 'export'
-          ? derived.capacities.export.crude
-          : channel === 'contract'
-            ? derived.capacities.domestic.crude
-            : derived.capacities.refine;
-        const price = derived.channels[channel].price;
-        const desired = Math.min(this.state.oil, Math.max(1, this.state.oil * 0.5));
-        const capacity = actualRate * this.config.oil.exportBurstSeconds;
-        const tonnes = channelCfg.unlimited ? desired : Math.min(desired, capacity);
+        const { channel, price, tonnes } = this.exportBurstPlan(def, derived);
+        // Нулевой объём отсекает checkBuy(); здесь — защита от прямого вызова.
         if (tonnes <= 0) return payouts;
         const gross = tonnes * price * (1 + (def.effect.exportBonus ?? 0));
         this.state.oil -= tonnes;
@@ -1136,6 +1164,8 @@ export class Game {
         return this.derived().costCutPercent >= rule.value;
       case 'own':
         return this.level(rule.upgrade) >= (rule.value ?? 1);
+      case 'ownAny':
+        return rule.upgrades.some((id) => this.level(id) > 0);
       case 'influence':
         return this.derived().influence >= rule.value;
       case 'sold':

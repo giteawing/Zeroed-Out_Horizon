@@ -85,10 +85,23 @@ export class FlowControlsPanel {
     ]);
   }
 
+  /**
+   * Применить введённое в поле значение.
+   *
+   * Пустое поле — это «Авто», как подсказывает placeholder: раньше
+   * `Number('') === 0` молча превращал стёртое значение в «фиксированный 0»
+   * и отключал маршрут. Нечисловой ввод браузер тоже отдаёт пустой строкой,
+   * но с `validity.badInput` — это ошибка, а не просьба включить «Авто».
+   */
   private setFixed(channel: Channel, input: HTMLInputElement): void {
-    const value = Number(input.value);
-    const setting: FlowControl = { mode: 'fixed', value };
-    if (!this.game.setFlowControl(channel, setting)) {
+    const raw = input.value.trim();
+    const badInput = input.validity?.badInput === true;
+    const setting: FlowControl | null = badInput
+      ? null
+      : raw === ''
+        ? { mode: 'auto', value: 0 }
+        : { mode: 'fixed', value: Number(raw.replace(',', '.')) };
+    if (!setting || !this.game.setFlowControl(channel, setting)) {
       input.setCustomValidity(this.texts.get('flows.invalid'));
       input.reportValidity();
       input.setCustomValidity('');

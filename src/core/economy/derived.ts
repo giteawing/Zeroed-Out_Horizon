@@ -4,7 +4,7 @@
  */
 import type { AssetKind, Content, DerivedStats, GameConfig, GameState, UpgradeDef } from '../types';
 import { type TaxBuff } from './definitions';
-import { adjustCurrencyCost, levelOf } from './purchases';
+import { adjustCurrencyCost, levelOf, winRequirementBlocker } from './purchases';
 import { oilCapacityOf } from './production';
 import { assetCountsOf, assetsValueOf } from './assets';
 import { collectUpgradeEffects } from './derived/effects';
@@ -145,7 +145,7 @@ export function winCostOf(config: GameConfig, upgrades: UpgradeDef[]): number {
   return adjustCurrencyCost(config, winDef ? winDef.baseCost : config.winCost);
 }
 
-/** Проверяет все требования победы. */
+/** Финал доступен: хватает денег и выполнены все условия `winRequirements`. */
 export function isWinReady(
   config: GameConfig,
   upgrades: UpgradeDef[],
@@ -153,16 +153,8 @@ export function isWinReady(
   coins: number,
   influence = 0,
 ): boolean {
-  if (coins < winCostOf(config, upgrades)) return false;
-  for (const requirement of config.winRequirements) {
-    if (
-      requirement.upgrade !== undefined &&
-      levelOf(state, requirement.upgrade) < (requirement.level ?? 1)
-    ) return false;
-    if (requirement.balance !== undefined && state.totalEarned < adjustCurrencyCost(config, requirement.balance)) return false;
-    if (requirement.influence !== undefined && influence < requirement.influence) return false;
-  }
-  return true;
+  return coins >= winCostOf(config, upgrades) &&
+    winRequirementBlocker(config, state, influence) === null;
 }
 
 /** База выплаты событий: одна секунда выручки плюс половина пассивной добычи. */
