@@ -25,6 +25,7 @@ import type {
   BurstChannel,
   Channel,
   Content,
+  DeepReadonly,
   DerivedStats,
   FlowControl,
   GameEvent,
@@ -97,7 +98,17 @@ const MAX_GAMBLE_RESOLVES_PER_TICK = 20;
 
 export class Game {
   readonly content: Content;
-  state: GameState;
+  /**
+   * Настоящее состояние партии. Публичный доступ к нему — только на чтение
+   * (`state` ниже): менять поля движка должен он сам, через команды.
+   *
+   * Так компилятор не даёт интерфейсу тайком записать `coins` или `levels`:
+   * любая такая запись обходила бы `invalidate()` и оставляла кеш
+   * производных показателей устаревшим (AUDIT F04). Для тестов и отладки есть
+   * явные двери: `addCoins()` (пополнение счёта), `unlockAllForDevelopment()`
+   * и `stateForTests()`; проверка — `tests/dead-code.test.ts`.
+   */
+  private mutableState: GameState;
   private rng: Rng;
   private derivedCache: DerivedStats | null = null;
   private listeners = new Set<(event: GameEvent) => void>();
@@ -125,14 +136,14 @@ export class Game {
 
   constructor(content: Content, state: GameState) {
     this.content = content;
-    this.state = state;
+    this.mutableState = state;
     this.rng = new Rng(state.rngSeed);
     this.lastWorldPriceSecond = Math.floor(state.clockMs / 1000);
   }
 
   /** Перезапустить партию, сохранив подписчиков и контент. */
   reset(state: GameState): void {
-    this.state = state;
+    this.mutableState = state;
     this.rng = new Rng(state.rngSeed);
     this.lastWorldPriceSecond = Math.floor(state.clockMs / 1000);
     this.achievementTimerMs = 0;
@@ -152,6 +163,27 @@ export class Game {
     return this.content.config;
   }
 
+  /**
+   * Снимок состояния для интерфейса и отчётов — только на чтение.
+   * `Readonly` в TypeScript глубокий лишь на один уровень, поэтому вложенные
+   * объекты объявлены `readonly` в `GameState` там, где это возможно; запись
+   * в `coins`, `levels` или `flowControl` через это свойство не компилируется.
+   */
+  get state(): DeepReadonly<GameState> {
+    return this.mutableState;
+  }
+
+  /**
+   * Состояние для тестов, отладки и симулятора: они готовят сценарии
+   * (например, «у игрока ровно столько денег»), которых в игре не получить
+   * командами. Один явный вход вместо публичной записи в `state`:
+   * `tests/dead-code.test.ts` требует, чтобы им пользовались только тесты и
+   * скрипты.
+   */
+  stateForTests(): GameState {
+    return this.mutableState;
+  }
+
   on(listener: (event: GameEvent) => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -165,7 +197,7 @@ export class Game {
   derived(): DerivedStats {
     if (!this.derivedCache) {
       this.derivedCache = computeDerived(
-        this.config, this.content.upgrades, this.state, [], this.content,
+        this.config, this.content.upgrades, this.mutableState, [], this.content,
       );
     }
     return this.derivedCache;
@@ -174,12 +206,12 @@ export class Game {
   /** Изменить маршрут сырой нефти. Фиксированный поток нельзя задать выше физического максимума. */
   setFlowControl(channel: Channel, setting: FlowControl): boolean {
     if (setting.mode === 'auto') {
-      this.state.flowControl[channel] = { mode: 'auto', value: 0 };
+      this.mutableState.flowControl[channel] = { mode: 'auto', value: 0 };
     } else {
       if (!Number.isFinite(setting.value) || setting.value < 0) return false;
       const max = this.derived().flowLimits[channel];
       if (setting.value > max + 1e-9) return false;
-      this.state.flowControl[channel] = { mode: 'fixed', value: setting.value };
+      this.mutableState.flowControl[channel] = { mode: 'fixed', value: setting.value };
     }
     this.invalidate();
     this.emit({ type: 'income' });
@@ -201,7 +233,7 @@ export class Game {
   }
 
   level(id: string): number {
-    return levelOf(this.state, id);
+    return levelOf(this.mutableState, id);
   }
 
   /**
@@ -221,7 +253,7 @@ export class Game {
     const exportBudget = derived.flows.export * dtSeconds;
     const viaPipe = Math.min(tonnes, room, exportBudget);
     if (viaPipe <= 0) return 0;
-    this.state.totalSold += viaPipe;
+    this.mutableState.totalSold += viaPipe;
     // Как и любая другая продажа, труба добавляет именно ВАЛОВУЮ выручку.
     // Деньги появятся только после общего расчёта расходов и налога.
     this.pendingSalesGross += viaPipe * price;
@@ -242,10 +274,10 @@ export class Game {
     let addedTotal = 0;
     const hasUnlimitedCrude = Object.values(this.config.oil.channels)
       .some((channel) => channel.unlimited === true);
-    const initialFree = Math.max(0, this.derived().oilCapacity - this.state.oil);
+    const initialFree = Math.max(0, this.derived().oilCapacity - this.mutableState.oil);
 
     if (left > initialFree && hasUnlimitedCrude) {
-      this.state.oil += left;
+      this.mutableState.oil += left;
       addedTotal += left;
       this.invalidate();
       this.pendingSalesGross += this.tickShipping(this.derived(), 0, true);
@@ -255,21 +287,21 @@ export class Game {
 
     for (let guard = 0; guard < 10_000 && left > 1e-9; guard++) {
       const capacity = this.derived().oilCapacity;
-      const free = Math.max(0, capacity - this.state.oil);
+      const free = Math.max(0, capacity - this.mutableState.oil);
       const added = Math.min(free, left);
       if (added > 0) {
-        this.state.oil += added;
+        this.mutableState.oil += added;
         this.invalidate();
       }
       addedTotal += added;
       left -= added;
       if (left <= 1e-9) break;
 
-      const beforeShip = this.state.oil;
+      const beforeShip = this.mutableState.oil;
       if (beforeShip > 0) {
         this.pendingSalesGross += this.tickShipping(this.derived(), 0, true);
       }
-      if (this.state.oil >= beforeShip - 1e-9) {
+      if (this.mutableState.oil >= beforeShip - 1e-9) {
         this.spill('crude', left);
         this.emit({ type: 'oilFull' });
         left = 0;
@@ -292,7 +324,7 @@ export class Game {
     const products = this.spillProductsThisStep;
     if (crude > 1e-9 || products > 1e-9) {
       const influence = this.derived().influence;
-      this.state.expensesAccrued +=
+      this.mutableState.expensesAccrued +=
         fineFor(this.config, 'crude', crude, influence) +
         fineFor(this.config, 'products', products, influence);
       this.commitSpill(Math.max(0.001, this.config.fines.stormSeconds));
@@ -304,8 +336,8 @@ export class Game {
   /** Начислить фактически полученные деньги и обновить суммарный заработок. */
   private grantCoins(amount: number): void {
     if (!Number.isFinite(amount) || amount <= 0) return;
-    this.state.coins += amount;
-    this.state.totalEarned += amount;
+    this.mutableState.coins += amount;
+    this.mutableState.totalEarned += amount;
     this.invalidate();
   }
 
@@ -324,10 +356,10 @@ export class Game {
    */
   forceWin(): boolean {
     const winDef = this.content.upgrades.find((u) => u.win);
-    if (!winDef || this.state.won) return false;
-    this.state.levels[winDef.id] = 1;
-    this.state.won = true;
-    this.state.wonAtMs = this.state.playtimeMs;
+    if (!winDef || this.mutableState.won) return false;
+    this.mutableState.levels[winDef.id] = 1;
+    this.mutableState.won = true;
+    this.mutableState.wonAtMs = this.mutableState.playtimeMs;
     this.invalidate();
     this.grantAchievement('a_win');
     this.emit({ type: 'win' });
@@ -354,8 +386,8 @@ export class Game {
     }
     const level = this.level(id);
     const derived = this.derived();
-    const unlocked = this.devUnlocked || isUnlocked(def, this.state, derived.influence, this.config);
-    const cooldownMs = this.state.cooldowns[id] ?? 0;
+    const unlocked = this.devUnlocked || isUnlocked(def, this.mutableState, derived.influence, this.config);
+    const cooldownMs = this.mutableState.cooldowns[id] ?? 0;
     const repeatable = isRepeatable(def);
     const requested = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1;
     const wanted = repeatable || def.cooldownSeconds || def.win
@@ -373,17 +405,17 @@ export class Game {
       : rawCost;
 
     let reason: BuyFailure | undefined;
-    if (this.state.won) reason = 'won';
+    if (this.mutableState.won) reason = 'won';
     else if (!unlocked) reason = 'locked';
     else if (!repeatable && level >= def.maxLevel) reason = 'maxLevel';
     else if (cooldownMs > 0) reason = 'cooldown';
     else if (def.win) {
-      if (!isWinReady(this.config, this.content.upgrades, this.state, this.state.coins, derived.influence)) {
+      if (!isWinReady(this.config, this.content.upgrades, this.mutableState, this.mutableState.coins, derived.influence)) {
         reason = 'locked';
       }
-    } else if (this.state.coins < cost) {
+    } else if (this.mutableState.coins < cost) {
       reason = 'noMoney';
-    } else if (def.effect.sellsOil && this.state.oil < 0.001) {
+    } else if (def.effect.sellsOil && this.mutableState.oil < 0.001) {
       // Экспортная акция продаёт нефть со склада — без нефти продавать нечего.
       reason = 'noOil';
     } else if (
@@ -402,20 +434,20 @@ export class Game {
       level,
       maxLevel: def.maxLevel,
       affordable: def.win || repeatable
-        ? (this.state.coins >= cost ? 1 : 0)
+        ? (this.mutableState.coins >= cost ? 1 : 0)
         : affordableLevels(
             this.config,
             def,
             level,
             def.conquest
-              ? this.state.coins / Math.max(1e-9, 1 - derived.conquestCut)
-              : this.state.coins,
+              ? this.mutableState.coins / Math.max(1e-9, 1 - derived.conquestCut)
+              : this.mutableState.coins,
             derived.exchangeRate,
           ),
       count: buyCount,
       unlocked,
       cooldownMs,
-      blocker: unlockBlocker(def, this.state, derived.influence, this.config),
+      blocker: unlockBlocker(def, this.mutableState, derived.influence, this.config),
     };
   }
 
@@ -437,16 +469,16 @@ export class Game {
     // не имеет права пересчитать их без учёта остатка до maxLevel.
     const buyCount = check.count;
     const cost = check.cost;
-    this.state.coins -= cost;
+    this.mutableState.coins -= cost;
     // Действия с перезарядкой не «прокачиваются»: уровень остаётся 1,
     // иначе после первой покупки кнопка навсегда стала бы «Максимум».
     const newLevel = repeatable ? Math.max(1, check.level) : check.level + buyCount;
-    this.state.levels[id] = newLevel;
-    this.state.totalPurchases += 1;
-    if (def.cooldownSeconds) this.state.cooldowns[id] = def.cooldownSeconds * 1000;
-    if (def.type === 'luxury') this.state.luxurySpent += cost;
-    if (def.effect.capitalFlightPerSecond && this.state.capitalFlightStartedAtMs === null) {
-      this.state.capitalFlightStartedAtMs = this.state.clockMs;
+    this.mutableState.levels[id] = newLevel;
+    this.mutableState.totalPurchases += 1;
+    if (def.cooldownSeconds) this.mutableState.cooldowns[id] = def.cooldownSeconds * 1000;
+    if (def.type === 'luxury') this.mutableState.luxurySpent += cost;
+    if (def.effect.capitalFlightPerSecond && this.mutableState.capitalFlightStartedAtMs === null) {
+      this.mutableState.capitalFlightStartedAtMs = this.mutableState.clockMs;
     }
     this.invalidate();
 
@@ -507,7 +539,7 @@ export class Game {
       kind: share >= 500 ? 'unique' : share >= 50 ? 'good' : 'ordinary',
       dailyTonnes: share,
     }));
-    this.state.wells = [...this.state.wells, ...field];
+    this.mutableState.wells = [...this.mutableState.wells, ...field];
     this.pushLog({
       kind: 'conquest',
       upgradeId,
@@ -548,7 +580,7 @@ export class Game {
       chosen.minDailyTonnes + Math.round(this.rng.next() * Math.max(0, steps)) * step,
     );
     const well: Well = { kind: chosen.key, dailyTonnes };
-    this.state.wells = [...this.state.wells, well];
+    this.mutableState.wells = [...this.mutableState.wells, well];
     this.pushLog({ kind: 'drill', tonnes: dailyTonnes });
     this.invalidate();
     this.emit({ type: 'drilled', kind: well.kind, dailyTonnes });
@@ -558,7 +590,7 @@ export class Game {
   /** Мгновенные эффекты покупки: разовая выплата, старт гэмбла, таймер периодики. */
   /** Множитель выплат банка: растёт от «Увеличения масштабов деятельности». */
   bankScale(): number {
-    return bankScaleOf(this.content.upgrades, this.state);
+    return bankScaleOf(this.content.upgrades, this.mutableState);
   }
 
   /**
@@ -597,7 +629,7 @@ export class Game {
       : 'contract';
     const channelCfg = this.config.oil.channels[channel];
     const price = derived.channels[channel].price;
-    const desired = Math.min(this.state.oil, Math.max(1, this.state.oil * 0.5));
+    const desired = Math.min(this.mutableState.oil, Math.max(1, this.mutableState.oil * 0.5));
     const capacity = crudeRateOf(channel) * this.config.oil.exportBurstSeconds;
     const tonnes = channelCfg.unlimited ? desired : Math.min(desired, capacity);
     return { channel, price, tonnes: Number.isFinite(tonnes) ? Math.max(0, tonnes) : 0 };
@@ -617,8 +649,8 @@ export class Game {
         // Нулевой объём отсекает checkBuy(); здесь — защита от прямого вызова.
         if (tonnes <= 0) return payouts;
         const gross = tonnes * price;
-        this.state.oil -= tonnes;
-        this.state.totalSold += tonnes;
+        this.mutableState.oil -= tonnes;
+        this.mutableState.totalSold += tonnes;
         this.pendingSalesGross += gross;
         const settled = this.settleSales();
         this.pushLog({
@@ -660,28 +692,28 @@ export class Game {
 
     if (def.type === 'gamble') {
       const seconds = def.effect.seconds ?? 30;
-      this.state.gambles.push({
+      this.mutableState.gambles.push({
         id: def.id,
         amount: cost,
         factor: def.effect.factor ?? 2,
-        resolveAt: this.state.clockMs + seconds * 1000,
+        resolveAt: this.mutableState.clockMs + seconds * 1000,
       });
       this.emit({ type: 'gambleStarted', id: def.id, amount: cost });
     }
 
-    if (def.type === 'periodic' && this.state.timers[def.id] === undefined) {
-      this.state.timers[def.id] = 0;
+    if (def.type === 'periodic' && this.mutableState.timers[def.id] === undefined) {
+      this.mutableState.timers[def.id] = 0;
     }
 
     return payouts;
   }
 
   private buyWin(def: UpgradeDef, cost: number): BuyResult {
-    this.state.coins -= cost;
-    this.state.levels[def.id] = 1;
-    this.state.totalPurchases += 1;
-    this.state.won = true;
-    this.state.wonAtMs = this.state.playtimeMs;
+    this.mutableState.coins -= cost;
+    this.mutableState.levels[def.id] = 1;
+    this.mutableState.totalPurchases += 1;
+    this.mutableState.won = true;
+    this.mutableState.wonAtMs = this.mutableState.playtimeMs;
     this.invalidate();
     this.emit({ type: 'purchase', id: def.id, level: 1, cost });
     this.grantAchievement('a_win');
@@ -707,14 +739,14 @@ export class Game {
       const step = Math.min(maxStep, left);
       left -= step;
       this.step(step);
-      if (this.state.won) break;
+      if (this.mutableState.won) break;
     }
   }
 
   private step(dtMs: number): void {
-    if (this.state.won) return;
-    this.state.playtimeMs += dtMs;
-    this.state.clockMs += dtMs;
+    if (this.mutableState.won) return;
+    this.mutableState.playtimeMs += dtMs;
+    this.mutableState.clockMs += dtMs;
     // Дебит скважин зависит от playtimeMs (падение добычи). Без сброса кеша
     // непрерывная игра использовала прошлый квант, а загруженный сейв —
     // текущий, из-за чего после первого шага расходились остатки нефти.
@@ -724,14 +756,14 @@ export class Game {
     this.activeDtSeconds = dtSeconds;
     // Единственное место, где движется таймер отгрузки. Изменение маршрутов
     // или принудительная отправка не добавляют уже прожитое время повторно.
-    this.state.shipTimerMs += dtMs;
+    this.mutableState.shipTimerMs += dtMs;
     const derived = this.derived();
 
     // 1. Добыча. Труба продаёт свою часть сразу, остаток идёт в резервуары.
     if (derived.oilPerSecond > 0) {
       const pumped = derived.oilPerSecond * dtSeconds;
       const viaPipe = this.directExport(derived, pumped, dtSeconds);
-      this.state.pipeSoldSinceShip += viaPipe;
+      this.mutableState.pipeSoldSinceShip += viaPipe;
       this.addOil(pumped - viaPipe);
     }
     // 2. Отгрузка лишь читает накопленный таймер и добавляет валовую
@@ -760,7 +792,7 @@ export class Game {
     const fineCharge = fineNow > 0
       ? Math.max(1e-6 * dtSeconds, fineNow * current.fineFactor)
       : 0;
-    this.state.expensesAccrued += Math.max(0, expensesWithoutFine) + fineCharge;
+    this.mutableState.expensesAccrued += Math.max(0, expensesWithoutFine) + fineCharge;
     this.settleSales();
 
     this.tickCooldowns(dtMs);
@@ -783,17 +815,17 @@ export class Game {
   private settleSales(): { gross: number; expenses: number; tax: number; net: number } {
     const gross = this.pendingSalesGross;
     if (!(gross > 1e-9)) return { gross: 0, expenses: 0, tax: 0, net: 0 };
-    const accruedExpenses = this.state.expensesAccrued;
+    const accruedExpenses = this.mutableState.expensesAccrued;
     const settlement = calculateSaleSettlement(
       gross,
-      this.state.expensesAccrued,
+      this.mutableState.expensesAccrued,
       this.derived().taxRate,
     );
     this.pendingSalesGross = 0;
     // Если текущая выплата меньше накопленных расходов, остаток не исчезает:
     // он будет вычтен из следующих продаж. Так мелкие внешние выплаты не
     // обнуляют расходы, начисленные в ожидании основной отгрузки.
-    this.state.expensesAccrued = Math.max(0, accruedExpenses - Math.min(gross, accruedExpenses));
+    this.mutableState.expensesAccrued = Math.max(0, accruedExpenses - Math.min(gross, accruedExpenses));
     if (settlement.net > 0) this.grantCoins(settlement.net);
     return settlement;
   }
@@ -812,32 +844,32 @@ export class Game {
     const dayMs = Math.max(0.001, this.config.oil.wells.secondsPerDay) * 1000;
     const periodMs = Math.max(dayMs, this.config.oil.shipDays * dayMs);
 
-    const batch = this.state.oil;
+    const batch = this.mutableState.oil;
     if (batch <= 0) {
-      const stock = this.state.products;
+      const stock = this.mutableState.products;
       let gross = 0;
       if (stock > 0) {
         const sale = this.shipProducts(stock, derived, dtSeconds);
-        this.state.products = sale.leftover;
+        this.mutableState.products = sale.leftover;
         gross = sale.money;
       }
 
       // Закрываем завершённые окна трубы даже при пустом резервуаре.
       // Учитываем только мощность завершившегося окна, остаток относится
       // к следующему и не должен обнуляться.
-      if (this.state.shipTimerMs >= periodMs) {
-        const completedWindows = Math.floor(this.state.shipTimerMs / periodMs);
+      if (this.mutableState.shipTimerMs >= periodMs) {
+        const completedWindows = Math.floor(this.mutableState.shipTimerMs / periodMs);
         const completedMs = completedWindows * periodMs;
         const pipelineRate = derived.exportCapacityByMode.pipeline;
         const usedCapacity = pipelineRate * completedMs / 1000;
-        this.state.pipeSoldSinceShip = Math.max(0, this.state.pipeSoldSinceShip - usedCapacity);
-        this.state.shipTimerMs %= periodMs;
+        this.mutableState.pipeSoldSinceShip = Math.max(0, this.mutableState.pipeSoldSinceShip - usedCapacity);
+        this.mutableState.shipTimerMs %= periodMs;
       }
       return gross;
     }
 
     const full = batch >= derived.oilCapacity - 1e-9;
-    if (!force && this.state.shipTimerMs < periodMs && !full) return 0;
+    if (!force && this.mutableState.shipTimerMs < periodMs && !full) return 0;
 
     /*
      * Сколько времени рынок реально копил под эту партию.
@@ -848,10 +880,10 @@ export class Game {
      * продавал втрое больше мелких, а остальное лилось в землю. Теперь
      * берём фактически накопленное время.
      */
-    const elapsedWindowMs = Math.min(periodMs, this.state.shipTimerMs);
-    const remainderMs = Math.max(0, this.state.shipTimerMs - elapsedWindowMs);
+    const elapsedWindowMs = Math.min(periodMs, this.mutableState.shipTimerMs);
+    const remainderMs = Math.max(0, this.mutableState.shipTimerMs - elapsedWindowMs);
     const periodSeconds = elapsedWindowMs / 1000;
-    this.state.shipTimerMs = remainderMs;
+    this.mutableState.shipTimerMs = remainderMs;
 
     /*
      * Труба уже продала часть нефти напрямую, пока партия копилась. Её
@@ -863,7 +895,7 @@ export class Game {
     // Мощность экспорта, которую труба уже израсходовала за этот период,
     // пересчитываем в тонны в секунду — в таком виде её ждёт allocateBatch.
     const pipeUsedInWindow = Math.min(
-      this.state.pipeSoldSinceShip,
+      this.mutableState.pipeSoldSinceShip,
       derived.exportCapacityByMode.pipeline * periodSeconds,
     );
     const pipeUsedPerSecond = pipeUsedInWindow / Math.max(1e-9, periodSeconds);
@@ -873,7 +905,7 @@ export class Game {
       products: derived.capacities.export.products,
     };
     // Объём трубы сверх закрытого окна принадлежит следующему окну.
-    this.state.pipeSoldSinceShip = Math.max(0, this.state.pipeSoldSinceShip - pipeUsedInWindow);
+    this.mutableState.pipeSoldSinceShip = Math.max(0, this.mutableState.pipeSoldSinceShip - pipeUsedInWindow);
 
     // Партия больше, чем «одна секунда потоков», — в `shipBatch` разбиваем
     // её по секциям, чтобы ни один канал не получил больше своей мощности.
@@ -894,7 +926,7 @@ export class Game {
      * на рынки. Что не влезло — остаётся на складе до следующего рейса,
      * поэтому производство всегда равно «продано + осталось на складе».
      */
-    const stockProducts = this.state.products;
+    const stockProducts = this.mutableState.products;
     // Раскладываем ПАРТИЮ по мощностям, а не по прогнозу текущего потока.
     // Цены и ручные ограничения те же, что в панели и непрерывном тике,
     // по которым таблица выбирает выгодный рынок, — иначе экран и деньги
@@ -905,15 +937,15 @@ export class Game {
       productDomestic: derived.productPriceDomestic,
       productExport: derived.productPriceExport,
     }, Math.max(0, derived.productCapacity - stockProducts), stockProducts,
-    this.state.flowControl.export.mode === 'fixed'
+    this.mutableState.flowControl.export.mode === 'fixed'
       ? {
-        ...this.state.flowControl,
+        ...this.mutableState.flowControl,
         export: {
           mode: 'fixed',
-          value: Math.max(0, this.state.flowControl.export.value - pipeUsedPerSecond),
+          value: Math.max(0, this.mutableState.flowControl.export.value - pipeUsedPerSecond),
         },
       }
-      : this.state.flowControl);
+      : this.mutableState.flowControl);
 
     // Сырьё: деньги по ценам своих каналов. За продукты платит shipProducts —
     // он же решает, сколько топлива рынки реально взяли.
@@ -922,8 +954,8 @@ export class Game {
       plan.export * derived.channels.export.price;
 
     const soldCrude = plan.domestic + plan.export + plan.refined;
-    this.state.oil = Math.max(0, batch - soldCrude);
-    this.state.totalSold += soldCrude;
+    this.mutableState.oil = Math.max(0, batch - soldCrude);
+    this.mutableState.totalSold += soldCrude;
     this.invalidate();
     /*
      * Топливо: к свежему выходу НПЗ добавляем то, что уже лежало на
@@ -934,11 +966,11 @@ export class Game {
     const fresh = plan.products;
     const productsNow = stockProducts + fresh;
     const productSale = this.shipProducts(productsNow, derived, seconds);
-    this.state.products = productSale.leftover;
+    this.mutableState.products = productSale.leftover;
     const moneyWithProducts = money + productSale.money;
 
-    if (soldCrude > 0 && this.state.clockMs - this.lastSaleLogMs >= 3000) {
-      this.lastSaleLogMs = this.state.clockMs;
+    if (soldCrude > 0 && this.mutableState.clockMs - this.lastSaleLogMs >= 3000) {
+      this.lastSaleLogMs = this.mutableState.clockMs;
       this.pushLog({
         kind: 'sold',
         tonnes: soldCrude,
@@ -999,8 +1031,8 @@ export class Game {
     const alpha = 1 - Math.exp(-Math.max(0, dtSeconds) / tau);
     const apply = (tonnes: number, key: 'spillCrudePerSecond' | 'spillProductsPerSecond') => {
       const instant = tonnes / Math.max(1e-9, dtSeconds);
-      const next = this.state[key] + (instant - this.state[key]) * alpha;
-      this.state[key] = next < 1e-12 ? 0 : next;
+      const next = this.mutableState[key] + (instant - this.mutableState[key]) * alpha;
+      this.mutableState[key] = next < 1e-12 ? 0 : next;
     };
     apply(this.spillCrudeThisStep, 'spillCrudePerSecond');
     apply(this.spillProductsThisStep, 'spillProductsPerSecond');
@@ -1048,7 +1080,7 @@ export class Game {
   private flushSpillBuckets(): void {
     for (const kind of ['crude', 'products'] as const) {
       const bucket = this.spillBuckets[kind];
-      if (!bucket || this.state.clockMs - this.lastSpillLogMs[kind] < 3000) continue;
+      if (!bucket || this.mutableState.clockMs - this.lastSpillLogMs[kind] < 3000) continue;
       this.pushLog({
         kind: 'spill',
         tonnes: bucket.tonnes,
@@ -1057,22 +1089,22 @@ export class Game {
         place: bucket.place,
       });
       this.emit({ type: 'spill', kind, tonnes: bucket.tonnes, fine: bucket.fine, place: bucket.place });
-      this.lastSpillLogMs[kind] = this.state.clockMs;
+      this.lastSpillLogMs[kind] = this.mutableState.clockMs;
       this.spillBuckets[kind] = null;
     }
   }
 
   /** Добавить запись в журнал операций (храним последние MAX_LOG). */
   pushLog(entry: Omit<LogEntry, 'at'>): void {
-    this.state.log.unshift({ at: this.state.clockMs, ...entry });
-    if (this.state.log.length > MAX_LOG) this.state.log.length = MAX_LOG;
+    this.mutableState.log.unshift({ at: this.mutableState.clockMs, ...entry });
+    if (this.mutableState.log.length > MAX_LOG) this.mutableState.log.length = MAX_LOG;
   }
 
   private tickCooldowns(dtMs: number): void {
-    for (const id of Object.keys(this.state.cooldowns)) {
-      const left = (this.state.cooldowns[id] ?? 0) - dtMs;
-      if (left <= 0) delete this.state.cooldowns[id];
-      else this.state.cooldowns[id] = left;
+    for (const id of Object.keys(this.mutableState.cooldowns)) {
+      const left = (this.mutableState.cooldowns[id] ?? 0) - dtMs;
+      if (left <= 0) delete this.mutableState.cooldowns[id];
+      else this.mutableState.cooldowns[id] = left;
     }
   }
 
@@ -1083,7 +1115,7 @@ export class Game {
       if (level <= 0) continue;
       const intervalMs = (def.effect.seconds ?? 60) * 1000;
       if (intervalMs <= 0) continue;
-      let acc = (this.state.timers[def.id] ?? 0) + dtMs;
+      let acc = (this.mutableState.timers[def.id] ?? 0) + dtMs;
       let fired = 0;
       while (acc >= intervalMs && fired < 50) {
         acc -= intervalMs;
@@ -1092,19 +1124,19 @@ export class Game {
         this.grantCoins(amount);
         this.emit({ type: 'periodic', id: def.id, amount });
       }
-      this.state.timers[def.id] = acc;
+      this.mutableState.timers[def.id] = acc;
     }
   }
 
   private tickGambles(): void {
-    if (this.state.gambles.length === 0) return;
-    const due = this.state.gambles.filter((g) => g.resolveAt <= this.state.clockMs);
+    if (this.mutableState.gambles.length === 0) return;
+    const due = this.mutableState.gambles.filter((g) => g.resolveAt <= this.mutableState.clockMs);
     if (due.length === 0) return;
     const resolving = due.slice(0, MAX_GAMBLE_RESOLVES_PER_TICK);
     const resolved = new Set(resolving);
     // Необработанные из-за лимита события остаются в очереди. Раньше фильтр
     // выбрасывал их вместе с результатом.
-    this.state.gambles = this.state.gambles.filter((g) => !resolved.has(g));
+    this.mutableState.gambles = this.mutableState.gambles.filter((g) => !resolved.has(g));
     for (const g of resolving) {
       const def = this.content.byId.get(g.id);
       const chance = def?.effect.chance ?? 0.5;
@@ -1117,12 +1149,12 @@ export class Game {
 
   /** Мировая цена зависит от логических часов и постоянного seed партии. */
   private tickWorldPrice(): void {
-    const second = Math.floor(this.state.clockMs / 1000);
+    const second = Math.floor(this.mutableState.clockMs / 1000);
     if (second <= this.lastWorldPriceSecond) return;
     this.lastWorldPriceSecond = second;
-    const previous = this.state.worldPrice;
-    const next = worldPriceAt(this.config.worldPrice, this.state.worldPriceSeed, second * 1000);
-    this.state.worldPrice = next;
+    const previous = this.mutableState.worldPrice;
+    const next = worldPriceAt(this.config.worldPrice, this.mutableState.worldPriceSeed, second * 1000);
+    this.mutableState.worldPrice = next;
     if (next !== previous) this.invalidate();
     if (Math.abs(next - previous) > 0.004) {
       this.emit({ type: 'worldPrice', price: next });
@@ -1132,15 +1164,15 @@ export class Game {
   // ------------------------------------------------------------ достижения
 
   private grantAchievement(id: string): void {
-    if (this.state.achievements.includes(id)) return;
-    this.state.achievements.push(id);
+    if (this.mutableState.achievements.includes(id)) return;
+    this.mutableState.achievements.push(id);
     this.emit({ type: 'achievement', id });
   }
 
   checkAchievements(): void {
     for (const a of this.content.achievements) {
-      if (this.state.achievements.includes(a.id)) continue;
-      if (a.id === 'a_win' && !this.state.won) continue;
+      if (this.mutableState.achievements.includes(a.id)) continue;
+      if (a.id === 'a_win' && !this.mutableState.won) continue;
       if (this.testRule(a.rule)) this.grantAchievement(a.id);
     }
   }
@@ -1148,7 +1180,7 @@ export class Game {
   private testRule(rule: Content['achievements'][number]['rule']): boolean {
     switch (rule.kind) {
       case 'earned':
-        return this.state.totalEarned >= rule.value;
+        return this.mutableState.totalEarned >= rule.value;
       case 'taxRate':
         return this.derived().taxRate <= rule.value + 1e-9;
       case 'costCut':
@@ -1160,13 +1192,13 @@ export class Game {
       case 'influence':
         return this.derived().influence >= rule.value;
       case 'sold':
-        return this.state.totalSold >= rule.value;
+        return this.mutableState.totalSold >= rule.value;
       case 'ownGroup':
         return this.content.upgrades.some(
           (u) => u.group === rule.group && this.level(u.id) > 0,
         );
       case 'win':
-        return this.state.won;
+        return this.mutableState.won;
       default:
         return false;
     }
@@ -1176,14 +1208,14 @@ export class Game {
 
   /** Начислить офлайн-доход (один раз при загрузке). */
   applyOffline(seconds: number, coins: number): void {
-    if (this.state.won) return;
+    if (this.mutableState.won) return;
     const elapsedSeconds = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
     const offlineCoins = Number.isFinite(coins) ? Math.max(0, coins) : 0;
     const elapsedMs = elapsedSeconds * 1000;
     if (elapsedMs > 0) {
-      this.state.clockMs += elapsedMs;
-      this.state.playtimeMs += elapsedMs;
-      this.lastWorldPriceSecond = Math.floor(this.state.clockMs / 1000);
+      this.mutableState.clockMs += elapsedMs;
+      this.mutableState.playtimeMs += elapsedMs;
+      this.lastWorldPriceSecond = Math.floor(this.mutableState.clockMs / 1000);
       this.invalidate();
       this.tickCooldowns(elapsedMs);
       this.tickPeriodic(elapsedMs, this.derived());
@@ -1195,17 +1227,17 @@ export class Game {
   }
 
   setSound(on: boolean): void {
-    this.state.soundOn = on;
+    this.mutableState.soundOn = on;
   }
 
   setParticles(on: boolean): void {
-    this.state.particlesOn = on;
+    this.mutableState.particlesOn = on;
   }
 
   /** Сериализуемый снимок: сид ГПСЧ и время сохранения синхронизируются. */
   snapshot(): GameState {
-    this.state.rngSeed = this.rng.getSeed();
-    this.state.savedAtWallMs = Date.now();
-    return this.state;
+    this.mutableState.rngSeed = this.rng.getSeed();
+    this.mutableState.savedAtWallMs = Date.now();
+    return this.mutableState;
   }
 }

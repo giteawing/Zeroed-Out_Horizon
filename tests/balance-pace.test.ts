@@ -9,8 +9,49 @@
 import { describe, expect, it } from 'vitest';
 import { loadContent } from '../src/core/content';
 import { runSimulation, type SimulatorResult } from '../src/core/simulator';
+import { PLAYTHROUGH_MINUTES } from './helpers/balance-profiles';
 
 const content = loadContent();
+
+/**
+ * Игрок, который держит убыточный банк и нажимает его операции (REVIEW D1).
+ * Обычные профили банк не покупают, поэтому до этого теста такой игрок в
+ * балансовых проверках не появлялся вовсе.
+ */
+describe('игрок, который пользуется убыточным банком (REVIEW D1)', () => {
+  let cached: SimulatorResult | undefined;
+  const banker = (): SimulatorResult => {
+    cached ??= runSimulation(content, {
+      seed: 404,
+      strategy: 'optimizer',
+      exportPatienceSeconds: 40,
+      useBank: true,
+      maxSeconds: 60 * 30,
+    });
+    return cached;
+  };
+
+  it('операции банка действительно платят', () => {
+    const result = banker();
+    expect(result.earnedBySource.bank).toBeGreaterThan(0);
+    expect(result.purchasedIds).toContain('p_badbank');
+    expect(result.purchasedIds).toContain('p_launder');
+  });
+
+  it('партия всё ещё укладывается в 12–25 минут', () => {
+    const result = banker();
+    expect(result.won).toBe(true);
+    const minutes = result.seconds / 60;
+    expect(minutes).toBeGreaterThanOrEqual(PLAYTHROUGH_MINUTES.min);
+    expect(minutes).toBeLessThanOrEqual(PLAYTHROUGH_MINUTES.max);
+  });
+
+  it('доля периодики под наблюдением и для этого игрока', () => {
+    const result = banker();
+    const share = result.earnedBySource.periodic / result.totalEarned;
+    expect(share, `доля периодических выплат: ${(share * 100).toFixed(1)} %`).toBeLessThan(0.95);
+  });
+});
 
 describe('темп партии и рост дохода', () => {
   let cached: SimulatorResult | undefined;

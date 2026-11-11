@@ -20,18 +20,43 @@ export function currencyCostCurveOf(config: GameConfig): { anchor: number; expon
 }
 
 /**
+ * Предел, за которым денежное значение уже нельзя точно представить числом
+ * JavaScript: выше `Number.MAX_SAFE_INTEGER` (2^53 − 1) целые складываются и
+ * сравниваются с ошибкой. Номинальные цены вроде 2,5e24 сами по себе больше
+ * предела, но кривая сжимает их до 5e14, поэтому игра работает в безопасной
+ * области (REVIEW F11).
+ */
+export const SAFE_MONEY_LIMIT = Number.MAX_SAFE_INTEGER;
+
+/**
  * Сжимает денежные значения по общей кривой:
  * значения до anchor не меняются, поздние цены растут степенно.
  * Это сохраняет стартовую экономику и делает финальные покупки достижимыми.
+ *
+ * Результат ограничен `SAFE_MONEY_LIMIT`: копить и платить больше, чем можно
+ * посчитать точно, игра всё равно не даст, а «цена» из округлённого double
+ * перестала бы быть ценой.
  */
 export function adjustCurrencyCost(config: GameConfig, value: number): number {
   if (!Number.isFinite(value) || value <= 0) return 0;
   const { anchor, exponent } = currencyCostCurveOf(config);
-  if (value <= anchor) return Math.round(value);
-  return Math.max(1, Math.round(anchor * Math.pow(value / anchor, exponent)));
+  const curved = value <= anchor
+    ? value
+    : Math.max(1, anchor * Math.pow(value / anchor, exponent));
+  return Math.min(SAFE_MONEY_LIMIT, Math.max(1, Math.round(curved)));
 }
 
-/** Строительный CAPEX дорожает при девальвации; политические услуги не индексируются. */
+/**
+ * Строительный CAPEX дорожает при девальвации; политические услуги не индексируются.
+ *
+ * Формула — `max(initial, курс)^эластичность`, то есть индекс считается от
+ * абсолютного курса, а не от его роста. При `initial = 1` (текущий конфиг)
+ * это одно и то же, но при другом стартовом курсе все постройки подорожали
+ * бы сразу, ещё до первой девальвации. Записано как известное ограничение:
+ * менять формулу — значит менять числа игры, а для этого нужен отчёт по
+ * балансу. Тест `tests/economy.test.ts` фиксирует текущее поведение и
+ * предупредит, если конфиг перейдёт на другой стартовый курс.
+ */
 export function constructionCostMultiplier(
   config: GameConfig,
   def: UpgradeDef,

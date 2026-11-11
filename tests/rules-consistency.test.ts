@@ -238,8 +238,9 @@ describe('README: откуда берётся влияние (REVIEW B8)', () =>
     const sources = item.slice(0, item.indexOf(';'));
     expect(sources.length).toBeGreaterThan(50);
     for (const word of Object.values(SOURCES)) expect(sources).toContain(word);
-    // У «Попросить монет у императора», сената и министерства поля influence нет.
-    for (const id of ['p_monarch', 'p_senate', 'p_ministry']) {
+    // У «Попросить монет у императора», сената, министерства и телеканала
+    // поля influence нет: карточки это и говорят.
+    for (const id of ['p_monarch', 'p_senate', 'p_ministry', 'p_tvchannel']) {
       expect(card(id).effect.influence).toBeUndefined();
     }
     expect(sources).not.toMatch(/император|сенат|министерств/);

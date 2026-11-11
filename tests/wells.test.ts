@@ -178,7 +178,7 @@ describe('движок добавляет скважины заменой мас
     expect(wellsDailyTonnes(restored)).toBe(wellsDailyTonnes(game.state));
 
     const next = new Game(content, restored);
-    next.state.coins = 1e12;
+    next.stateForTests().coins = 1e12;
     expect(next.buy('t_well').ok).toBe(true);
     expect(wellsDailyTonnes(next.state)).toBe(actualSum(next.state));
   });

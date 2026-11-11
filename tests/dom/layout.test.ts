@@ -124,7 +124,7 @@ describe('раскладка', () => {
       'экспортная цена',
       'продукты, внутр. цена',
       'продукты, экспорт',
-      'Нефтефантиков за $1',
+      'Нефтефаников за $1',
     ]);
     expect(hud?.querySelector('.hud__prices')).toBeNull();
     const propertyRows = hud?.querySelector('[data-group="property"] .hud__rows');

@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { loadContent } from '../src/core/content';
 import { buildIcon, generatedIconNames, planIcons } from '../scripts/generate-icons.mjs';
 import { buildScenes } from '../scripts/generate-scenes.mjs';
-import { assertSvg, svgProblems } from '../scripts/lib/art.mjs';
+import { PALETTE, assertSvg, character, svgProblems } from '../scripts/lib/art.mjs';
 
 const imageRoot = resolve(__dirname, '../public/images');
 const iconRoot = resolve(imageRoot, 'icons');
@@ -104,6 +104,24 @@ describe('генераторы графики не портят ресурсы (
     expect(plan.fallback).toEqual([]);
     expect(new Set(written).size).toBe(written.length);
     for (const entry of plan.write) expect(svgProblems(entry.svg), entry.name).toEqual([]);
+  });
+
+  it('генератор уважает размер и опору персонажа из определения иконки', () => {
+    // Раньше `person()` перекрывал переданные `baseY` и `scale` своими, и
+    // сенат, правительство, бригада и секретарь рисовались не тем размером,
+    // который записан в их определении: `npm run art:force` менял ручную
+    // графику другой, а не восстанавливал её.
+    // Определение сената: `person({ suit: P.oil, baseY: 82, scale: 0.55, cx: 50 })`.
+    // Иконка обязана содержать ровно такого персонажа — и не содержать того,
+    // которого рисовал прежний `person()` со своими 0,95 и 86.
+    const senate = buildIcon('senate');
+    expect(senate).not.toBeNull();
+    const asDefined = character({ suit: PALETTE.oil, baseY: 82, scale: 0.55, cx: 50 });
+    const asBefore = character({ suit: PALETTE.oil, baseY: 86, scale: 0.95, cx: 50 });
+    expect(senate).toContain(asDefined);
+    expect(senate).not.toContain(asBefore);
+    expect(svgProblems(senate!)).toEqual([]);
+    expect(renders(senate!)).toBeGreaterThan(0);
   });
 
   it('недостающая иконка создаётся: из словаря или из заглушки вкладки', () => {

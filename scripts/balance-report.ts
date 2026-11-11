@@ -4,6 +4,7 @@
  * Скрипт намеренно не входит в сборку — это инструмент разработки.
  */
 import { loadContent } from '../src/core/content';
+import { winCostOf } from '../src/core/economy';
 import { BALANCE_PROFILES, runSimulation, type EarnedBySource } from '../src/core/simulator';
 
 const content = loadContent();
@@ -46,8 +47,13 @@ for (const profile of profiles) {
     const started = Date.now();
     const result = runSimulation(content, { ...profile.options, maxSeconds: 60 * 40 });
     const minutes = (result.seconds / 60).toFixed(1);
+    // Номинал и фактическая цена — разные числа: `currencyCostCurve` сжимает
+    // всё выше anchor под корень, поэтому 2,5e24 игрок платит как 5e14
+    // (REVIEW D5, AUDIT F11). Печатаем оба, чтобы отчёт нельзя было прочитать
+    // как «цена партии».
+    const paid = winCostOf(content.config, content.upgrades);
     console.log(
-      `winCost=${winCost.toExponential(0).padEnd(6)} -> ` +
+      `winCost=${winCost.toExponential(0).padEnd(6)} (игрок платит ${paid.toExponential(2)}) -> ` +
         `${result.won ? 'ПОБЕДА' : 'провал'} за ${minutes} мин, ` +
         `покупок ${result.purchases}, добыча ${result.samples.at(-1)?.productionRate.toFixed(1) ?? '—'} т/с, ` +
         `(${Date.now() - started} мс)`,

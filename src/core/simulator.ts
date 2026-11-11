@@ -38,6 +38,12 @@ export interface SimulatorOptions {
   exportPriceThreshold?: number;
   /** Раз в сколько секунд снимать точку прогресса. */
   sampleSeconds?: number;
+  /**
+   * Оптимизатор нажимает операции убыточного банка, как только они открыты.
+   * Обычные профили банк не покупают: балансовые тесты тогда не видят
+   * игрока, который «жмёт кнопки» (REVIEW D1).
+   */
+  useBank?: boolean;
 }
 
 export interface Checkpoint {
@@ -109,7 +115,12 @@ export const BALANCE_PROFILES: readonly BalanceProfile[] = [
   { name: 'терпеливый экспорт', options: { exportPatienceSeconds: 60, seed: 303 } },
   {
     name: 'оптимизатор повторяемых действий',
-    options: { exportPatienceSeconds: 40, seed: 404, strategy: 'optimizer' },
+    options: {
+      exportPatienceSeconds: 40,
+      seed: 404,
+      strategy: 'optimizer',
+      useBank: true,
+    },
   },
 ];
 
@@ -124,6 +135,7 @@ export function runSimulation(content: Content, options: SimulatorOptions = {}):
     exportPatienceSeconds: 40,
     exportPriceThreshold: 1.12,
     sampleSeconds: 30,
+    useBank: false,
     ...options,
   };
 
@@ -165,6 +177,7 @@ export function runSimulation(content: Content, options: SimulatorOptions = {}):
         content,
         purchased,
         opts.strategy === 'optimizer',
+        opts.useBank,
       );
     }
 
@@ -252,9 +265,35 @@ export function decide(
   content: Content,
   purchased: Set<string>,
   allowRepeatables = false,
+  useBank = false,
 ): boolean {
   const state = game.state;
   const derived = game.derived();
+
+  // Игрок-оптимизатор держит убыточный банк и нажимает операции, как только
+  // они открыты: выплаты идут мимо налога и расходов, а боты обычных
+  // профилей их не видят (REVIEW D1).
+  if (useBank) {
+    const bank = content.byId.get('p_badbank');
+    if (bank && game.checkBuy(bank.id).ok && game.buy(bank.id).ok) {
+      purchased.add(bank.id);
+      return true;
+    }
+    // Операции банка открываются уровнями «масштаба»: пока их нет, купленный
+    // банк не приносит ничего. Игрок, который держит банк, докупает масштаб.
+    const scale = content.byId.get('p_bank_scale');
+    if (scale && levelOf(state, 'p_badbank') > 0 && game.checkBuy(scale.id).ok && game.buy(scale.id).ok) {
+      purchased.add(scale.id);
+      return true;
+    }
+    for (const def of content.upgrades) {
+      if (!def.effect.launder || !isRepeatable(def)) continue;
+      if (game.checkBuy(def.id).ok && game.buy(def.id).ok) {
+        purchased.add(def.id);
+        return true;
+      }
+    }
+  }
 
   const winDef = content.upgrades.find((u) => u.win);
   const requirementsMet = (): boolean =>
