@@ -461,6 +461,13 @@ describe('финал', () => {
     expect(document.querySelector('.stats')).not.toBeNull();
   });
 
+  it('лента сообщает о победе', () => {
+    // Строки рубрики «win» были в texts.json, но в ленту не попадали никогда:
+    // из фоновых новостей рубрика исключена, а по событию её никто не выводил.
+    const top = document.querySelector('.news__item .news__text')?.textContent ?? '';
+    expect(game.content.texts.news.win).toContain(top);
+  });
+
   it('кнопка статистики раскрывает таблицу', async () => {
     const toggle = [...document.querySelectorAll<HTMLButtonElement>('.credits__actions .btn')].find(
       (btn) => btn.textContent === 'Показать статистику',

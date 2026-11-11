@@ -25,6 +25,7 @@ import { join, resolve } from 'node:path';
 import { loadContent } from '../src/core/content';
 import { CHANNELS } from '../src/core/economy';
 import { SPILL_PLACES } from '../src/core/game';
+import { NEWS_RUBRICS } from '../src/ui/news';
 
 const root = resolve(__dirname, '..');
 const content = loadContent();
@@ -269,26 +270,27 @@ for (const file of sourceFiles) analyse(file);
  * Ключи, которые собираются во время игры: префикс → все значения, которые
  * игра может подставить. Значения берутся из тех же списков, что и в игре.
  */
-const DYNAMIC: Record<string, () => readonly string[]> = {
+const DYNAMIC: Record<string, { kind: LeafKind; values: () => readonly string[] }> = {
   // Класс скважины: событие бурения, строка эффекта, «Правила».
-  'wells.': () => content.config.oil.wells.classes.map((cls) => cls.key),
+  'wells.': { kind: 'string', values: () => content.config.oil.wells.classes.map((cls) => cls.key) },
   // Вкладки магазина: вкладка есть, пока в ней есть хоть одна покупка.
-  'tabs.': () => [...new Set(content.upgrades.map((upgrade) => upgrade.tab))],
+  'tabs.': { kind: 'string', values: () => [...new Set(content.upgrades.map((upgrade) => upgrade.tab))] },
   // Рынки сбыта: поля потоков и подпись рынка на карточке.
-  'flows.': () => CHANNELS,
-  'sales.': () => CHANNELS,
+  'flows.': { kind: 'string', values: () => CHANNELS },
+  'sales.': { kind: 'string', values: () => CHANNELS },
   // Место разлива выбирает ядро из своего списка.
-  'spill.places.': () => SPILL_PLACES,
+  'spill.places.': { kind: 'string', values: () => SPILL_PLACES },
+  // Рубрика новости: фоновую выбирает лента, остальные называет код игры.
+  'news.': { kind: 'list', values: () => Object.keys(NEWS_RUBRICS) },
 };
 
 /**
  * Разделы, которые читаются целиком методами `Texts`, а не по ключу:
  *  - `upgrades` — `upgradeName(id)`: названия покупок для журнала;
- *  - `achievements.list` — `achievementName(id)`;
- *  - `news` — `newsCategories()`: случайная новость берёт любую рубрику.
+ *  - `achievements.list` — `achievementName(id)`.
  * То, что методы вызываются, проверяет tests/dead-code.test.ts.
  */
-const READ_WHOLE = ['upgrades.', 'achievements.list', 'news.'];
+const READ_WHOLE = ['upgrades.', 'achievements.list'];
 
 describe('тексты и код согласованы (REVIEW H6)', () => {
   const allLiterals = new Set([...literalsByFile.values()].flatMap((set) => [...set]));
@@ -333,27 +335,29 @@ describe('тексты и код согласованы (REVIEW H6)', () => {
       .map((use) => `${at(use)}: ${use.code}`);
     expect(undeclared).toEqual([]);
 
-    for (const [prefix, values] of Object.entries(DYNAMIC)) {
-      expect(dynamicUses.some((use) => use.prefix === prefix), `${prefix}: обращения больше нет`).toBe(true);
+    for (const [prefix, { kind, values }] of Object.entries(DYNAMIC)) {
+      const used = dynamicUses.some((use) => use.prefix === prefix) ||
+        helpers.some((helper) => helper.prefix === prefix && helper.indirect);
+      expect(used, `${prefix}: обращения больше нет`).toBe(true);
       expect(values().length, prefix).toBeGreaterThan(0);
       for (const value of values()) {
-        expect(leafKind.get(prefix + value), `${prefix}${value}`).toBe('string');
+        expect(leafKind.get(prefix + value), `${prefix}${value}`).toBe(kind);
       }
     }
   });
 
   it('помощники получают ключ, который видно в исходнике', () => {
     // Иначе «ключ используется» пришлось бы угадывать по совпадению слов.
-    // Разделы, которые читаются целиком, сверяются ниже по содержимому.
+    // Помощник с объявленным источником значений сверяется по этому источнику.
     const indirect = helpers
-      .filter((helper) => helper.indirect && !READ_WHOLE.includes(helper.prefix))
+      .filter((helper) => helper.indirect && !(helper.prefix in DYNAMIC))
       .map((helper) => `${helper.file}#${helper.name}`);
     expect(indirect).toEqual([]);
   });
 
   it('в texts.json нет строк, которые игра не показывает', () => {
     const requested = new Set(keyUses.map((use) => use.key));
-    const dynamic = new Set(Object.entries(DYNAMIC).flatMap(([prefix, values]) =>
+    const dynamic = new Set(Object.entries(DYNAMIC).flatMap(([prefix, { values }]) =>
       values().map((value) => prefix + value)));
     const read = dataPaths.map((use) => use.path);
 

@@ -36,6 +36,7 @@ import { Hud } from './ui/hud';
 import { Shop } from './ui/shop';
 import { FlowControlsPanel } from './ui/flow-controls';
 import { NewsFeed } from './ui/news';
+import type { NewsRubric } from './ui/news';
 import { Finale } from './ui/finale';
 import { StartScreen } from './ui/start';
 import { Settings } from './ui/settings';
@@ -388,7 +389,9 @@ function boot(): void {
       news.push(randomNewsFor(id));
     } else if (def?.type === 'luxury') {
       effects.burst(stageSize().width / 2, stageSize().height * 0.5, 10);
-    } else {
+    } else if (!def?.win) {
+      // О финале лента сообщает сама (onWin): «империя выросла» поверх этой
+      // новости не нужна.
       news.push('milestone');
     }
     if (result.ok && def?.type === 'gamble') sound.event(true);
@@ -396,14 +399,15 @@ function boot(): void {
     refreshUi();
   }
 
-  function randomNewsFor(id: string): string {
+  /**
+   * Рубрика новости о покупке, которая сразу принесла выплату. Такие покупки —
+   * разовые операции и бурение; исход ставки и периодика приходят событиями.
+   */
+  function randomNewsFor(id: string): NewsRubric {
     const def = content.byId.get(id);
     if (!def) return 'milestone';
-    if (def.type === 'luxury') return 'luxury';
     if (def.type === 'oneShot' && def.effect.usesWorldPrice) return 'export';
-    if (def.type === 'gamble') return 'gambleWin';
     if (def.tab === 'political') return 'tax';
-    if (def.type === 'periodic') return 'periodic';
     return 'milestone';
   }
 
@@ -488,6 +492,7 @@ function boot(): void {
 
   function onWin(): void {
     sound.fanfare();
+    news.push('win');
     save();
     effettiWin();
     window.setTimeout(() => finale.show(game.state), 700);
@@ -514,7 +519,8 @@ function boot(): void {
       newsTimer += step.elapsedMs;
       if (newsTimer > 15000) {
         newsTimer = 0;
-        news.pushRandom();
+        // Фоновая новость — только о том, что у игрока уже есть.
+        news.pushRandom({ content, state: game.state, derived: game.derived() });
       }
       if (performance.now() - lastSaveAt > config.autosaveSeconds * 1000) save();
     }

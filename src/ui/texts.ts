@@ -40,9 +40,4 @@ export class Texts {
   achievementName(id: string): string {
     return this.data.achievements.list.find((a) => a.id === id)?.name ?? id;
   }
-
-  /** Все категории новостей, кроме служебных. */
-  newsCategories(): string[] {
-    return Object.keys(this.data.news).filter((key) => key !== 'prefix');
-  }
 }
