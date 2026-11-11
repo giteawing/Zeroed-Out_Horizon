@@ -57,6 +57,7 @@ npm run test:e2e
 | Сочетания механик | `tests/mechanics-v2.test.ts` |
 | Баги, найденные аудитами | `tests/regressions.test.ts` |
 | Сохранения, миграция, офлайн | `tests/state.test.ts` |
+| Одна игра — одна вкладка: кто пишет сейв | `tests/instance-lock.test.ts`, `tests/dom/other-tab*.test.ts` (замки подменяет `tests/helpers/fake-locks.ts`), сценарий с двумя вкладками в E2E |
 | Схема/целостность контента и локализация | `tests/content.test.ts` |
 | Четыре профиля прохождения | `tests/balance-profiles.test.ts`, `tests/balance-profiles-extra.test.ts` |
 | Темп, выкуп контента, рост экономики | `tests/balance-pace.test.ts`, `tests/balance-content.test.ts`, `tests/balance-growth.test.ts` |

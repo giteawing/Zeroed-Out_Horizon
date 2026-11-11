@@ -1405,6 +1405,21 @@ img {
   color: var(--gold-light);
 }
 
+.sheet__text {
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* Сообщение, которое нельзя закрыть: перекрывает и стартовый экран, и окна. */
+.sheet--blocking {
+  z-index: 100;
+  background: rgba(10, 7, 5, 0.92);
+}
+
+.sheet--blocking:focus {
+  outline: none;
+}
+
 .wealth__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));

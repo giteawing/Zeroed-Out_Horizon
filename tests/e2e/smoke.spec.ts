@@ -138,6 +138,48 @@ test('прогресс сохраняется после перезагрузк�
   expect(sold).toBeGreaterThan(0);
 });
 
+test('вторая вкладка ждёт первую и продолжает с её сохранения', async ({ page, context }) => {
+  // Сохранение одно на все вкладки. Вторая вкладка не должна ни играть, ни
+  // писать, пока жива первая; замок держит сам браузер (Web Locks).
+  type Probe = { __game: { state: { totalSold: number } }; __beforeReload?: boolean };
+  await start(page);
+  await waitForSale(page);
+
+  const second = await context.newPage();
+  second.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
+  second.on('pageerror', (error) => errors.push(String(error)));
+  await second.goto('/');
+  const notice = second.locator('[data-testid="other-tab"]');
+  await expect(notice).toBeVisible();
+  await expect(second.locator('#app')).toHaveAttribute('inert', '');
+  // Кнопка старта есть, но закрыта сообщением: клик до неё не доходит.
+  const startButton = second.locator('.start .btn--gold');
+  await expect(startButton).toBeVisible();
+  await expect(startButton.click({ timeout: 1000 })).rejects.toThrow();
+  await second.evaluate(() => { (window as unknown as Probe).__beforeReload = true; });
+
+  // Первая вкладка играет дальше, сохраняется и закрывается.
+  await waitForSale(page);
+  const sold = await page.evaluate(() => {
+    window.dispatchEvent(new Event('pagehide'));
+    return (window as unknown as Probe).__game.state.totalSold;
+  });
+  await page.close();
+
+  // Вторая сама перезагружается за свежим сейвом и продолжает с него.
+  await expect.poll(
+    () => second.evaluate(() => (window as unknown as Probe).__beforeReload === true),
+  ).toBe(false);
+  await expect(notice).toBeHidden();
+  await startButton.click();
+  await expect(second.locator('.start')).toHaveCount(0, { timeout: 5000 });
+  const continued = await second.evaluate(() => (window as unknown as Probe).__game.state.totalSold);
+  expect(continued).toBeGreaterThanOrEqual(sold);
+  expect(errors).toEqual([]);
+});
+
 test('меню шапки закрыто, пока его не открыли', async ({ page }) => {
   await start(page);
   const menu = page.locator('.menu');

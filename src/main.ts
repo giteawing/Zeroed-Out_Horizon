@@ -10,6 +10,8 @@
  *   • реальное время между кадрами не обрезается: его учитывает FrameClock
  *     (ограниченная работа за кадр, перенос остатка, долгий простой — офлайн);
  *   • сохранение при visibilitychange/pagehide и раз в autosaveSeconds;
+ *   • сохранение пишет только вкладка, открытая первой: вторая стоит под
+ *     сообщением, пока первая не закроется (core/instance-lock.ts);
  *   • звук «разблокируется» внутри пользовательского жеста (клик по старту
  *     или по переключателю звука).
  */
@@ -24,6 +26,7 @@ import {
   serializeState,
 } from './core/state';
 import { archiveCorruptSave, clearSave, readSave, writeSave } from './core/storage';
+import { claimSave } from './core/instance-lock';
 import { formatMoney, formatNumber } from './core/format';
 import { Rng } from './core/rng';
 import { FrameClock } from './core/clock';
@@ -45,6 +48,7 @@ import { DevMenu } from './ui/dev';
 import { Wealth } from './ui/wealth';
 import { AssetDetails } from './ui/asset-details';
 import { OperationLog } from './ui/log';
+import { OtherTabNotice } from './ui/other-tab';
 import creditsRaw from './content/credits.txt?raw';
 import type { GameState } from './core/types';
 
@@ -75,6 +79,8 @@ function boot(): void {
   // ------------------------------------------------------------- часы цикла
   // Игра стоит на паузе, пока игрок не нажал кнопку на стартовом экране.
   let started = false;
+  /** Сохранение держит другая вкладка: здесь игра не идёт и ничего не пишет. */
+  let saveTaken = false;
   const TICK_MS = config.tickMs;
   /** Сколько тиков можно прожить за кадр: кадр не должен быть бесконечным. */
   const MAX_TICKS_PER_FRAME = 10;
@@ -274,6 +280,8 @@ function boot(): void {
   app.append(start.root);
 
   function onStart(fresh: boolean): void {
+    // Сохранение держит другая вкладка: здесь нельзя ни начать, ни стереть.
+    if (saveTaken) return;
     sound.unlock();
     // С этого момента игра идёт: разрешены тики и сохранения.
     started = true;
@@ -311,6 +319,7 @@ function boot(): void {
   }
 
   function restart(): void {
+    if (saveTaken) return;
     clearSave();
     state = createInitialState(config);
     restartWith(state);
@@ -581,6 +590,35 @@ function boot(): void {
   if (typeof ResizeObserver !== 'undefined') {
     new ResizeObserver(() => effects.resize()).observe(feedbackCanvas);
   }
+
+  // ------------------------------------------------- одна игра — одна вкладка
+  // Сообщение живёт вне #app: сама игра под ним выключается целиком (inert).
+  const otherTab = new OtherTabNotice(texts);
+  document.body.append(otherTab.root);
+  /** Игрок успел начать до того, как выяснилось, что сохранение занято. */
+  let interrupted = false;
+  claimSave({
+    onBusy: () => {
+      saveTaken = true;
+      interrupted = started;
+      // Всё, что зависит от `started`, останавливается: тики, сохранения,
+      // офлайн-доход при возврате во вкладку.
+      started = false;
+      app.toggleAttribute('inert', true);
+      otherTab.show();
+    },
+    onFree: () => {
+      // Первая вкладка могла наиграть и сохраниться: тогда в памяти этой —
+      // устаревший сейв, и продолжать с него нельзя.
+      if (interrupted || readSave() !== rawSave) {
+        window.location.reload();
+        return;
+      }
+      saveTaken = false;
+      app.toggleAttribute('inert', false);
+      otherTab.hide();
+    },
+  });
 
   // -------------------------------------------------------------- диагностика
   // Нужно e2e-тестам и отладке: window.__game позволяет проверить состояние.
