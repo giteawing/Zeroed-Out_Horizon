@@ -124,6 +124,7 @@
     "effectWellHint": "Дебит выпадает случайно при бурении",
     "effectWellLast": "Последняя скважина: {kind}, {value} т/сут",
     "wellDrilled": "Новая скважина: {kind}, {value} т/сут",
+    "wellsGain": "+{value} т/сут",
     "effectBankScale": "+{value} к выплатам банка",
     "scopeBoth": "оба рынка",
     "scopeCrude": "нефть",

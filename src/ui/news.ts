@@ -19,6 +19,20 @@ export interface NewsContext {
 
 type Background = (context: NewsContext) => boolean;
 
+/** О каких покупках рассказывает рубрика. */
+const ABOUT = {
+  // Отжатием игра считает покупку с `conquest: true`: у неё скидка от ЧВК и
+  // запись «Отжато» в журнале. Группа «Отжатия» в магазине шире — в ней и
+  // газета, и свой человек в правительстве.
+  conquest: (def: UpgradeDef) => def.conquest === true,
+  pmc: (def: UpgradeDef) => def.group === 'pmc',
+  // Банковская операция, а не сам банк: купленный банк ещё ничего не отмыл.
+  launder: (def: UpgradeDef) => def.effect.launder === true,
+  luxury: (def: UpgradeDef) => def.type === 'luxury',
+  tax: (def: UpgradeDef) => def.type === 'taxCut',
+  periodic: (def: UpgradeDef) => def.type === 'periodic',
+};
+
 const always: Background = () => true;
 /** У игрока есть хотя бы одна покупка, о которой рассказывает рубрика. */
 const owns = (about: (def: UpgradeDef) => boolean): Background =>
@@ -46,17 +60,34 @@ export const NEWS_RUBRICS = {
   milestone: ({ state }) => state.totalPurchases > 0,
   export: ({ derived }) => derived.exportThroughputCapacity > 0,
   influence: ({ derived }) => derived.influence > 0,
-  tax: owns((def) => def.type === 'taxCut'),
-  periodic: owns((def) => def.type === 'periodic'),
-  luxury: owns((def) => def.type === 'luxury'),
-  // Банковская операция проведена хотя бы раз: сам банк ещё не новость.
-  launder: owns((def) => def.effect.launder === true),
-  // Эти две рубрики названы так же, как группы покупок в магазине.
-  conquest: owns((def) => def.conquest === true || def.group === 'conquest'),
-  pmc: owns((def) => def.group === 'pmc'),
+  tax: owns(ABOUT.tax),
+  periodic: owns(ABOUT.periodic),
+  luxury: owns(ABOUT.luxury),
+  launder: owns(ABOUT.launder),
+  conquest: owns(ABOUT.conquest),
+  pmc: owns(ABOUT.pmc),
 } satisfies Record<string, Background | null>;
 
 export type NewsRubric = keyof typeof NEWS_RUBRICS;
+
+/**
+ * Рубрика новости о самой покупке: лента отвечает на то, что игрок сделал.
+ * Порядок — от частного к общему: отжатый завод — это отжатие, а не «империя
+ * выросла».
+ */
+export function purchaseRubric(def: UpgradeDef): NewsRubric {
+  if (ABOUT.conquest(def)) return 'conquest';
+  if (ABOUT.pmc(def)) return 'pmc';
+  if (ABOUT.launder(def)) return 'launder';
+  if (ABOUT.luxury(def)) return 'luxury';
+  if (ABOUT.tax(def)) return 'tax';
+  if (def.type === 'oneShot' && def.effect.usesWorldPrice === true) return 'export';
+  // Покупка даёт влияние, либо это просьба или услуга чиновнику.
+  if ((def.effect.influence ?? 0) > 0 || def.group === 'grants' || def.group === 'favors') {
+    return 'influence';
+  }
+  return 'milestone';
+}
 
 /** Рубрики, из которых сейчас можно взять фоновую новость. */
 export function backgroundRubrics(context: NewsContext): NewsRubric[] {

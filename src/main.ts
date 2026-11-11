@@ -35,8 +35,7 @@ import { Texts } from './ui/texts';
 import { Hud } from './ui/hud';
 import { Shop } from './ui/shop';
 import { FlowControlsPanel } from './ui/flow-controls';
-import { NewsFeed } from './ui/news';
-import type { NewsRubric } from './ui/news';
+import { NewsFeed, purchaseRubric } from './ui/news';
 import { Finale } from './ui/finale';
 import { StartScreen } from './ui/start';
 import { Settings } from './ui/settings';
@@ -380,35 +379,31 @@ function boot(): void {
     const def = content.byId.get(id);
     const result = game.buy(id, count);
     // Отказ озвучивает обработчик события `error` ниже.
-    if (!result.ok) return;
+    if (!result.ok || !def) return;
     sound.purchase();
-    const gain = result.payouts.reduce((sum, payout) => sum + payout.amount, 0);
-    if (gain > 0) {
+    if (result.payouts.length > 0) {
       effects.burst(stageSize().width / 2, stageSize().height * 0.55, 16);
-      effects.floatText(stageSize().width / 2, stageSize().height * 0.45, `+${formatMoney(gain, currency)}`, 'gold');
-      news.push(randomNewsFor(id));
-    } else if (def?.type === 'luxury') {
+      // Деньги всплывают по событию `oneShot` (ниже), здесь — только прирост
+      // добычи: дебит новых скважин в тоннах, а не в деньгах.
+      const tonnesPerDay = result.payouts
+        .filter((payout) => payout.unit === 'tonnesPerDay')
+        .reduce((sum, payout) => sum + payout.amount, 0);
+      if (tonnesPerDay > 0) {
+        effects.floatText(
+          stageSize().width / 2,
+          stageSize().height * 0.45,
+          texts.get('shop.wellsGain', { value: formatNumber(tonnesPerDay) }),
+          'gold',
+        );
+      }
+    } else if (def.type === 'luxury') {
       effects.burst(stageSize().width / 2, stageSize().height * 0.5, 10);
-    } else if (!def?.win) {
-      // О финале лента сообщает сама (onWin): «империя выросла» поверх этой
-      // новости не нужна.
-      news.push('milestone');
     }
-    if (result.ok && def?.type === 'gamble') sound.event(true);
+    // О финале лента сообщает сама (onWin).
+    if (!def.win) news.push(purchaseRubric(def));
+    if (def.type === 'gamble') sound.event(true);
     save();
     refreshUi();
-  }
-
-  /**
-   * Рубрика новости о покупке, которая сразу принесла выплату. Такие покупки —
-   * разовые операции и бурение; исход ставки и периодика приходят событиями.
-   */
-  function randomNewsFor(id: string): NewsRubric {
-    const def = content.byId.get(id);
-    if (!def) return 'milestone';
-    if (def.type === 'oneShot' && def.effect.usesWorldPrice) return 'export';
-    if (def.tab === 'political') return 'tax';
-    return 'milestone';
   }
 
   // ------------------------------------------------------------------ цикл

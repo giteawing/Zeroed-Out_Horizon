@@ -198,6 +198,47 @@ describe('покупки', () => {
   });
 });
 
+describe('выплата покупки называет, что начислено', () => {
+  /**
+   * Разовая операция платит деньгами, скважина и месторождение — суточным
+   * дебитом. Раньше оба числа лежали в одном поле без единицы, интерфейс
+   * складывал их и показывал «+₦60» за скважину на 60 т/сут.
+   */
+  const rich = (): { game: Game; state: GameState } => {
+    const { game, state } = setup();
+    // Условия открытия здесь не проверяются: снимаем их, оставляя механику.
+    game.unlockAllForDevelopment();
+    state.coins = 1e9;
+    state.totalEarned = 1e9;
+    return { game, state };
+  };
+
+  it.each(['t_well', 'p_field', 'p_reprivatize'])('«%s» отдаёт суточный дебит новых скважин', (id) => {
+    const { game, state } = rich();
+    const before = state.wells.length;
+    const result = game.buy(id);
+    expect(result.ok, JSON.stringify(result)).toBe(true);
+    const drilled = state.wells.slice(before);
+    expect(drilled.length).toBeGreaterThan(0);
+    expect(result.payouts).toEqual([{
+      id,
+      amount: drilled.reduce((sum, well) => sum + well.dailyTonnes, 0),
+      unit: 'tonnesPerDay',
+    }]);
+  });
+
+  it.each(['p_contractor', 'p_monarch', 'p_tranche'])('«%s» отдаёт деньги — ровно то, что пришло на счёт', (id) => {
+    const { game, state } = rich();
+    const coins = state.coins;
+    const result = game.buy(id);
+    expect(result.ok, JSON.stringify(result)).toBe(true);
+    expect(result.payouts).toHaveLength(1);
+    expect(result.payouts[0]).toMatchObject({ id, unit: 'coins' });
+    expect(result.payouts[0]!.amount).toBeGreaterThan(0);
+    expect(state.coins - coins + (result.cost ?? 0)).toBeCloseTo(result.payouts[0]!.amount, 3);
+  });
+});
+
 describe('покупки-действия с перезарядкой', () => {
   it('не «максимятся» и работают после перезарядки', () => {
     const { game, state } = setup();

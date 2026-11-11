@@ -5,7 +5,7 @@ import { computeDerived } from '../../src/core/economy';
 import { Rng } from '../../src/core/rng';
 import { createInitialState } from '../../src/core/state';
 import type { GameState } from '../../src/core/types';
-import { NEWS_RUBRICS, NewsFeed, backgroundRubrics } from '../../src/ui/news';
+import { NEWS_RUBRICS, NewsFeed, backgroundRubrics, purchaseRubric } from '../../src/ui/news';
 import type { NewsContext, NewsRubric } from '../../src/ui/news';
 import { Texts } from '../../src/ui/texts';
 
@@ -104,6 +104,20 @@ describe('фоновые новости не сообщают о том, чег�
     expect(withBank).toContain('tax');
   });
 
+  it('группа «Отжатия» в магазине — ещё не отжатие', () => {
+    // В группе лежат и газета, и свой человек в правительстве. «Скважины
+    // конкурента перешли под управление» — новость только для покупок,
+    // которые игра сама считает отжатием (`conquest: true`: скидка ЧВК,
+    // запись «Отжато» в журнале).
+    for (const id of ['p_newspaper', 'p_gov', 'p_press', 'p_contractor']) {
+      expect(content.byId.get(id)?.group, id).toBe('conquest');
+      expect(backgroundRubrics(contextFor({ [id]: 1 })), id).not.toContain('conquest');
+    }
+    for (const id of ['p_field', 'p_refinery', 'p_reprivatize']) {
+      expect(backgroundRubrics(contextFor({ [id]: 1 })), id).toContain('conquest');
+    }
+  });
+
   it('игрок, купивший всё, слышит все фоновые рубрики и ни одной событийной', () => {
     const everything = Object.fromEntries(content.upgrades.map((def) => [def.id, 1]));
     const all = backgroundRubrics(contextFor(everything, (state) => { state.totalPurchases = 500; }));
@@ -123,5 +137,75 @@ describe('фоновые новости не сообщают о том, чег�
       heardPmc ||= pmc.has(text);
     }
     expect(heardPmc).toBe(true);
+  });
+});
+
+describe('новость о покупке — из рубрики этой покупки', () => {
+  /**
+   * Раньше любая политическая покупка с выплатой давала новость о налогах
+   * («Сауна прошла продуктивно» после отмывания через банк), остальные —
+   * «империя выросла», а роскошь — ничего. Рубрики об отжатиях, ЧВК, банке,
+   * влиянии и роскоши выходили только случайным фоном.
+   */
+  const EXPECTED: Array<[string, NewsRubric]> = [
+    ['p_field', 'conquest'],
+    ['p_refinery', 'conquest'],
+    ['p_reprivatize', 'conquest'],
+    ['pmc_vet', 'pmc'],
+    ['pmc_army', 'pmc'],
+    ['p_launder', 'launder'],
+    ['p_hideprofit', 'launder'],
+    ['p_tranche', 'launder'],
+    ['l_ring', 'luxury'],
+    ['l_castle', 'luxury'],
+    ['p_sauna', 'tax'],
+    ['p_badbank', 'tax'],
+    ['p_export', 'export'],
+    // Покупка даёт влияние или это просьба к чиновнику.
+    ['p_parliament', 'influence'],
+    ['p_newspaper', 'influence'],
+    ['p_gov', 'influence'],
+    ['p_monarch', 'influence'],
+    ['p_puppy', 'influence'],
+    // Всё остальное — «империя выросла».
+    ['t_well', 'milestone'],
+    ['t_core', 'milestone'],
+    ['x_cistern', 'milestone'],
+    ['d1_blade', 'milestone'],
+    ['p_contractor', 'milestone'],
+    ['p_crisis', 'milestone'],
+  ];
+
+  it.each(EXPECTED)('покупка «%s» → рубрика «%s»', (id, rubric) => {
+    const def = content.byId.get(id);
+    expect(def, id).toBeDefined();
+    expect(purchaseRubric(def!)).toBe(rubric);
+  });
+
+  it('у каждой покупки есть рубрика со строками, и она не событийная', () => {
+    const used = new Set<NewsRubric>();
+    for (const def of content.upgrades) {
+      const rubric = purchaseRubric(def);
+      used.add(rubric);
+      expect(linesOf(rubric).length, def.id).toBeGreaterThan(0);
+      // Старт, финал и исход ставки объявляет игра, а не магазин.
+      expect(NEWS_RUBRICS[rubric], def.id).not.toBeNull();
+    }
+    // Рубрики, у которых нет своего события в игре, выходят хотя бы покупкой.
+    for (const rubric of ['conquest', 'pmc', 'launder', 'luxury', 'influence', 'tax'] as const) {
+      expect(used.has(rubric), rubric).toBe(true);
+    }
+  });
+
+  it('покупка, открывшая рубрику фону, сама сообщается из неё же', () => {
+    // Иначе первая новость о ЧВК пришла бы через случайный фон, а не в ответ
+    // на найм охраны.
+    for (const rubric of ['conquest', 'pmc', 'launder', 'luxury', 'tax'] as const) {
+      const openers = content.upgrades.filter((def) =>
+        !backgroundRubrics(contextFor({})).includes(rubric) &&
+        backgroundRubrics(contextFor({ [def.id]: 1 })).includes(rubric));
+      expect(openers.length, rubric).toBeGreaterThan(0);
+      for (const def of openers) expect(purchaseRubric(def), `${rubric}: ${def.id}`).toBe(rubric);
+    }
   });
 });

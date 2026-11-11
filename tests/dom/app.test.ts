@@ -6,6 +6,7 @@
  * вкладки и финал в среде без настоящего браузерного движка.
  */
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { formatMoney, formatNumber } from '../../src/core/format';
 
 vi.mock('../../src/audio/sound', () => ({
   SoundEngine: class {
@@ -257,6 +258,65 @@ describe('магазин', () => {
     expect(game.state.totalPurchases).toBe(purchasesBefore + 1);
   });
 
+  describe('всплывающая цифра после покупки', () => {
+    /** Купить карточку кнопкой магазина и вернуть всплывшие за это время надписи. */
+    const buyAndWatch = async (tab: string, id: string): Promise<string[]> => {
+      const { Effects } = await import('../../src/fx/particles');
+      const floats = vi.spyOn(Effects.prototype, 'floatText');
+      try {
+        document.querySelector<HTMLButtonElement>(`[data-tab="${tab}"]`)!.click();
+        game.state.coins = 1e9;
+        game.state.totalEarned = 1e9;
+        const selector = `.card[data-id="${id}"] .card__buy:not([disabled])`;
+        await waitFor(() => document.querySelector(selector) !== null);
+        document.querySelector<HTMLButtonElement>(selector)!.click();
+        await flush();
+        return floats.mock.calls.map((call) => String(call[1 + 1]));
+      } finally {
+        floats.mockRestore();
+      }
+    };
+
+    it('бурение показывает дебит новых скважин, а не «деньги»', async () => {
+      // Выплата покупки-скважины — суточный дебит. Интерфейс складывал его с
+      // деньгами и показывал «+₦500» за скважину на 500 т/сут.
+      const before = game.state.wells.length;
+      const texts = await buyAndWatch('production', 't_well');
+      const drilled = game.state.wells.slice(before);
+      expect(drilled.length).toBeGreaterThan(0);
+      const total = drilled.reduce((sum, well) => sum + well.dailyTonnes, 0);
+      expect(texts.filter((text) => text.includes('₦'))).toEqual([]);
+      expect(texts).toEqual([`+${formatNumber(total)} т/сут`]);
+    });
+
+    it('разовая выплата всплывает один раз', async () => {
+      // Сумму показывали и обработчик покупки, и событие выплаты: две
+      // одинаковые надписи друг на друге.
+      const paid: number[] = [];
+      const off = game.on((event) => { if (event.type === 'oneShot') paid.push(event.amount); });
+      const texts = await buyAndWatch('political', 'p_contractor');
+      off();
+      expect(paid).toHaveLength(1);
+      expect(paid[0]).toBeGreaterThan(0);
+      expect(texts).toEqual([`+${formatMoney(paid[0]!, game.config.currency)}`]);
+    });
+  });
+
+  it('лента отвечает на покупку новостью её рубрики', async () => {
+    // Роскошь раньше не давала новости вовсе, а строки о ней выходили
+    // случайным фоном — в том числе до первой покупки.
+    const topNews = (): string => document.querySelector('.news__item .news__text')?.textContent ?? '';
+    document.querySelector<HTMLButtonElement>('[data-tab="luxury"]')!.click();
+    game.state.coins = 1e9;
+    game.state.totalEarned = 1e9;
+    const selector = '.card[data-id="l_usedcar"] .card__buy:not([disabled])';
+    await waitFor(() => document.querySelector(selector) !== null);
+    document.querySelector<HTMLButtonElement>(selector)!.click();
+    await flush();
+    expect(game.state.levels.l_usedcar).toBeGreaterThan(0);
+    expect(game.content.texts.news.luxury).toContain(topNews());
+  });
+
   it('иконки карточек ссылаются на существующие SVG', () => {
     const icons = [...document.querySelectorAll<HTMLImageElement>('.card__icon')];
     expect(icons.length).toBeGreaterThan(0);
@@ -433,13 +493,24 @@ describe('финал', () => {
    * текста: он проверяет либо заглушку из texts.json, либо реальный стих
    * из credits.txt (в браузере он подставляется через Vite ?raw).
    */
+  /** Верхний заголовок ленты сразу после финальной покупки. */
+  let newsAfterWin = '';
+
   it('открывает титры и показывает стихотворение из credits.txt', async () => {
     game.state.coins = game.config.winCost * 2;
     for (const req of game.config.winRequirements) {
       if (req.upgrade) game.state.levels[req.upgrade] = req.level ?? 1;
     }
     game.state.totalEarned = game.config.winCost * 2;
-    expect(game.buy('win_pump').ok).toBe(true);
+    // Финальную покупку игрок делает кнопкой магазина, а не вызовом ядра:
+    // так проверяется и то, что интерфейс делает вокруг покупки.
+    document.querySelector<HTMLButtonElement>('[data-tab="goals"]')!.click();
+    const selector = '.card[data-id="win_pump"] .card__buy:not([disabled])';
+    await waitFor(() => document.querySelector(selector) !== null);
+    document.querySelector<HTMLButtonElement>(selector)!.click();
+    // Читаем ленту сразу: позже поверх может выйти фоновая новость.
+    newsAfterWin = document.querySelector('.news__item .news__text')?.textContent ?? '';
+    expect(game.state.won).toBe(true);
     await flush();
     await waitFor(() => document.querySelector('.finale')?.hasAttribute('hidden') === false);
     const finale = document.querySelector('.finale');
@@ -464,8 +535,8 @@ describe('финал', () => {
   it('лента сообщает о победе', () => {
     // Строки рубрики «win» были в texts.json, но в ленту не попадали никогда:
     // из фоновых новостей рубрика исключена, а по событию её никто не выводил.
-    const top = document.querySelector('.news__item .news__text')?.textContent ?? '';
-    expect(game.content.texts.news.win).toContain(top);
+    // И «империя выросла» поверх этой новости не выходит.
+    expect(game.content.texts.news.win).toContain(newsAfterWin);
   });
 
   it('кнопка статистики раскрывает таблицу', async () => {

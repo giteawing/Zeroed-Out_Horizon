@@ -56,12 +56,23 @@ const MAX_LOG = 24;
  */
 export const SPILL_PLACES = ['sea', 'taiga', 'river', 'tundra', 'field', 'yard'] as const;
 
+/**
+ * Что покупка принесла сразу. Единица названа явно: деньги и суточный дебит
+ * нельзя ни складывать, ни показывать одним форматом.
+ */
+export interface BuyPayout {
+  id: string;
+  amount: number;
+  /** `coins` — зачислено на счёт; `tonnesPerDay` — дебит новых скважин, т/сут. */
+  unit: 'coins' | 'tonnesPerDay';
+}
+
 export interface BuyResult {
   ok: boolean;
   reason?: BuyFailure;
   cost?: number;
   level?: number;
-  payouts: Array<{ id: string; amount: number }>;
+  payouts: BuyPayout[];
 }
 
 export interface BuyCheck {
@@ -452,13 +463,13 @@ export class Game {
         const prize = this.applyReprivatization(cost / effectCount, def.id);
         dailyTonnes += prize.dailyTonnes;
       }
-      payouts.push({ id: def.id, amount: dailyTonnes });
+      payouts.push({ id: def.id, amount: dailyTonnes, unit: 'tonnesPerDay' });
     } else if (def.type === 'well' && !repeatable) {
       // Каждый уровень покупки типа `well` — одна скважина со случайным
       // дебитом. Месторождение (пакет скважин) отобрано веткой выше.
       let dailyTonnes = 0;
       for (let i = 0; i < effectCount; i++) dailyTonnes += this.drillWell().dailyTonnes;
-      payouts.push({ id: def.id, amount: dailyTonnes });
+      payouts.push({ id: def.id, amount: dailyTonnes, unit: 'tonnesPerDay' });
     }
 
     // Реприватизация пишет свою строку с числом скважин и стоимостью активов,
@@ -596,8 +607,8 @@ export class Game {
     def: UpgradeDef,
     level: number,
     cost: number,
-  ): Array<{ id: string; amount: number }> {
-    const payouts: Array<{ id: string; amount: number }> = [];
+  ): BuyPayout[] {
+    const payouts: BuyPayout[] = [];
 
     if (def.type === 'oneShot') {
       const derived = this.derived();
@@ -618,7 +629,7 @@ export class Game {
           price,
           money: gross,
         });
-        payouts.push({ id: def.id, amount: settled.net });
+        payouts.push({ id: def.id, amount: settled.net, unit: 'coins' });
         this.emit({ type: 'oneShot', id: def.id, amount: settled.net });
         this.emit({ type: 'sold', channel, tonnes, money: gross });
         return payouts;
@@ -643,7 +654,7 @@ export class Game {
         upgradeId: def.id,
         money: gross,
       });
-      payouts.push({ id: def.id, amount: credited });
+      payouts.push({ id: def.id, amount: credited, unit: 'coins' });
       this.emit({ type: 'oneShot', id: def.id, amount: credited });
     }
 
