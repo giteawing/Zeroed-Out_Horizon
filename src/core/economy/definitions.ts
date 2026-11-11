@@ -7,6 +7,15 @@ export function exportModeOf(def: UpgradeDef): ExportMode {
   return def.effect.exportMode ?? 'tanker';
 }
 
+/**
+ * Покупка приносит месторождение — пакет скважин разом. Это отжатие
+ * (`type: 'field'`) и реприватизация: у неё тип `well`, но бурит она не одну
+ * скважину. Одно правило для ядра и для подписи на карточке.
+ */
+export function grantsField(def: Pick<UpgradeDef, 'id' | 'type'>): boolean {
+  return def.type === 'field' || def.id === 'p_reprivatize';
+}
+
 /** @deprecated Временные налоговые скидки намеренно не применяются. */
 export interface TaxBuff {
   id: string;

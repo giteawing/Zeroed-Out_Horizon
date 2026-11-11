@@ -11,6 +11,7 @@ import {
   computeDerived,
   costFor,
   eventPayout,
+  grantsField,
   isUnlocked,
   isWinReady,
   levelOf,
@@ -448,7 +449,7 @@ export class Game {
     // «Пробурить скважину» — это лотерея: класс скважины и её суточный дебит
     // выпадают случайно, поэтому каждая покупка даёт разную добычу.
     const effectCount = repeatable ? 1 : buyCount;
-    if (def.id === 'p_reprivatize' || def.type === 'field') {
+    if (grantsField(def)) {
       // Каждый оплаченный уровень даёт своё месторождение. Пакетная
       // покупка не должна начислять уровни без соответствующих активов.
       let dailyTonnes = 0;
@@ -465,7 +466,7 @@ export class Game {
 
     // Реприватизация пишет свою строку с числом скважин и стоимостью активов,
     // поэтому общая запись «Отжато: …» для неё не нужна — иначе в журнале дубль.
-    if (def.id !== 'p_reprivatize' && def.type !== 'field') {
+    if (!grantsField(def)) {
       this.pushLog({
         kind: def.conquest ? 'conquest' : 'bought',
         upgradeId: def.id,

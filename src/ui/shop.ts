@@ -6,9 +6,10 @@
  * зовёт его до пяти раз в секунду, а на вкладке десятки карточек.
  */
 import { clear, el, setClass, setHidden, setText } from './dom';
+import { describeEffect } from './effect-line';
 import { describeRequirementTerm } from './requirements';
 import type { Texts } from './texts';
-import { formatMoney, formatNumber, formatPercent } from '../core/format';
+import { formatMoney } from '../core/format';
 import { icon as iconPath } from '../core/assets';
 import { isRepeatable, type BuyCheck, type Game } from '../core/game';
 import { winRequirementBlocker, winRequirementTerms, type RequirementTerm } from '../core/economy';
@@ -180,7 +181,7 @@ export class Shop {
     setText(refs.level, repeatable ? '×' : `${level}/${check.maxLevel}`);
     setHidden(refs.level, level <= 0 && !repeatable);
     setText(refs.name, this.cardName(def));
-    setText(refs.effect, this.describeEffect(def, level));
+    setText(refs.effect, this.effectOf(def, level));
     const lockText = this.describeLock(def, check);
     setText(refs.lock, lockText);
     setHidden(refs.lock, lockText.length === 0);
@@ -219,121 +220,16 @@ export class Shop {
     setClass(refs.root, 'card--ready', def.win ? check.ok : false);
   }
 
-  private describeEffect(def: UpgradeDef, level: number): string {
-    const e = def.effect;
-    const t = (key: string, params: Record<string, string | number> = {}) =>
-      this.texts.get(`shop.${key}`, params);
-    switch (def.type) {
-      case 'production':
-        return t('effectProduction', { value: formatNumber(e.value ?? 0) });
-      case 'passive': {
-        const parts: string[] = [];
-        if (this.game.config.oil.autoDrill.requires.includes(def.id)) {
-          parts.push(t('effectCrew', {
-            value: formatPercent(this.game.config.oil.autoDrill.bonus, 0),
-          }));
-        }
-        if (def.group === 'staff' || def.group === 'crew') parts.push(t('effectStaff'));
-        if (def.id === 't_pump4') parts.push(t('effectGoalStage', { level: 5 }));
-        if (e.value) parts.push(t('effectPassive', { value: formatNumber(e.value) }));
-        if (e.exportBonus) {
-          parts.push(t('effectPassiveExport', { value: formatPercent(e.exportBonus, 1) }));
-        }
-        if (e.salaryAdd) {
-          parts.push(t('effectPassiveSalary', { value: formatPercent(e.salaryAdd, 1) }));
-        }
-        if (e.influence) parts.push(t('effectInfluence', { value: formatNumber(e.influence) }));
-        if (e.capitalFlightPerSecond) {
-          parts.push(t('effectCapitalFlight', {
-            value: formatMoney(e.capitalFlightPerSecond, this.currency),
-            growth: formatPercent(e.capitalFlightGrowthPerMinute ?? 0, 0),
-          }));
-        }
-        const unlocks = this.unlockedNamesOf(def);
-        if (unlocks.length > 0) {
-          parts.push(t('effectUnlocks', { names: unlocks.slice(0, 3).join(', ') }));
-        }
-        return parts.join(' · ') || t('effectNoDirectBonus');
-      }
-      case 'well': {
-        // Показываем последнюю пробуренную скважину и расклад по классам.
-        const wells = this.game.state.wells;
-        const last = wells[wells.length - 1];
-        if (last) {
-          return this.texts.get('shop.effectWellLast', {
-            value: formatNumber(last.dailyTonnes),
-            kind: this.texts.get(`wells.${last.kind}`),
-          });
-        }
-        return this.texts.get('shop.effectWellHint');
-      }
-      case 'multiplier':
-        if (e.fuelDamper) return t('effectFuelDamper');
-        return t('effectMultiplier', {
-          value: formatPercent(Math.pow(e.factor ?? 1, Math.sqrt(Math.max(1, level))) - 1, 1),
-        });
-      case 'taxCut': {
-        const parts = [t('effectTaxCut', { value: formatPercent((e.percent ?? 0) / 100, 1) })];
-        // Банк усиливает операции: показываем, насколько выросли выплаты.
-        if (e.bankScale) parts.push(t('effectBankScale', { value: formatPercent(e.bankScale, 0) }));
-        return parts.join(' · ');
-      }
-      case 'costCut':
-        return t('effectCostCut', { value: (e.percent ?? 0).toFixed(0) });
-      case 'priceBoost': {
-        const parts: string[] = [];
-        if (e.domesticPriceMultiplier && e.domesticPriceMultiplier > 1) {
-          parts.push(t('effectDomesticPrice', { value: formatPercent(e.domesticPriceMultiplier - 1, 1) }));
-        }
-        if (e.exportPriceMultiplier && e.exportPriceMultiplier > 1) {
-          parts.push(t('effectExportPrice', { value: formatPercent(e.exportPriceMultiplier - 1, 1) }));
-        }
-        if (e.exchangeRateDevaluation && e.exchangeRateDevaluation > 0) {
-          parts.push(t('effectDevaluation', { value: formatPercent(e.exchangeRateDevaluation, 1) }));
-        }
-        return parts.join(' · ') || t('effectPriceBoost', {
-          value: `+${formatPercent(Math.pow(e.factor ?? 1, Math.max(1, level)) - 1, 1)}`,
-        });
-      }
-      case 'oneShot':
-        // Точная выплата зависит от текущего темпа империи и мировой цены,
-        // поэтому в карточке показываем понятное описание, а не фиктивное число.
-        return this.texts.get('shop.effectOneShotHint');
-      case 'gamble':
-        return t('effectGamble', { seconds: e.seconds ?? 0, value: e.factor ?? 2 });
-      case 'periodic':
-        return t('effectPeriodic', { seconds: e.seconds ?? 0, value: (e.value ?? 0) * Math.max(1, level) });
-      case 'sell': {
-        const channel = e.channel ?? 'contract';
-        const parts = [
-          t('effectSell', { value: formatNumber((e.value ?? 0) * Math.max(1, level)) }),
-        ];
-        if (e.percent) {
-          const key = e.channel === 'refine' ? 'effectSellThroughput' : 'effectSellVolume';
-          parts.push(t(key, { value: formatPercent(e.percent / 100, 1) }));
-        }
-        // В карточке видно, какой именно рынок она расширяет: сырьё,
-        // нефтепродукты или оба. Раньше это было скрыто в конфиге.
-        const channelName = this.texts.get(`sales.${channel}`);
-        const split = e.channelSplit;
-        const scope = !split
-          ? this.texts.get('shop.scopeBoth')
-          : (split.crude ?? 0) > 0 && (split.products ?? 0) > 0
-            ? this.texts.get('shop.scopeBoth')
-            : (split.products ?? 0) > 0
-              ? this.texts.get('shop.scopeProducts')
-              : this.texts.get('shop.scopeCrude');
-        return `${channelName} · ${scope}: ${parts.join(' · ')}`;
-      }
-      case 'storage':
-        return t('effectStorage', { value: formatNumber((e.value ?? 0) * Math.max(1, level)) });
-      case 'luxury':
-        return t('effectLuxury', {});
-      case 'win':
-        return this.texts.get('finale.pumpName');
-      default:
-        return '';
-    }
+  /** Строка эффекта: текст собирает `describeEffect`, магазин даёт ему состояние игры. */
+  private effectOf(def: UpgradeDef, level: number): string {
+    const wells = this.game.state.wells;
+    return describeEffect(def, level, {
+      texts: this.texts,
+      config: this.game.config,
+      currency: this.currency,
+      lastWell: wells[wells.length - 1],
+      unlocks: this.unlockedNamesOf(def),
+    });
   }
 
   /** Названия покупок, которым нужна данная: одна выборка на покупку, а не на каждое обновление. */

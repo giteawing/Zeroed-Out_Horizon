@@ -54,9 +54,10 @@ public/images/   изображения и иконки
 |---|---|---|
 | Цена/эффект покупки | `src/content/upgrades.json` | экономика + баланс |
 | Параметр экономики | `src/content/config.json` + `economy.ts` | economy/regression/balance |
-| Новый тип эффекта | `types.ts`, `economy.ts`, `game.ts`, `simulator.ts`, UI-магазин | unit + regression + balance |
+| Новый тип эффекта или поле `effect` | `types.ts`, `EFFECT_FIELDS` в `content.ts`, `economy.ts`, `game.ts`, `simulator.ts`, строка эффекта `src/ui/effect-line.ts` | `effect-fields` + `effect-line` + regression + balance |
 | Сохранение нового поля | `types.ts`, `state.ts`, `game.ts` | state migration + serialization |
 | Подпись интерфейса | `texts.json` и компонент UI | content + DOM/E2E |
+| Описание или строка эффекта карточки | `upgrades.json → description`, `src/ui/effect-line.ts`, `texts.json → shop` | `rules-consistency` + `effect-line` |
 | Вёрстка | `src/ui/`, `src/styles/base.css` | DOM + E2E |
 | Изображения | `public/images/`, `scripts/` | content tests + визуальная проверка |
 

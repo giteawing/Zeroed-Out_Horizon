@@ -218,10 +218,7 @@ describe('магазин: карточки живут, пока открыта �
         expect(card.classList.contains('card--locked'), id).toBe(!check.unlocked);
         expect(card.querySelector('.card__name')!.textContent, id).not.toBe('');
         expect(card.querySelector('.card__cost')!.textContent, id).not.toBe('');
-        // У «месторождения» (type: field) строки эффекта пока нет: о нём говорит описание.
-        if (content.byId.get(id)!.type !== 'field') {
-          expect(card.querySelector('.card__effect')!.textContent, id).not.toBe('');
-        }
+        expect(card.querySelector('.card__effect')!.textContent, id).not.toBe('');
       }
     }
     expect(bought).toBeGreaterThan(20);
