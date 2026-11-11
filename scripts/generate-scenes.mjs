@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Генератор крупной графики: фон, логотип и финал.
  * Запуск: npm run art.
@@ -11,29 +12,19 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   PALETTE as P,
-  STROKE,
   argValue,
   assertSvg,
-  character,
   chimney,
   circle,
   coin,
-  crown,
   derrick,
   drop,
-  ellipse,
-  fill,
-  group,
   isMainModule,
   line,
-  path,
-  poly,
   rect,
-  shine,
   smoke,
   spark,
   star,
-  topHat,
 } from './lib/art.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -46,6 +37,7 @@ const imgDir = resolve(here, '../public/images');
  * логотипе и финале теряли заливку. Раньше это чинили руками в готовых
  * файлах — до следующего `npm run art`.
  */
+/** @type {Record<string, string>} */
 const SCENE_GRADIENTS = {
   gold: 'goldGrad',
   oil: 'oilGrad',
@@ -53,10 +45,15 @@ const SCENE_GRADIENTS = {
   steel: 'steelGrad',
 };
 
-/** Перевести ссылки на градиенты иконок в градиенты сцены. */
+/**
+ * Перевести ссылки на градиенты иконок в градиенты сцены.
+ *
+ * @param {string} svg
+ * @returns {string}
+ */
 function scene(svg) {
-  return svg.replace(/url\(#([A-Za-z0-9_-]+)\)/g, (match, id) =>
-    Object.hasOwn(SCENE_GRADIENTS, id) ? `url(#${SCENE_GRADIENTS[id]})` : match);
+  return svg.replace(/url\(#([A-Za-z0-9_-]+)\)/g, (match, /** @type {string} */ id) =>
+    Object.prototype.hasOwnProperty.call(SCENE_GRADIENTS, id) ? `url(#${SCENE_GRADIENTS[id]})` : match);
 }
 
 const DEFS = `
@@ -282,25 +279,5 @@ function main() {
   }
   console.log(`готово: ${Object.keys(scenes).join(', ')} в ${outDir}`);
 }
-
-void STROKE;
-void ellipse;
-void fill;
-void group;
-void character;
-void crown;
-void topHat;
-void shine;
-void poly;
-void star;
-void chimney;
-void spark;
-void smoke;
-void circle;
-void derrick;
-void drop;
-void line;
-void path;
-void rect;
 
 if (isMainModule(import.meta.url)) main();

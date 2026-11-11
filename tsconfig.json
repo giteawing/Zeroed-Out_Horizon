@@ -11,11 +11,12 @@
     "noFallthroughCasesInSwitch": true,
     "exactOptionalPropertyTypes": false,
     "resolveJsonModule": true,
+    "allowJs": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "isolatedModules": true,
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["src", "tests", "scripts", "vite.config.ts", "playwright.config.ts"]
+  "include": ["src", "tests", "scripts", "vite.config.ts", "vitest.config.ts", "playwright.config.ts", "eslint.config.js"]
 }

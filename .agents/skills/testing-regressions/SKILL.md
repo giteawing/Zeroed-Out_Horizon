@@ -10,13 +10,22 @@ description: Use when adding or modifying tests, diagnosing CI failures, changin
 ```bash
 npm ci
 npm run build
+npm run lint
 npm test
 npm run test:e2e
 npx playwright install chromium
 ```
 
-- CI использует Node.js 22, `npm ci`, сборку, полный Vitest-набор, затем
-  Playwright Chromium и desktop E2E.
+- CI использует Node.js 22, `npm ci`, сборку, линтер, полный Vitest-набор,
+  затем Playwright Chromium и desktop E2E.
+- `npm run build` начинается с `tsc --noEmit`: он проверяет `src`, `tests`,
+  `scripts` и файлы настроек, включая скрипты `.mjs` (первая строка —
+  `// @ts-check`, типы — в JSDoc; рукописных `.d.mts` рядом со скриптом быть
+  не должно).
+- `npm run lint` — ESLint с типами (`eslint.config.js`): промис без ожидания,
+  выражение без действия, `any` в обход типов, `==`, русская строка в коде
+  интерфейса. Замечание исправляй в коде; `eslint-disable` — только с причиной
+  в той же строке, а отключение, которое ничего не отключает, — ошибка.
 - `npm test` выполняет файлы `tests/**/*.test.ts`; окружение по умолчанию
   Node. DOM-тесты включают happy-dom директивой в начале файла.
 - `npm run test:e2e` через Playwright сам выполняет production build и
@@ -125,7 +134,7 @@ npm run test:e2e
 
 ## Перед передачей изменений
 
-Для любой задачи: `npm run build` и `npm test`.
+Для любой задачи: `npm run build`, `npm run lint` и `npm test`.
 Для UI, текста, магазина, HUD или навигации — дополнительно
 `npm run test:e2e`. Для экономики/цен/эффектов — `npm run balance:report`
 и полный баланс-тест. В отчёте разделяй:

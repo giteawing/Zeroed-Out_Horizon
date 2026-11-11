@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Генератор иконок покупок: public/images/icons/<icon>.svg
  * Запуск: npm run art
@@ -45,7 +46,6 @@ import {
   spark,
   stamp,
   star,
-  topHat,
 } from './lib/art.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -53,12 +53,10 @@ const defaultOutDir = resolve(here, '../public/images/icons');
 
 // ------------------------------------------------------------ примитивы сцены
 
-const ground = (y = 82) =>
-  path(`M8 ${y}q42 -7 84 0v10H8Z`, 'url(#green)', 'opacity="0.35"');
-
-const bar = (x, y, w, h, fillColor) => rect(x, y, w, h, fillColor, 3);
-
-/** Скважина-качалка. */
+/**
+ * Скважина-качалка.
+ * @type {(cx: number, yBase: number, s?: number) => string}
+ */
 const pumpjack = (cx, yBase, s = 1) => {
   const parts = [];
   parts.push(poly([[cx - 4 * s, yBase], [cx, yBase - 26 * s], [cx + 4 * s, yBase]], P.inkSoft));
@@ -74,7 +72,10 @@ const pumpjack = (cx, yBase, s = 1) => {
   return group(parts);
 };
 
-/** Долото-шарошка. */
+/**
+ * Долото-шарошка.
+ * @type {(cx: number, cy: number, s?: number, color?: string) => string}
+ */
 const rollerBit = (cx, cy, s = 1, color = 'url(#steel)') => {
   const parts = [];
   parts.push(rect(cx - 8 * s, cy - 26 * s, 16 * s, 20 * s, color, 4));
@@ -89,8 +90,10 @@ const rollerBit = (cx, cy, s = 1, color = 'url(#steel)') => {
   return group(parts);
 };
 
+/** @type {(value: number) => number} */
 const n = (value) => Math.round(value * 100) / 100;
 
+/** @type {(x: number, y: number, w: number, h: number, bodyColor?: string) => string} */
 const factory = (x, y, w, h, bodyColor = 'url(#steel)') => {
   const parts = [rect(x, y, w, h, bodyColor, 3)];
   parts.push(poly([[x, y], [x + w / 2, y - 9], [x + w, y]], 'url(#crimson)'));
@@ -99,6 +102,7 @@ const factory = (x, y, w, h, bodyColor = 'url(#steel)') => {
   return group(parts);
 };
 
+/** @type {(cx: number, cy: number, s?: number, color?: string) => string} */
 const ship = (cx, cy, s = 1, color = 'url(#crimson)') => {
   const parts = [];
   parts.push(
@@ -109,6 +113,7 @@ const ship = (cx, cy, s = 1, color = 'url(#crimson)') => {
   return group(parts);
 };
 
+/** @type {(x: number, y: number, w: number, h: number) => string} */
 const tank = (x, y, w, h) => {
   const parts = [rect(x, y, w, h, 'url(#steel)', 5)];
   parts.push(fill(`M${x + 3} ${y + 6}h${w - 6}v${h * 0.28}h${-(w - 6)}Z`, P.steelDark, 0.35));
@@ -116,6 +121,7 @@ const tank = (x, y, w, h) => {
   return group(parts);
 };
 
+/** @type {(cx: number, cy: number, s?: number, color?: string) => string} */
 const gem = (cx, cy, s = 1, color = 'url(#sky)') =>
   poly(
     [
@@ -129,6 +135,7 @@ const gem = (cx, cy, s = 1, color = 'url(#sky)') =>
     color,
   );
 
+/** @type {(x: number, y: number, w: number, h: number, color?: string) => string} */
 const document = (x, y, w, h, color = P.cream) => {
   const parts = [rect(x, y, w, h, color, 3)];
   for (let i = 0; i < 4; i++) {
@@ -136,13 +143,6 @@ const document = (x, y, w, h, color = P.cream) => {
   }
   return group(parts);
 };
-
-const money = (cx, cy, s = 1) => `${rect(cx - 15 * s, cy - 9 * s, 30 * s, 18 * s, 'url(#green)', 3)}${circle(
-  cx,
-  cy,
-  5 * s,
-  'url(#gold)',
-)}`;
 
 const sauna = () => {
   const parts = [rect(16, 34, 68, 48, '#c98f52', 5)];
@@ -165,6 +165,11 @@ const temple = () => {
   return group(parts);
 };
 
+/**
+ * Персонаж иконки. Размер и опора у всех одни: `baseY` и `scale`,
+ * переданные вызывающим, перекрываются.
+ * @type {(opts: import('./lib/art.mjs').CharacterOptions) => string}
+ */
 const person = (opts) => character({ ...opts, baseY: 86, scale: 0.95 });
 
 const yachts = {
@@ -305,7 +310,7 @@ const bling = {
     1.2,
     'url(#sky)',
   )}`,
-  'lux-signet': `${rect(30, 46, 40, 30, 'url(#gold)', 8)}${gem(50, 46, 1.6, 'url(#purple)', '')}${shine(
+  'lux-signet': `${rect(30, 46, 40, 30, 'url(#gold)', 8)}${gem(50, 46, 1.6, 'url(#purple)')}${shine(
     40,
     56,
     6,
@@ -360,9 +365,9 @@ const bling = {
     'url(#gold)',
     2,
   )}${spark(74, 30, 6)}${spark(26, 70, 5)}`,
-  'lux-jacket-1': jacket(P.crimson, P.crimsonLight),
-  'lux-jacket-2': jacket('url(#gold)', P.goldLight),
-  'lux-jacket-3': `${jacket('url(#gold)', P.goldLight)}${crown(50, 34, 0.85)}`,
+  'lux-jacket-1': jacket(P.crimson),
+  'lux-jacket-2': jacket('url(#gold)'),
+  'lux-jacket-3': `${jacket('url(#gold)')}${crown(50, 34, 0.85)}`,
   'lux-cane': `${line(34, 78, 62, 28, 6, P.ink)}${line(34, 78, 62, 28, 3, '#8a5c2c')}${circle(
     64,
     26,
@@ -383,7 +388,11 @@ const bling = {
   )}${smoke(60, 32, 0.7)}`,
 };
 
-function jacket(main, light) {
+/**
+ * @param {string} main цвет пиджака
+ * @returns {string}
+ */
+function jacket(main) {
   return `${path('M28 30h14l8 10 8-10h14l6 46H22Z', main)}${path('M42 30l8 10 8-10-8 -6Z', P.cream)}${fill(
     `M50 40l3 6 -3 26 -3-26Z`,
     P.crimson,
@@ -453,7 +462,7 @@ const fun = {
     2.4,
     P.white,
   )}${circle(62, 50, 3.4, P.white)}${circle(44, 56, 2.4, P.white)}${path('M50 74v8', 'none')}${coin(24, 40, 6)}`,
-  'lux-chef': `${person({ suit: P.white, suitLight: P.cream, tie: null, hat: (cx, cy, s) =>
+  'lux-chef': `${person({ suit: P.white, tie: null, hat: (cx, cy, s) =>
     `${rect(cx - 11 * s, cy - 18 * s, 22 * s, 16 * s, P.white, 3)}${circle(cx - 7 * s, cy - 20 * s, 6 * s, P.white)}${circle(
       cx + 7 * s,
       cy - 20 * s,
@@ -543,7 +552,7 @@ const fun = {
     4,
     P.crimson,
   )}${spark(74, 34, 6)}`,
-  'lux-santa': `${person({ suit: P.crimson, suitLight: P.crimsonLight, beard: true, hat: (cx, cy, s) =>
+  'lux-santa': `${person({ suit: P.crimson, beard: true, hat: (cx, cy, s) =>
     `${poly([[cx - 14 * s, cy - 8 * s], [cx + 2 * s, cy - 26 * s], [cx + 14 * s, cy - 8 * s]], P.crimson)}<circle cx="${
       cx + 4 * s
     }" cy="${cy - 27 * s}" r="${5 * s}" fill="${P.white}" stroke="${P.ink}" stroke-width="2.6" />`,
@@ -1037,6 +1046,7 @@ const extra = {
 
 // --------------------------------------------------------------- сборка
 
+/** @type {Record<string, string>} */
 const icons = {
   ...extra,
   ...buildings,
@@ -1073,42 +1083,59 @@ icons['export-pipe'] = `${fill('M4 74q46 10 92 0v12H4Z', '#8a5c2c', 0.55)}${pipe
 
 icons['export-terminal'] = `${fill('M2 80q48 8 96 0v14H2Z', 'url(#sky)', 0.5)}${rect(8, 68, 84, 8, 'url(#steel)', 3)}${rect(10, 42, 26, 26, 'url(#gold)', 4)}${rect(16, 38, 14, 6, 'url(#steel)', 2)}${ship(66, 62, 0.7, 'url(#crimson)')}${line(34, 56, 52, 56, 6, P.steelDark)}${rect(52, 24, 6, 26, P.inkSoft, 2)}${line(55, 24, 76, 18, 4, P.inkSoft)}${circle(76, 18, 5, 'url(#gold)')}${drop(46, 20, 0.6)}`;
 
+/**
+ * Заглушка для покупки без рисунка: по вкладке магазина.
+ * @type {Record<string, () => string>}
+ */
 const FALLBACKS = {
-  technical: (def) => `${factory(24, 44, 50, 32)}${spark(72, 30, 6)}`,
-  political: (def) => `${facade()}${coin(72, 30, 7)}`,
-  luxury: (def) => `${coin(50, 50, 20)}${shine(42, 42, 9, 0.6)}`,
-  goals: (def) => `${star(50, 50, 22)}`,
+  technical: () => `${factory(24, 44, 50, 32)}${spark(72, 30, 6)}`,
+  political: () => `${facade()}${coin(72, 30, 7)}`,
+  luxury: () => `${coin(50, 50, 20)}${shine(42, 42, 9, 0.6)}`,
+  goals: () => `${star(50, 50, 22)}`,
 };
 
-/** Имена иконок, для которых в генераторе есть рисунок. */
+/**
+ * Имена иконок, для которых в генераторе есть рисунок.
+ *
+ * @returns {string[]}
+ */
 export function generatedIconNames() {
   return Object.keys(icons).filter((name) => icons[name] && icons[name].trim());
 }
 
-/** SVG иконки из словаря генератора или null, если рисунка нет. */
+/**
+ * SVG иконки из словаря генератора или null, если рисунка нет.
+ *
+ * @param {string} iconName
+ * @returns {string | null}
+ */
 export function buildIcon(iconName) {
   if (icons[iconName] && icons[iconName].trim()) return icon(icons[iconName]);
   return null;
 }
 
 /**
+ * План работы генератора.
+ * @typedef {object} IconPlan
+ * @property {Array<{ name: string, svg: string }>} write файлы, которые генератор запишет
+ * @property {string[]} kept существующие файлы с рисунком в генераторе, оставленные как есть
+ * @property {string[]} handmade рукописные иконки без рисунка в генераторе: не трогаются никогда
+ * @property {string[]} fallback недостающие иконки, собранные из заглушки вкладки
+ */
+
+/**
  * Что генератор собирается сделать, без записи на диск.
  *
- * @param {Array<{ icon: string, tab: string }>} upgrades определения покупок
+ * @param {ReadonlyArray<{ icon: string, tab: string }>} upgrades определения покупок
  * @param {{ exists: (iconName: string) => boolean, force?: boolean }} options
  *   `exists` — есть ли уже файл иконки; `force` — перезаписывать ли
  *   существующие файлы, для которых в генераторе есть рисунок.
- * @returns {{
- *   write: Array<{ name: string, svg: string }>,
- *   kept: string[],
- *   handmade: string[],
- *   fallback: string[],
- * }} `write` — файлы к записи; `kept` — существующие, оставлены как есть;
- *   `handmade` — рукописные без рисунка в генераторе (не трогаются никогда);
- *   `fallback` — недостающие иконки, собранные из заглушки.
+ * @returns {IconPlan}
  */
 export function planIcons(upgrades, { exists, force = false }) {
+  /** @type {IconPlan} */
   const plan = { write: [], kept: [], handmade: [], fallback: [] };
+  /** @type {Set<string>} */
   const seen = new Set();
   for (const def of upgrades) {
     if (seen.has(def.icon)) continue;
@@ -1125,7 +1152,7 @@ export function planIcons(upgrades, { exists, force = false }) {
       plan.handmade.push(def.icon);
       continue;
     }
-    const body = (FALLBACKS[def.tab] ?? FALLBACKS.technical)(def);
+    const body = (FALLBACKS[def.tab] ?? FALLBACKS.technical)();
     plan.fallback.push(def.icon);
     plan.write.push({ name: def.icon, svg: icon(body) });
   }
@@ -1134,12 +1161,15 @@ export function planIcons(upgrades, { exists, force = false }) {
 
 function main() {
   const contentPath = resolve(here, '../src/content/upgrades.json');
-  const data = JSON.parse(readFileSync(contentPath, 'utf8'));
+  /** @type {unknown} */
+  const parsed = JSON.parse(readFileSync(contentPath, 'utf8'));
+  // Форму файла проверяет загрузчик контента и tests/content.test.ts.
+  const data = /** @type {{ upgrades: Array<{ icon: string, tab: string }> }} */ (parsed);
   const outDir = resolve(argValue('--out') ?? defaultOutDir);
   const force = process.argv.includes('--force');
 
   const plan = planIcons(data.upgrades, {
-    exists: (name) => existsSync(resolve(outDir, `${name}.svg`)),
+    exists: (/** @type {string} */ name) => existsSync(resolve(outDir, `${name}.svg`)),
     force,
   });
   // Сначала проверяем всё, потом пишем: битая иконка не затрёт рабочую.

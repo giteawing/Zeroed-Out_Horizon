@@ -7,7 +7,7 @@ import { SAVE_KEY } from '../../src/core/state';
  */
 const errors: string[] = [];
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(({ page }) => {
   errors.length = 0;
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(message.text());

@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Арт-движок игры. Единый стиль (см. skill content-ui-art):
  *   • viewBox 0 0 100 100, всё векторное, без растровых вставок;
@@ -164,7 +165,13 @@ export function argValue(name, argv = process.argv.slice(2)) {
   return index >= 0 && index + 1 < argv.length ? argv[index + 1] : undefined;
 }
 
-/** Собирает готовый SVG-файл иконки. */
+/**
+ * Собирает готовый SVG-файл иконки.
+ *
+ * @param {string} body
+ * @param {{ backdrop?: boolean }} [options] `backdrop: false` — без диска-подложки
+ * @returns {string}
+ */
 export function icon(body, { backdrop = true } = {}) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img">
 ${DEFS}${backdrop ? BACKDROP : ''}
@@ -175,44 +182,66 @@ ${body.trim()}
 
 // ------------------------------------------------------------------ примитивы
 
-/** Прямоугольник со скруглением и обводкой. */
+/**
+ * Прямоугольник со скруглением и обводкой.
+ * @type {(x: number, y: number, w: number, h: number, fill: string, rx?: number) => string}
+ */
 export const rect = (x, y, w, h, fill, rx = 4) =>
   `<rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}" rx="${n(rx)}" fill="${fill}" ${OUTLINE} />`;
 
+/** @type {(cx: number, cy: number, r: number, fill: string) => string} */
 export const circle = (cx, cy, r, fill) =>
   `<circle cx="${n(cx)}" cy="${n(cy)}" r="${n(r)}" fill="${fill}" ${OUTLINE} />`;
 
+/** @type {(cx: number, cy: number, rx: number, ry: number, fill: string, rotate?: number) => string} */
 export const ellipse = (cx, cy, rx, ry, fill, rotate = 0) =>
   `<ellipse cx="${n(cx)}" cy="${n(cy)}" rx="${n(rx)}" ry="${n(ry)}" fill="${fill}" ${OUTLINE}${
     rotate ? ` transform="rotate(${rotate} ${n(cx)} ${n(cy)})"` : ''
   } />`;
 
+/** @type {(d: string, fill?: string, extra?: string) => string} */
 export const path = (d, fill = 'none', extra = '') =>
   `<path d="${d}" fill="${fill}" ${OUTLINE} ${extra} />`;
 
-/** Толстая обводка-«труба» без заливки: рисует только stroke. */
+/**
+ * Толстая обводка-«труба» без заливки: рисует только stroke.
+ * @type {(d: string, color?: string, width?: number) => string}
+ */
 export const pipe = (d, color = 'url(#steel)', width = 10) =>
   `<path d="${d}" fill="none" stroke="${color}" stroke-width="${n(width)}" stroke-linecap="round" stroke-linejoin="round" />`;
 
-/** Заливка без обводки (для теней, бликов, стекла). */
+/**
+ * Заливка без обводки (для теней, бликов, стекла).
+ * @type {(d: string, fillColor: string, opacity?: number) => string}
+ */
 export const fill = (d, fillColor, opacity = 1) =>
   `<path d="${d}" fill="${fillColor}" opacity="${opacity}" />`;
 
+/** @type {(d: string, fillColor: string, opacity?: number) => string} */
 export const shade = (d, fillColor, opacity = 0.18) => fill(d, fillColor, opacity);
 
+/** @type {(x1: number, y1: number, x2: number, y2: number, width?: number, color?: string) => string} */
 export const line = (x1, y1, x2, y2, width = STROKE, color = PALETTE.ink) =>
   `<path d="M${n(x1)} ${n(y1)}L${n(x2)} ${n(y2)}" stroke="${color}" stroke-width="${n(width)}" stroke-linecap="round" fill="none" />`;
 
+/** @type {(points: ReadonlyArray<readonly [number, number]>, fillColor: string) => string} */
 export const poly = (points, fillColor) =>
   `<polygon points="${points.map(([x, y]) => `${n(x)},${n(y)}`).join(' ')}" fill="${fillColor}" ${OUTLINE} />`;
 
+/** @type {(children: readonly string[], extra?: string) => string} */
 export const group = (children, extra = '') => `<g ${extra}>${children.join('')}</g>`;
 
-/** Блик: мягкое белое пятно без обводки. */
+/**
+ * Блик: мягкое белое пятно без обводки.
+ * @type {(cx: number, cy: number, r: number, opacity?: number) => string}
+ */
 export const shine = (cx, cy, r, opacity = 0.55) =>
   `<ellipse cx="${n(cx)}" cy="${n(cy)}" rx="${n(r)}" ry="${n(r * 0.55)}" fill="#fff" opacity="${opacity}" transform="rotate(-18 ${n(cx)} ${n(cy)})" />`;
 
-/** Монета с бликом и насечкой по краю. */
+/**
+ * Монета с бликом и насечкой по краю.
+ * @type {(cx: number, cy: number, r: number) => string}
+ */
 export const coin = (cx, cy, r) =>
   `${circle(cx, cy, r, 'url(#gold)')}<circle cx="${n(cx)}" cy="${n(cy)}" r="${n(
     r * 0.62,
@@ -223,7 +252,10 @@ export const coin = (cx, cy, r) =>
     0.75,
   )}`;
 
-/** Капля нефти. */
+/**
+ * Капля нефти.
+ * @type {(x: number, y: number, s?: number) => string}
+ */
 export const drop = (x, y, s = 1) =>
   path(
     `M${n(x)} ${n(y - 8 * s)}c${n(5 * s)} ${n(6 * s)} ${n(7 * s)} ${n(9 * s)} ${n(7 * s)} ${n(11 * s)}a${n(
@@ -232,7 +264,10 @@ export const drop = (x, y, s = 1) =>
     'url(#oil)',
   );
 
-/** Искры/звёздочки. */
+/**
+ * Искры/звёздочки.
+ * @type {(cx: number, cy: number, r?: number, fillColor?: string) => string}
+ */
 export const spark = (cx, cy, r = 5, fillColor = PALETTE.goldLight) =>
   fill(
     `M${n(cx)} ${n(cy - r)}L${n(cx + r * 0.28)} ${n(cy - r * 0.28)}L${n(cx + r)} ${n(cy)}L${n(
@@ -244,8 +279,12 @@ export const spark = (cx, cy, r = 5, fillColor = PALETTE.goldLight) =>
     0.95,
   );
 
-/** Звезда (для «крутости» и наград). */
+/**
+ * Звезда (для «крутости» и наград).
+ * @type {(cx: number, cy: number, r: number, fillColor?: string) => string}
+ */
 export const star = (cx, cy, r, fillColor = PALETTE.gold) => {
+  /** @type {Array<[number, number]>} */
   const pts = [];
   for (let i = 0; i < 10; i++) {
     const angle = (Math.PI / 5) * i - Math.PI / 2;
@@ -255,7 +294,10 @@ export const star = (cx, cy, r, fillColor = PALETTE.gold) => {
   return poly(pts, fillColor);
 };
 
-/** Нефтяная вышка (силуэт). */
+/**
+ * Нефтяная вышка (силуэт).
+ * @type {(cx: number, baseY: number, height: number, color?: string) => string}
+ */
 export const derrick = (cx, baseY, height, color = PALETTE.ink) => {
   const w = height * 0.42;
   const d = [
@@ -276,7 +318,10 @@ export const derrick = (cx, baseY, height, color = PALETTE.ink) => {
   return `${fill(d, color, 0.9)}${braces}`;
 };
 
-/** Дым из трубы. */
+/**
+ * Дым из трубы.
+ * @type {(cx: number, cy: number, s?: number, opacity?: number) => string}
+ */
 export const smoke = (cx, cy, s = 1, opacity = 0.75) =>
   [
     circle(cx, cy, 6 * s, PALETTE.steelLight),
@@ -287,14 +332,44 @@ export const smoke = (cx, cy, s = 1, opacity = 0.75) =>
     .replace(/stroke="[^"]*" stroke-width="[^"]*" stroke-linejoin="round" stroke-linecap="round"/g, 'stroke="none"')
     .replace(/opacity="1"/g, `opacity="${opacity}"`);
 
-/** Труба завода. */
+/**
+ * Труба завода.
+ * @type {(x: number, y: number, w: number, h: number, fillColor?: string) => string}
+ */
 export const chimney = (x, y, w, h, fillColor = PALETTE.crimson) =>
   `${rect(x, y, w, h, fillColor, 2)}${rect(x - 1.5, y - 3, w + 3, 5, PALETTE.inkSoft, 2)}`;
 
-/** Человечек: один шаблон с вариациями (ТЗ §9, персонажи). */
+/**
+ * Деталь персонажа, которую рисует вызывающий: шляпа получает центр головы,
+ * аксессуар — точку опоры фигуры; третий аргумент — масштаб фигуры.
+ * @typedef {(cx: number, y: number, s: number) => string} CharacterPart
+ */
+
+/**
+ * @typedef {object} CharacterOptions
+ * @property {string} [suit] цвет костюма
+ * @property {string} [skin]
+ * @property {string} [hair]
+ * @property {CharacterPart | null} [hat]
+ * @property {boolean} [beard]
+ * @property {boolean} [glasses]
+ * @property {boolean} [mustache]
+ * @property {string | null} [tie] цвет галстука; `null` — без галстука
+ * @property {boolean} [smiling]
+ * @property {CharacterPart | null} [accessory]
+ * @property {number} [scale]
+ * @property {number} [cx]
+ * @property {number} [baseY]
+ */
+
+/**
+ * Человечек: один шаблон с вариациями (ТЗ §9, персонажи).
+ *
+ * @param {CharacterOptions} [options]
+ * @returns {string}
+ */
 export function character({
   suit = PALETTE.oil,
-  suitLight = PALETTE.oilLight,
   skin = 'url(#skin)',
   hair = PALETTE.inkSoft,
   hat = null,
@@ -303,7 +378,7 @@ export function character({
   mustache = false,
   tie = PALETTE.crimson,
   smiling = true,
-  accessory = '',
+  accessory = null,
   scale = 1,
   cx = 50,
   baseY = 92,
@@ -381,7 +456,10 @@ export function character({
   return body.join('');
 }
 
-/** Цилиндр — для буржуя и «императора». */
+/**
+ * Цилиндр — для буржуя и «императора».
+ * @type {(cx: number, cy: number, s?: number, color?: string) => string}
+ */
 export const topHat = (cx, cy, s = 1, color = PALETTE.ink) =>
   `${rect(cx - 11 * s, cy - 20 * s, 22 * s, 18 * s, color, 3)}${rect(cx - 16 * s, cy - 3 * s, 32 * s, 5 * s, color, 2)}${fill(
     `M${cx - 9 * s} ${cy - 16 * s}h${4 * s}v${10 * s}h${-4 * s}Z`,
@@ -389,7 +467,10 @@ export const topHat = (cx, cy, s = 1, color = PALETTE.ink) =>
     0.18,
   )}`;
 
-/** Корона. */
+/**
+ * Корона.
+ * @type {(cx: number, cy: number, s?: number) => string}
+ */
 export const crown = (cx, cy, s = 1) =>
   poly(
     [
@@ -404,13 +485,21 @@ export const crown = (cx, cy, s = 1) =>
     'url(#gold)',
   );
 
-/** Круглая печать/штамп. */
+/**
+ * Круглая печать/штамп.
+ * @type {(cx: number, cy: number, r: number) => string}
+ */
 export const stamp = (cx, cy, r) =>
   `${circle(cx, cy, r, 'url(#crimson)')}<circle cx="${n(cx)}" cy="${n(cy)}" r="${n(
     r * 0.72,
   )}" fill="none" stroke="${PALETTE.cream}" stroke-width="2.4" stroke-dasharray="3 3" opacity="0.9" />`;
 
-/** Аккуратное число: не больше 2 знаков после запятой. */
+/**
+ * Аккуратное число: не больше 2 знаков после запятой.
+ *
+ * @param {number} value
+ * @returns {number}
+ */
 function n(value) {
   return Math.round(value * 100) / 100;
 }

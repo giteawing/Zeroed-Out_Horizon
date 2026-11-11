@@ -18,7 +18,7 @@
 
 ## Запуск
 
-Нужен Node.js >=22.12.0.
+Нужен Node.js >=22.13.0.
 
 ```bash
 npm install
@@ -30,6 +30,7 @@ npm run preview    # посмотреть собранную версию
 ### Тесты
 
 ```bash
+npm run lint       # ESLint: забытые промисы, выражения без действия, any в обход типов
 npm test           # экономика, движок, регрессии, контент, баланс и DOM
 npm run test:e2e   # Playwright: только Desktop Chrome (поддержка телефонов убрана)
 ```

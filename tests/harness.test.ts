@@ -184,6 +184,7 @@ describe('инструкции совпадают с настройками пр
     expect(stack).toBeDefined();
     expect(stack).toContain(`Vite ${majorOf('vite')},`);
     expect(stack).toContain(`Vitest ${majorOf('vitest')},`);
+    expect(stack).toContain(`ESLint ${majorOf('eslint')},`);
     expect(stack).toContain(`Playwright ${majorOf('@playwright/test')}.`);
     const typescript = /(\d+\.\d+)\./.exec(pkg.devDependencies.typescript)![1];
     expect(stack).toContain(`TypeScript ${typescript},`);
@@ -613,6 +614,124 @@ describe('E2E ждёт событий, а не пауз (REVIEW H11)', () => {
       'стёртое значение потока включает «Авто»',
     ]) {
       expect(titles.some((title) => title.includes(fragment)), fragment).toBe(true);
+    }
+  });
+});
+
+describe('линтер и типы скриптов (REVIEW H13)', () => {
+  const pkg = JSON.parse(read('package.json')) as {
+    scripts: Record<string, string>;
+    engines: { node: string };
+    devDependencies: Record<string, string>;
+    overrides?: Record<string, string>;
+  };
+  const tsconfig = JSON.parse(read('tsconfig.json')) as {
+    compilerOptions: Record<string, unknown>;
+    include: string[];
+  };
+
+  const isScript = (name: string): boolean => /\.(mjs|cjs|js)$/.test(name);
+  /** Каталоги, которые читает компилятор (записи `include` без расширения). */
+  const includedDirs = tsconfig.include.filter((entry) => !/\.\w+$/.test(entry));
+  const walk = (dir: string): string[] =>
+    readdirSync(resolve(root, dir), { withFileTypes: true }).flatMap((entry) =>
+      entry.isDirectory()
+        ? walk(`${dir}/${entry.name}`)
+        : isScript(entry.name) ? [`${dir}/${entry.name}`] : []);
+  /** Файлы JavaScript проекта: корень и всё, что читает компилятор. */
+  const scriptFiles = (): string[] => [...readdirSync(root).filter(isScript), ...includedDirs.flatMap(walk)];
+
+  it('каждый файл JavaScript проверяется компилятором', () => {
+    // Раньше скрипты `.mjs` не проверял никто: неиспользуемые импорты
+    // прятались за `void имя;`, а типы для тестов лежали в рукописных
+    // `.d.mts` и расходились с кодом (`icon(body)` при двух параметрах).
+    const files = scriptFiles();
+    expect(files).toEqual(expect.arrayContaining([
+      'eslint.config.js',
+      'scripts/generate-icons.mjs',
+      'scripts/generate-scenes.mjs',
+      'scripts/lib/art.mjs',
+    ]));
+    for (const file of files) {
+      expect(read(file).startsWith('// @ts-check\n'), `${file}: первой строкой нужен // @ts-check`).toBe(true);
+    }
+    // `// @ts-check` работает только в файлах, которые компилятор читает:
+    // каталоги перечислены в `include`, файл из корня нужно назвать там же.
+    expect(tsconfig.compilerOptions.allowJs).toBe(true);
+    expect(tsconfig.compilerOptions.strict).toBe(true);
+    expect(includedDirs).toEqual(expect.arrayContaining(['src', 'tests', 'scripts']));
+    for (const file of files.filter((path) => !path.includes('/'))) {
+      expect(tsconfig.include, file).toContain(file);
+    }
+  });
+
+  it('у скрипта нет рукописного файла типов: типы берутся из самого кода', () => {
+    const shadows = scriptFiles().flatMap((file) => {
+      const base = file.replace(/\.(mjs|cjs|js)$/, '');
+      return ['.d.mts', '.d.cts', '.d.ts'].map((ext) => base + ext).filter((path) => existsSync(resolve(root, path)));
+    });
+    expect(shadows).toEqual([]);
+  });
+
+  it('файлы настроек в корне тоже входят в проверку типов', () => {
+    const configs = readdirSync(root).filter((name) => /\.config\.(ts|js|mjs)$/.test(name));
+    expect(configs).toEqual(expect.arrayContaining(['vite.config.ts', 'vitest.config.ts', 'playwright.config.ts']));
+    for (const name of configs) expect(tsconfig.include, name).toContain(name);
+  });
+
+  it('npm run lint запускает ESLint по всему проекту и не пропускает предупреждения', () => {
+    expect(pkg.scripts.lint).toBe('eslint . --max-warnings 0');
+    for (const name of ['eslint', 'typescript-eslint', '@eslint/js']) {
+      expect(pkg.devDependencies[name], name).toMatch(/^\d+\.\d+\.\d+$/);
+    }
+  });
+
+  it('линтер знает типы и запрещает русские строки в коде интерфейса', () => {
+    const config = read('eslint.config.js');
+    // Правила о промисах и any работают только с типами.
+    expect(config).toContain('recommendedTypeChecked');
+    expect(config).toContain('projectService: true');
+    expect(config).toContain("reportUnusedDisableDirectives: 'error'");
+    // Тот же список каталогов, что в tests/content.test.ts.
+    const uiFiles = /const UI_FILES = \[([^\]]+)\]/.exec(config)?.[1];
+    expect(uiFiles?.split(',').map((item) => item.trim().replace(/'/g, ''))).toEqual([
+      'src/ui/**/*.ts', 'src/fx/**/*.ts', 'src/audio/**/*.ts', 'src/main.ts',
+    ]);
+    const contentTest = read('tests/content.test.ts');
+    for (const dir of ['src/ui', 'src/fx', 'src/audio']) expect(contentTest).toContain(`listTs('${dir}')`);
+    expect(config).toContain('no-restricted-syntax');
+  });
+
+  it('CI запускает линтер', () => {
+    const ci = workflows.find((workflow) => workflow.name === 'ci.yml')!.source;
+    expect(ci).toMatch(/^\s+run: npm run lint$/m);
+  });
+
+  it('README называет ту же минимальную версию Node.js, что и package.json', () => {
+    expect(pkg.engines.node).toMatch(/^>=\d+\.\d+\.\d+$/);
+    expect(read('README.md')).toContain(`Нужен Node.js ${pkg.engines.node}.`);
+  });
+
+  it('заплатка версии вложенного пакета живёт, пока она нужна', () => {
+    // `overrides` поднимает minimatch до версии с исправленной уязвимостью
+    // (GHSA-g3hv-75wg-m249): ESLint и typescript-eslint пока просят ветку,
+    // где исправления нет. Когда они перейдут на исправленную сами, заплатка
+    // станет лишней и начнёт мешать обновлениям — тест напомнит её убрать.
+    const lock = JSON.parse(read('package-lock.json')) as {
+      packages: Record<string, { dependencies?: Record<string, string>; optionalDependencies?: Record<string, string> }>;
+    };
+    const major = (range: string): number => Number(/\d+/.exec(range)?.[0]);
+    for (const [name, forced] of Object.entries(pkg.overrides ?? {})) {
+      const asked = Object.entries(lock.packages).flatMap(([path, entry]) => {
+        const range = entry.dependencies?.[name] ?? entry.optionalDependencies?.[name];
+        return path !== '' && range ? [{ path, range }] : [];
+      });
+      expect(asked.length, `${name}: пакет никому не нужен, заплатку можно удалить`).toBeGreaterThan(0);
+      const needPatch = asked.filter((entry) => major(entry.range) < major(forced));
+      expect(
+        needPatch.length,
+        `${name}: все зависимости уже просят ${forced} или новее — удали overrides из package.json`,
+      ).toBeGreaterThan(0);
     }
   });
 });

@@ -79,7 +79,7 @@ describe('пауза до старта (REVIEW A1)', () => {
     frames.run(game.config.autosaveSeconds * 1000 + 500);
     const raw = localStorage.getItem(SAVE_KEY);
     expect(raw).not.toBeNull();
-    expect(JSON.parse(raw!).playtimeMs).toBeGreaterThan(0);
+    expect((JSON.parse(raw!) as { playtimeMs: number }).playtimeMs).toBeGreaterThan(0);
   });
 });
 

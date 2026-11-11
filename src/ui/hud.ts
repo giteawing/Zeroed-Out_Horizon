@@ -75,36 +75,36 @@ export class Hud {
       ]);
 
     this.pricesPanel = el('div', { class: 'hud__prices' }, [
-          el('div', { class: 'hud__price' }, [
-            el('span', { class: 'hud__price-label' }, texts.get('hud.worldPrice')),
-            row('worldPrice', '', 'hud__row-value--price').value,
-            this.note('world'),
-          ]),
-          el('div', { class: 'hud__price' }, [
-            el('span', { class: 'hud__price-label' }, texts.get('hud.domesticPrice')),
-            row('domesticPrice', '', 'hud__row-value--price').value,
-            this.note('contract'),
-          ]),
-          el('div', { class: 'hud__price' }, [
-            el('span', { class: 'hud__price-label' }, texts.get('hud.exportPrice')),
-            row('exportPrice', '', 'hud__row-value--price').value,
-            this.note('export'),
-          ]),
-          el('div', { class: 'hud__price' }, [
-            el('span', { class: 'hud__price-label' }, texts.get('hud.productPriceDomestic')),
-            row('productPriceDomestic', '', 'hud__row-value--price').value,
-            this.note('productDomestic'),
-          ]),
-          el('div', { class: 'hud__price' }, [
-            el('span', { class: 'hud__price-label' }, texts.get('hud.productPriceExport')),
-            row('productPriceExport', '', 'hud__row-value--price').value,
-            this.note('productExport'),
-          ]),
-          el('div', { class: 'hud__price' }, [
-            el('span', { class: 'hud__price-label' }, texts.get('hud.exchangeRate')),
-            row('exchangeRate', '', 'hud__row-value--price').value,
-          ]),
-        ]),
+      el('div', { class: 'hud__price' }, [
+        el('span', { class: 'hud__price-label' }, texts.get('hud.worldPrice')),
+        row('worldPrice', '', 'hud__row-value--price').value,
+        this.note('world'),
+      ]),
+      el('div', { class: 'hud__price' }, [
+        el('span', { class: 'hud__price-label' }, texts.get('hud.domesticPrice')),
+        row('domesticPrice', '', 'hud__row-value--price').value,
+        this.note('contract'),
+      ]),
+      el('div', { class: 'hud__price' }, [
+        el('span', { class: 'hud__price-label' }, texts.get('hud.exportPrice')),
+        row('exportPrice', '', 'hud__row-value--price').value,
+        this.note('export'),
+      ]),
+      el('div', { class: 'hud__price' }, [
+        el('span', { class: 'hud__price-label' }, texts.get('hud.productPriceDomestic')),
+        row('productPriceDomestic', '', 'hud__row-value--price').value,
+        this.note('productDomestic'),
+      ]),
+      el('div', { class: 'hud__price' }, [
+        el('span', { class: 'hud__price-label' }, texts.get('hud.productPriceExport')),
+        row('productPriceExport', '', 'hud__row-value--price').value,
+        this.note('productExport'),
+      ]),
+      el('div', { class: 'hud__price' }, [
+        el('span', { class: 'hud__price-label' }, texts.get('hud.exchangeRate')),
+        row('exchangeRate', '', 'hud__row-value--price').value,
+      ]),
+    ]);
 
     this.root = el('section', { class: 'hud', 'data-testid': 'hud' }, [
       // --- товарная статистика: цены, сырая нефть, нефтепродукты ---

@@ -33,8 +33,8 @@ function installAudio(): { created: () => number; oscillators: () => number; las
     currentTime = 0;
     sampleRate = 8000;
     destination = node();
-    resume = vi.fn(async () => { this.state = 'running'; });
-    suspend = vi.fn(async () => { this.state = 'suspended'; });
+    resume = vi.fn(() => { this.state = 'running'; return Promise.resolve(); });
+    suspend = vi.fn(() => { this.state = 'suspended'; return Promise.resolve(); });
     constructor() {
       created++;
       last = this as unknown as FakeContext;

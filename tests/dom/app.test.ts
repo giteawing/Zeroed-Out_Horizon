@@ -399,7 +399,7 @@ describe('новости и подписи', () => {
 });
 
 describe('настройки', () => {
-  it('открываются и переключают звук', async () => {
+  it('открываются и переключают звук', () => {
     const menuButton = document.querySelector<HTMLButtonElement>('.iconbtn--menu');
     menuButton?.click();
     const settingsButton = document.querySelector<HTMLButtonElement>('[data-menu="settings"]');
@@ -539,7 +539,7 @@ describe('финал', () => {
     expect(game.content.texts.news.win).toContain(newsAfterWin);
   });
 
-  it('кнопка статистики раскрывает таблицу', async () => {
+  it('кнопка статистики раскрывает таблицу', () => {
     const toggle = [...document.querySelectorAll<HTMLButtonElement>('.credits__actions .btn')].find(
       (btn) => btn.textContent === 'Показать статистику',
     );
@@ -602,7 +602,7 @@ describe('этап 5: банк, реприватизация, активы и к
     expect(names.join(' ')).not.toContain('дронов-разведчиков');
   });
 
-  it('«Контрабанда нефти заграницу» — одноразовая акция с перезарядкой', async () => {
+  it('«Контрабанда нефти заграницу» — одноразовая акция с перезарядкой', () => {
     const political = [...document.querySelectorAll<HTMLButtonElement>('.tab')].find(
       (tab) => tab.textContent === 'Политика',
     );

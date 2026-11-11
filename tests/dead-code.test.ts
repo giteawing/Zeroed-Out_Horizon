@@ -80,11 +80,12 @@ function createService(): ts.LanguageService {
     getCurrentDirectory: () => root,
     getCompilationSettings: () => options,
     getDefaultLibFileName: (compilerOptions) => ts.getDefaultLibFilePath(compilerOptions),
-    fileExists: ts.sys.fileExists,
-    readFile: ts.sys.readFile,
-    readDirectory: ts.sys.readDirectory,
-    directoryExists: ts.sys.directoryExists,
-    getDirectories: ts.sys.getDirectories,
+    fileExists: (path) => ts.sys.fileExists(path),
+    readFile: (path, encoding) => ts.sys.readFile(path, encoding),
+    readDirectory: (path, extensions, exclude, include, depth) =>
+      ts.sys.readDirectory(path, extensions, exclude, include, depth),
+    directoryExists: (path) => ts.sys.directoryExists(path),
+    getDirectories: (path) => ts.sys.getDirectories(path),
   });
 }
 

@@ -111,7 +111,7 @@ describe('стартовый экран с сохранением (REVIEW A1)', 
     expect(game.state.playtimeMs).toBe(60_000 + awaySeconds * 1000);
     expect(game.state.coins).toBe(Math.floor(net * awaySeconds * game.config.offline.efficiency));
     // Офлайн-интервал закрыт: сейв записан с текущим временем.
-    expect(JSON.parse(stored()!).savedAtWallMs).toBe(Date.now());
+    expect((JSON.parse(stored()!) as { savedAtWallMs: number }).savedAtWallMs).toBe(Date.now());
 
     const afterOffline = game.state.playtimeMs;
     frames.run(1_000);
