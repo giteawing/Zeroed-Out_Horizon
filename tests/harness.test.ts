@@ -5,8 +5,8 @@
  * ни одного теста (REVIEW H3, H4, H5).
  */
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { EFFECT_FIELDS, loadContent } from '../src/core/content';
 import {
   INVESTMENT_RATE_MAX_PERCENT,
@@ -392,5 +392,201 @@ describe('страница игры — только десктоп (REVIEW C10)
     expect(description.startsWith(`${title} — `)).toBe(true);
     // Добычи по нажатию в игре давно нет (AGENTS.md §8).
     expect(description).not.toMatch(/кликер|тапалк/i);
+  });
+});
+
+describe('инструкции не ссылаются на то, чего нет (REVIEW H9)', () => {
+  /**
+   * Навыки и AGENTS.md читает агент перед работой, README — владелец.
+   * Устаревшая инструкция хуже отсутствующей: ей верят. Содержание проверить
+   * нельзя, но адреса можно: каждый названный файл, каждая ссылка и каждая
+   * команда `npm run` обязаны существовать.
+   */
+  const skillsDir = '.agents/skills';
+  const skills = readdirSync(resolve(root, skillsDir))
+    .filter((name) => statSync(resolve(root, skillsDir, name)).isDirectory())
+    .sort();
+  const instructions = [
+    'AGENTS.md',
+    'README.md',
+    'docs/ECONOMY.md',
+    ...skills.map((name) => `${skillsDir}/${name}/SKILL.md`),
+  ];
+
+  /** Каталоги, пути в которых проверяются. */
+  const ROOTS = ['src/', 'tests/', 'scripts/', 'docs/', 'public/', '.github/', '.agents/'];
+  /** Пути, которые инструкция называет именно как отсутствующие. */
+  const ABSENT_ON_PURPOSE: Record<string, string> = {
+    'public/audio/': 'README предлагает завести каталог для своих звуков',
+    'public/images/drill.svg': 'навык content-ui-art запрещает возвращать удалённый файл',
+  };
+
+  const allFiles = ((): string[] => {
+    const walk = (dir: string): string[] =>
+      readdirSync(resolve(root, dir)).flatMap((name) => {
+        const path = `${dir}/${name}`;
+        return statSync(resolve(root, path)).isDirectory() ? walk(path) : [path];
+      });
+    return ROOTS.flatMap((dir) => walk(dir.replace(/\/$/, '')));
+  })();
+
+  // `{a,b}` раскрывается, `*` — часть имени, `**/` — любая глубина каталогов.
+  function pathExists(pattern: string): boolean {
+    const brace = /\{([^{}]*)\}/.exec(pattern);
+    if (brace) {
+      return brace[1]!.split(',').every((option) => pathExists(pattern.replace(brace[0], option)));
+    }
+    if (!pattern.includes('*')) return existsSync(resolve(root, pattern));
+    const source = pattern
+      .split(/(\*\*\/|\*)/)
+      .map((part) => (part === '**/' ? '(?:.*/)?' : part === '*' ? '[^/]*' : part.replace(/[.+?^${}()|[\]\\]/g, '\\$&')))
+      .join('');
+    const matcher = new RegExp(`^${source}$`);
+    return allFiles.some((file) => matcher.test(file));
+  }
+
+  /** Пути из фрагментов в обратных кавычках. */
+  function pathsIn(text: string): string[] {
+    const found = new Set<string>();
+    for (const span of text.matchAll(/`([^`\n]+)`/g)) {
+      for (const word of span[1]!.match(/[\w./*{},-]+/g) ?? []) {
+        if (ROOTS.some((dir) => word.startsWith(dir))) found.add(word.replace(/[.,:;]+$/, ''));
+      }
+    }
+    return [...found];
+  }
+
+  it('проверка видит пути, шаблоны и отсутствующие файлы', () => {
+    expect(pathsIn('см. `src/core/game.ts` и `npx tsx scripts/balance-report.ts --all`.')).toEqual([
+      'src/core/game.ts',
+      'scripts/balance-report.ts',
+    ]);
+    expect(pathExists('src/core/game.ts')).toBe(true);
+    expect(pathExists('src/core/no-such-file.ts')).toBe(false);
+    expect(pathExists('tests/balance-*.test.ts')).toBe(true);
+    expect(pathExists('tests/**/*.test.ts')).toBe(true);
+    expect(pathExists('tests/no-such-*.test.ts')).toBe(false);
+    expect(pathExists('src/core/{game,state}.ts')).toBe(true);
+    expect(pathExists('src/core/{game,no-such-file}.ts')).toBe(false);
+  });
+
+  it('каждый путь к файлу в инструкциях существует', () => {
+    const missing = instructions.flatMap((file) =>
+      pathsIn(read(file))
+        .filter((path) => !(path in ABSENT_ON_PURPOSE) && !pathExists(path))
+        .map((path) => `${file}: ${path}`),
+    );
+    expect(missing).toEqual([]);
+    // Исключение обязано оставаться правдой: файла действительно нет.
+    for (const path of Object.keys(ABSENT_ON_PURPOSE)) {
+      expect(existsSync(resolve(root, path)), path).toBe(false);
+      expect(instructions.some((file) => read(file).includes(path)), path).toBe(true);
+    }
+  });
+
+  it('каждая относительная ссылка в инструкциях ведёт к файлу', () => {
+    const broken = instructions.flatMap((file) =>
+      [...read(file).matchAll(/\]\(([^)#\s]+)(?:#[^)]*)?\)/g)]
+        .map((match) => match[1]!)
+        .filter((url) => !/^[a-z]+:/i.test(url))
+        .filter((url) => !existsSync(join(root, dirname(file), url)))
+        .map((url) => `${file}: ${url}`),
+    );
+    expect(broken).toEqual([]);
+  });
+
+  it('каждая команда npm run в инструкциях есть в package.json', () => {
+    const scripts = (JSON.parse(read('package.json')) as { scripts: Record<string, string> }).scripts;
+    const unknown = instructions.flatMap((file) =>
+      [...read(file).matchAll(/npm run (?:-s )?([\w:-]+)/g)]
+        .map((match) => match[1]!)
+        .filter((name) => !(name in scripts))
+        .map((name) => `${file}: npm run ${name}`),
+    );
+    expect(unknown).toEqual([]);
+  });
+
+  it('у каждого навыка есть имя и условие применения, и AGENTS.md называет все навыки', () => {
+    const agents = read('AGENTS.md');
+    for (const name of skills) {
+      const skill = read(`${skillsDir}/${name}/SKILL.md`);
+      const header = /^---\n([\s\S]*?)\n---\n/.exec(skill)?.[1] ?? '';
+      expect(header, name).toContain(`name: ${name}\n`);
+      expect(header, name).toMatch(/\ndescription: Use when \S/);
+      expect(agents, name).toContain(`](${skillsDir}/${name}/SKILL.md)`);
+    }
+    const listed = [...agents.matchAll(/\]\(\.agents\/skills\/([\w-]+)\/SKILL\.md\)/g)].map((match) => match[1]!);
+    expect([...new Set(listed)].sort()).toEqual(skills);
+  });
+
+  it('есть навык о том, что обновлять вместе с механикой, и AGENTS.md этого требует', () => {
+    // Главная причина расхождений «правила ↔ игра» (раздел B ревизии):
+    // механику меняли, а тексты, README и навыки оставались прежними.
+    expect(skills).toContain('rules-docs-sync');
+    const skill = read(`${skillsDir}/rules-docs-sync/SKILL.md`);
+    // Навык называет все места, где игроку объясняют механику…
+    for (const place of [
+      'src/ui/rules.ts',
+      'src/ui/effect-line.ts',
+      'src/content/upgrades.json',
+      'src/content/texts.json',
+      'README.md',
+      'docs/ECONOMY.md',
+    ]) {
+      expect(skill, place).toContain(place);
+    }
+    // …и тесты, которые ловят расхождение.
+    for (const test of [
+      'tests/dom/rules.test.ts',
+      'tests/rules-consistency.test.ts',
+      'tests/effect-line.test.ts',
+      'tests/effect-fields.test.ts',
+      'tests/harness.test.ts',
+    ]) {
+      expect(skill, test).toContain(test);
+    }
+    const agents = read('AGENTS.md');
+    const rule = agents.split('\n\n').find((block) => block.includes('rules-docs-sync') && !block.includes('|'));
+    expect(rule, 'в AGENTS.md нет правила со ссылкой на навык').toBeDefined();
+    expect(rule).toMatch(/в том же коммите/);
+  });
+});
+
+describe('проверка публикации без интерфейса GitHub (REVIEW H14)', () => {
+  /**
+   * AGENTS.md требует подтверждать CI и деплой для конкретного коммита, но
+   * не говорил, чем это сделать из терминала, и что писать, если проверить
+   * не удалось. Команда должна работать в любой версии `gh`: флага
+   * `gh run list --commit` в старых версиях нет, запрос к API есть всегда.
+   */
+  const agents = read('AGENTS.md');
+
+  it('AGENTS.md даёт команду, которая показывает запуски для коммита', () => {
+    expect(agents).toMatch(/gh api "repos\/\{owner\}\/\{repo\}\/actions\/runs\?head_sha=\$SHA"/);
+    expect(agents).toContain('gh run view <id> --log-failed');
+    // Флага `--commit` в старых gh нет: где он назван, там же сказано и это.
+    const sentences = agents.replace(/\s+/g, ' ').split(/(?<=\.) /);
+    for (const sentence of sentences.filter((part) => part.includes('gh run list --commit'))) {
+      expect(sentence).toMatch(/в старых[^.]*нет/);
+    }
+  });
+
+  it('AGENTS.md называет workflow теми же именами, что и сами файлы', () => {
+    const names = workflows.map(({ name, source }) => {
+      const title = /^name:\s*(.+)$/m.exec(source)?.[1]?.trim();
+      expect(title, name).toBeDefined();
+      return title!;
+    });
+    expect(names.length).toBeGreaterThanOrEqual(2);
+    // Название может быть перенесено на новую строку.
+    const flat = agents.replace(/\s+/g, ' ');
+    for (const name of names) expect(flat, name).toContain(name);
+  });
+
+  it('AGENTS.md говорит, что делать, если проверить нельзя, и что пустой ответ — не успех', () => {
+    const block = agents.split('\n\n').find((part) => part.includes('Если проверить нельзя'));
+    expect(block, 'нет правила «Если проверить нельзя»').toBeDefined();
+    expect(block).toMatch(/не объявляй/i);
+    expect(agents).toMatch(/Пустой (вывод|ответ)[^.]*не успех/);
   });
 });

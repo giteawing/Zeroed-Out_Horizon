@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadContent } from '../../src/core/content';
 import {
+  CHANNELS,
   INVESTMENT_RATE_MAX_PERCENT,
   INVESTMENT_RATE_MIN_PERCENT,
   INVESTMENT_YEAR_DAYS,
@@ -21,6 +22,7 @@ import { createInitialState } from '../../src/core/state';
 import { Rules } from '../../src/ui/rules';
 import { Texts } from '../../src/ui/texts';
 import type { Content, DerivedStats, GameEvent, UpgradeDef } from '../../src/core/types';
+import textsJson from '../../src/content/texts.json';
 
 function rulesOf(content: Content): { root: HTMLElement; texts: Texts; section: (titleKey: string) => string } {
   const texts = new Texts(content.texts);
@@ -475,5 +477,70 @@ describe('правила: механики, о которых они молча�
     const drop = (config.tax.influenceDrop * 100).toFixed(3);
     expect(money).not.toContain(drop);
     expect(money).toContain(drop.replace('.', ','));
+  });
+});
+
+describe('правила: числа приходят из данных (REVIEW H7)', () => {
+  /**
+   * Число, вписанное в текст правила руками, перестаёт быть правдой при
+   * первой правке config.json, и ни один тест этого не заметит. Поэтому в
+   * шаблонах `texts.json → rules` чисел нет: только подстановки `{имя}`,
+   * которые `src/ui/rules.ts` заполняет из конфигурации и ядра. Сами
+   * подстановки сверяются с поведением игры в тестах выше.
+   */
+  const templates = textsJson.rules as Record<string, string | string[]>;
+  const textOf = (key: string): string => {
+    const value = templates[key];
+    expect(value, `rules.${key}`).toBeDefined();
+    return Array.isArray(value) ? value.join('\n') : value!;
+  };
+
+  /** Числа, которые входят в саму формулировку правила. */
+  const PART_OF_THE_RULE: Record<string, string[]> = {
+    // «добыча умножается на 1 + больший из двух итогов»: единица из формулы
+    // множителя; формулу проверяет тест «договоры умножают добычу».
+    salesBoostText: ['1'],
+  };
+
+  it('в шаблонах правил нет чисел, вписанных руками', () => {
+    expect(Object.keys(templates).length).toBeGreaterThan(40);
+    const written = Object.keys(templates).flatMap((key) => {
+      const numbers = textOf(key).replace(/\{[a-zA-Z]+\}/g, '').match(/\d+(?:[.,]\d+)?/g) ?? [];
+      const allowed = PART_OF_THE_RULE[key] ?? [];
+      return numbers.filter((number) => !allowed.includes(number)).map((number) => `rules.${key}: ${number}`);
+    });
+    expect(written).toEqual([]);
+    for (const [key, numbers] of Object.entries(PART_OF_THE_RULE)) {
+      for (const number of numbers) expect(textOf(key), key).toContain(number);
+    }
+  });
+
+  it('числа прописью совпадают с данными', () => {
+    const { byId } = loadContent();
+    // «Убыточный банк покупается один раз».
+    expect(textOf('bankText')).toMatch(/покупается один раз/);
+    expect(byId.get('p_badbank')?.maxLevel).toBe(1);
+    // «Сумма трёх направлений не может превышать текущую добычу».
+    expect(textOf('marketsRedirect')).toMatch(/трёх направлений/);
+    expect(CHANNELS).toHaveLength(3);
+    // «…на 1 + больший из двух итогов»: итогов два — внутренний рынок и экспорт.
+    expect(textOf('salesBoostText')).toMatch(/больший из двух итогов/);
+    expect(CHANNELS.filter((channel) => channel !== 'refine')).toHaveLength(2);
+    // Других числительных в правилах нет: новое нужно сверить с данными здесь.
+    const numerals = /(?<!\p{L})(один|одна|одно|одну|одного|одной|два|две|двух|три|трёх|четыре|четырёх|пять|пяти|шесть|шести|семь|семи|восемь|восьми|девять|девяти|десять|десяти|вдвое|втрое|вчетверо|половин\p{L}*|трет[ьи]\p{L}*|четверт\p{L}*|дважды|трижды|удв\p{L}+|утр[ао]\p{L}+)(?!\p{L})/giu;
+    const found = Object.keys(templates).flatMap((key) =>
+      [...textOf(key).matchAll(numerals)].map((match) => `${key}: ${match[0]!.toLowerCase()}`),
+    );
+    expect(found.sort()).toEqual([
+      'bankText: один',
+      'ebtText: одной',
+      'marketsRedirect: трёх',
+      'salesBoostText: двух',
+      'wellsText: один',
+    ]);
+    // Два из них — не числа из данных: «Один игровой день длится {day}…»
+    // (один — сам день) и «входят одной суммой» (оборот речи).
+    expect(textOf('wellsText')).toMatch(/Один игровой день длится \{day\}/);
+    expect(textOf('ebtText')).toMatch(/входят одной суммой/);
   });
 });

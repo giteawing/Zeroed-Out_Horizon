@@ -190,6 +190,16 @@ describe('описания карточек: обещания подтвержд
     expect(card('p_senate').description).not.toMatch(/влияни/i);
   });
 
+  it('«покупается один раз» — только у покупки с одним уровнем и без перезарядки', () => {
+    // «Разовая выплата» у операций с перезарядкой — о выплате, а не о покупке.
+    const once = upgrades.filter((def) => /один раз|однократн|единожды/i.test(def.description));
+    expect(once.map((def) => def.id).sort()).toEqual(['p_badbank', 'p_domestic_cartel', 'p_export_cartel']);
+    for (const def of once) {
+      expect(def.maxLevel, def.id).toBe(1);
+      expect(def.cooldownSeconds, def.id).toBeUndefined();
+    }
+  });
+
   it('разовая выплата не описана как поток «на время»', () => {
     const streams = upgrades
       .filter((def) => def.type === 'oneShot' && /на время|автоматически/i.test(def.description))

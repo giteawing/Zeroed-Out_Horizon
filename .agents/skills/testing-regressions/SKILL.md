@@ -67,6 +67,8 @@ npm run test:e2e
 | Тексты ↔ код: ключи без строк и строки без ключей | `tests/texts-usage.test.ts` |
 | Стили ↔ разметка: правила без элементов и классы без правил | `tests/css-usage.test.ts` |
 | Адреса в сборке: игра работает из подпапки | `tests/build-paths.test.ts`, сценарий с подпапкой в E2E |
+| Правила, описания карточек, README ↔ игра | `tests/dom/rules.test.ts`, `tests/rules-consistency.test.ts`; что обновлять вместе с механикой — навык `rules-docs-sync` |
+| Инструкции: пути, ссылки, команды, список навыков | `tests/harness.test.ts` |
 | DOM-магазин, HUD, раскладка | `tests/dom/` |
 | Реальный desktop-путь игрока | `tests/e2e/smoke.spec.ts` |
 
