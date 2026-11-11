@@ -1039,13 +1039,18 @@ describe('индекс стройки и стартовый курс (REVIEW, «
     expect(constructionCostMultiplier(config, political, 2.65)).toBe(1);
   });
 
-  it('формула привязана к абсолютному курсу: стартовый курс выше 1 подорожает всё', () => {
-    // Это ограничение, а не желаемое поведение. Если формулу переведут на рост
-    // курса (`(курс / initial)^эластичность`), тест упадёт — и это будет
-    // осознанное изменение баланса, а не случайность.
+  it('индекс считается от роста курса, а не от абсолютного: смена старта ничего не двигает', () => {
+    // Раньше формула была `max(initial, курс)^эластичность`, и при стартовом
+    // курсе выше 1 все постройки дорожали ещё до первой девальвации.
     const shifted = structuredClone(content.config);
     shifted.exchangeRate.initial = 2;
-    const index = constructionCostMultiplier(shifted, capital, 2);
-    expect(index).toBeCloseTo(Math.pow(2, shifted.exchangeRate.constructionCostElasticity), 12);
+    const elasticity = shifted.exchangeRate.constructionCostElasticity;
+    // Стартовый курс — база: индекс равен единице и ничего не подорожало.
+    expect(constructionCostMultiplier(shifted, capital, 2)).toBeCloseTo(1, 12);
+    // Рост курса вдвое — то же удорожание, что при initial = 1 и курсе 2.
+    expect(constructionCostMultiplier(shifted, capital, 4))
+      .toBeCloseTo(Math.pow(2, elasticity), 12);
+    // Укрепление нефтефаника стройку не удешевляет.
+    expect(constructionCostMultiplier(shifted, capital, 1)).toBeCloseTo(1, 12);
   });
 });

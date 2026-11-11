@@ -196,15 +196,17 @@ describe('строка эффекта: то, чего раньше не было
 
 describe('строка эффекта: её утверждения проверены на ядре', () => {
   const crewIds = content.config.oil.autoDrill.requires;
-  const derivedWith = (levels: Record<string, number>) => {
+  const stateWith = (levels: Record<string, number>) => {
     const state = createInitialState(content.config, 7);
     state.wells = [{ kind: 'unique', dailyTonnes: 600 }];
     state.levels = { t_pump1: 3, ...levels };
-    return computeDerived(content.config, content.upgrades, state, [], content);
+    return state;
   };
+  const derivedWith = (levels: Record<string, number>) =>
+    computeDerived(content.config, content.upgrades, stateWith(levels), [], content);
   const fullCrew = Object.fromEntries(crewIds.map((id) => [id, 1]));
 
-  it('«хватает первого уровня»: следующие уровни бригады добычу не меняют', () => {
+  it('«хватает первого уровня»: следующий уровень бригады не меняет ни добычу, ни расходы', () => {
     expect(crewIds.length).toBeGreaterThan(0);
     const base = derivedWith(fullCrew);
     // Сама бригада работает: без одного участника добыча ниже.
@@ -214,9 +216,28 @@ describe('строка эффекта: её утверждения провер�
       expect(line(byId(id)), id).toContain(shopText('effectCrew', {
         value: formatPercent(content.config.oil.autoDrill.bonus, 0),
       }));
-      const more = derivedWith({ ...fullCrew, [id]: Math.min(byId(id).maxLevel, 5) });
-      expect(more.oilPerSecond, id).toBe(base.oilPerSecond);
-      expect(more.salaries, id).toBeGreaterThanOrEqual(base.salaries);
+      // REVIEW: уровни 2–45 продавались и только поднимали зарплаты.
+      // Теперь их нет: у карточки ровно один уровень, и второй не покупается.
+      expect(byId(id).maxLevel, `${id}: лишние уровни не приносят ничего`).toBe(1);
+      // Деньги есть: отказ должен быть из-за уровня, а не из-за замка.
+      const owned = stateWith({ ...fullCrew, [id]: 1 });
+      owned.coins = 1e9;
+      owned.totalEarned = 1e9;
+      const game = new Game(content, owned);
+      expect(game.checkBuy(id).reason, id).toBe('maxLevel');
+      expect(game.buy(id).ok, id).toBe(false);
+    }
+  });
+
+  it('ни одна карточка не продаёт уровни, которые не приносят ничего, кроме расходов', () => {
+    // Правило, а не перечень: если у покупки больше одного уровня, у неё
+    // должен быть эффект, который ядро читает, либо она продаёт скважины,
+    // месторождения, собственность (стоимость активов) или нужна финалу.
+    const winRequired = new Set(content.config.winRequirements.map((req) => req.upgrade));
+    for (const def of content.upgrades) {
+      if (def.maxLevel <= 1 || def.win || winRequired.has(def.id)) continue;
+      if (def.type === 'well' || def.type === 'field' || def.assetKind) continue;
+      expect(Object.keys(def.effect).length, `${def.id}: уровни без эффекта`).toBeGreaterThan(0);
     }
   });
 
