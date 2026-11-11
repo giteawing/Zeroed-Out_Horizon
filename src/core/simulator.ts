@@ -57,12 +57,31 @@ export interface Sample {
   purchases: number;
 }
 
+/**
+ * Откуда пришли деньги за партию, ₦. Сумма равна `totalEarned`.
+ * Нужна отчёту баланса: периодика, банк и ставки идут мимо налога и расходов,
+ * и их доля в заработке — решение по балансу, за которым надо следить.
+ */
+export interface EarnedBySource {
+  /** Общая касса с расходами и налогом: нефть, нефтепродукты, проценты, демпфер, вывоз капитала. */
+  sales: number;
+  /** Периодические выплаты покупок — мимо налога и расходов. */
+  periodic: number;
+  /** Разовые выплаты кнопок-действий, прошедшие кассу с налогом. */
+  oneShot: number;
+  /** Операции убыточного банка — мимо налога и расходов. */
+  bank: number;
+  /** Выигрыши рисковых схем (ставки при этом списаны как цена покупки). */
+  gamble: number;
+}
+
 export interface SimulatorResult {
   won: boolean;
   /** Время до победы (или до лимита), сек. */
   seconds: number;
   coins: number;
   totalEarned: number;
+  earnedBySource: EarnedBySource;
   purchases: number;
   luxurySpent: number;
   achievements: number;
@@ -112,6 +131,20 @@ export function runSimulation(content: Content, options: SimulatorOptions = {}):
   const checkpoints: Checkpoint[] = [];
   const samples: Sample[] = [];
   const purchased = new Set<string>();
+
+  // Учёт источников дохода по событиям игры. Слушатель ничего не меняет:
+  // ход партии с ним тот же, что и без него.
+  const untracked = { periodic: 0, oneShot: 0, bank: 0, gamble: 0 };
+  game.on((event) => {
+    if (event.type === 'periodic') untracked.periodic += event.amount;
+    else if (event.type === 'gambleResult') untracked.gamble += event.amount;
+    else if (event.type === 'oneShot') {
+      const effect = content.byId.get(event.id)?.effect;
+      if (effect?.launder) untracked.bank += event.amount;
+      // Разовая продажа нефти — обычная выручка: остаётся в общей кассе.
+      else if (!effect?.sellsOil) untracked.oneShot += event.amount;
+    }
+  });
 
   let nextDecisionMs = 0;
   let exportWaitMs = 0;
@@ -190,6 +223,13 @@ export function runSimulation(content: Content, options: SimulatorOptions = {}):
     seconds: state.won ? elapsed / 1000 : opts.maxSeconds,
     coins: state.coins,
     totalEarned: state.totalEarned,
+    earnedBySource: {
+      sales: Math.max(
+        0,
+        state.totalEarned - untracked.periodic - untracked.oneShot - untracked.bank - untracked.gamble,
+      ),
+      ...untracked,
+    },
     purchases: state.totalPurchases,
     luxurySpent: state.luxurySpent,
     achievements: state.achievements.length,

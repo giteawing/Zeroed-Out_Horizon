@@ -44,5 +44,37 @@ describe('темп партии и рост дохода', () => {
     const b = runSimulation(content, { seed: 555, maxSeconds: 300 });
     expect(a.totalEarned).toBe(b.totalEarned);
     expect(a.samples).toEqual(b.samples);
+    expect(a.earnedBySource).toEqual(b.earnedBySource);
+  });
+
+  /**
+   * REVIEW D2: периодические выплаты идут мимо налога и расходов и растут
+   * вместе с оборотом. Замер на обычном профиле — около 92 % всего
+   * заработанного; продажа нефти даёт остаток. Это решение по балансу
+   * оставлено владельцу (docs/ECONOMY.md, «Откуда берутся деньги»), а тест
+   * следит, чтобы доля не выросла незаметно и чтобы учёт источников сходился.
+   */
+  it('откуда берутся деньги: источники учтены, доля периодики под наблюдением (REVIEW D2)', () => {
+    const result = ordinary();
+    const sources = result.earnedBySource;
+    for (const [name, amount] of Object.entries(sources)) {
+      expect(amount, name).toBeGreaterThanOrEqual(0);
+      expect(Number.isFinite(amount), name).toBe(true);
+    }
+    const sum = sources.sales + sources.periodic + sources.oneShot + sources.bank + sources.gamble;
+    expect(sum / result.totalEarned).toBeCloseTo(1, 9);
+    // Нефть продаётся, периодика платит: оба источника живые.
+    expect(sources.sales).toBeGreaterThan(0);
+    expect(sources.periodic).toBeGreaterThan(0);
+    // Обычный бот не нажимает кнопки-действия: банк и разовые выплаты — ноль.
+    expect(sources.bank).toBe(0);
+    expect(sources.oneShot).toBe(0);
+    const periodicShare = sources.periodic / result.totalEarned;
+    expect(
+      periodicShare,
+      `доля периодических выплат в заработке: ${(periodicShare * 100).toFixed(1)} %`,
+    ).toBeLessThan(0.95);
+    // И не ноль: если периодика перестала платить, это тоже новость.
+    expect(periodicShare).toBeGreaterThan(0.5);
   });
 });
