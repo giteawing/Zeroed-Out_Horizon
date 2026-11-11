@@ -135,6 +135,73 @@ describe('validateConfig (REVIEW C6)', () => {
     expect(broken((config) => { config.offline.efficiency = 2; })).toThrow(/offline/);
   });
 
+  /**
+   * Числа, которые ядро перемножает напрямую: пропущенное или нечисловое поле
+   * давало NaN в добыче, расходах или ценах — и NaN тихо расходился по всей
+   * экономике до кошелька. Каждое поле проверяется удалением и мусором.
+   */
+  it('числа экономики: пропуск или мусор останавливают загрузку', () => {
+    type Path = [section: string, field: string, bad: unknown[]];
+    const negative = -1;
+    const cases: Path[] = [
+      ['oil', 'maxProductionPerSecond', [undefined, 0, negative, Number.NaN, '10']],
+      ['oil', 'startOil', [undefined, negative, Number.NaN]],
+      ['oil', 'baseCapacity', [undefined, 0, negative, Number.NaN]],
+      ['oil', 'starterWellDailyTonnes', [undefined, negative, Number.NaN]],
+      ['balance', 'passiveScale', [undefined, 0, negative, Number.NaN]],
+      ['expenses', 'baseSalaries', [undefined, negative, Number.NaN]],
+      ['expenses', 'baseOfficials', [undefined, negative, Number.NaN]],
+      ['expenses', 'salariesPerGross', [undefined, negative, Number.NaN]],
+      ['expenses', 'officialsPerGross', [undefined, negative, Number.NaN]],
+      ['expenses', 'levelRate', [undefined, negative, Number.NaN]],
+      ['expenses', 'minCutFactor', [undefined, negative, 1.5, Number.NaN]],
+      ['fines', 'oilPerTon', [undefined, negative, Number.NaN]],
+      ['fines', 'productPerTon', [undefined, negative, Number.NaN]],
+      ['fines', 'influenceReliefPerPoint', [undefined, negative, Number.NaN]],
+      ['fines', 'maxRelief', [undefined, negative, 1.5, Number.NaN]],
+      ['fines', 'stormSeconds', [undefined, negative, Number.NaN]],
+      ['product', 'domesticPriceFactor', [undefined, 0, negative, Number.NaN]],
+      ['product', 'exportPriceFactor', [undefined, 0, negative, Number.NaN]],
+      ['product', 'baseStorage', [undefined, negative, Number.NaN]],
+      ['exchangeRate', 'initial', [undefined, 0, negative, Number.NaN]],
+      ['exchangeRate', 'constructionCostElasticity', [undefined, negative, Number.NaN]],
+      ['particles', 'maxParticles', [undefined, negative, Number.NaN]],
+      ['particles', 'maxFloating', [undefined, negative, Number.NaN]],
+    ];
+    const accepted: string[] = [];
+    for (const [section, field, bad] of cases) {
+      for (const value of bad) {
+        const attempt = broken((config) => {
+          const target = (config as unknown as Record<string, Record<string, unknown>>)[section]!;
+          if (value === undefined) delete target[field];
+          else target[field] = value;
+        });
+        try {
+          attempt();
+          accepted.push(`${section}.${field} = ${String(value)}`);
+        } catch (error) {
+          // Сообщение называет поле: по нему опечатку находят в JSON.
+          expect(String(error), `${section}.${field} = ${String(value)}`).toContain(`${section}.${field}`);
+        }
+      }
+    }
+    expect(accepted).toEqual([]);
+  });
+
+  it('доли транспорта, раздел целиком и курс', () => {
+    for (const key of ['crude', 'productDomestic', 'productExport'] as const) {
+      expect(broken((config) => { config.product.transportSplit[key] = -0.1; }))
+        .toThrow(/product\.transportSplit/);
+      expect(broken((config) => {
+        delete (config.product.transportSplit as Partial<GameConfig['product']['transportSplit']>)[key];
+      })).toThrow(/product\.transportSplit/);
+    }
+    for (const section of ['expenses', 'fines', 'product', 'exchangeRate', 'balance', 'particles'] as const) {
+      expect(broken((config) => { delete (config as Partial<GameConfig>)[section]; }), section)
+        .toThrow(new RegExp(section));
+    }
+  });
+
   it('налог и влияние', () => {
     expect(broken((config) => { config.tax.minRate = 0.5; })).toThrow(/tax/);
     expect(broken((config) => { config.tax.baseRate = 1.5; })).toThrow(/tax/);

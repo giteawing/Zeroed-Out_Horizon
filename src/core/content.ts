@@ -316,6 +316,52 @@ function validateStagedNames(u: UpgradeDef): void {
   }
 }
 
+type NumberRule = 'positive' | 'nonNegative' | 'share';
+
+const NUMBER_RULE_TEXT: Record<NumberRule, string> = {
+  positive: 'должен быть числом больше 0',
+  nonNegative: 'должен быть неотрицательным числом',
+  share: 'должен быть числом от 0 до 1',
+};
+
+/**
+ * Числовые поля `config.json`, у которых нет собственной, более подробной
+ * проверки в `validateConfig`: раздел → поле → допустимые значения.
+ * Новое число экономики добавляй сюда (или проверяй отдельно): иначе его
+ * пропуск в JSON превратится в NaN.
+ */
+const ECONOMY_NUMBERS: Record<string, Record<string, NumberRule>> = {
+  oil: {
+    maxProductionPerSecond: 'positive',
+    startOil: 'nonNegative',
+    baseCapacity: 'positive',
+    starterWellDailyTonnes: 'nonNegative',
+  },
+  balance: { passiveScale: 'positive' },
+  expenses: {
+    baseSalaries: 'nonNegative',
+    baseOfficials: 'nonNegative',
+    salariesPerGross: 'nonNegative',
+    officialsPerGross: 'nonNegative',
+    levelRate: 'nonNegative',
+    minCutFactor: 'share',
+  },
+  fines: {
+    oilPerTon: 'nonNegative',
+    productPerTon: 'nonNegative',
+    influenceReliefPerPoint: 'nonNegative',
+    maxRelief: 'share',
+    stormSeconds: 'nonNegative',
+  },
+  product: {
+    domesticPriceFactor: 'positive',
+    exportPriceFactor: 'positive',
+    baseStorage: 'nonNegative',
+  },
+  exchangeRate: { initial: 'positive', constructionCostElasticity: 'nonNegative' },
+  particles: { maxParticles: 'nonNegative', maxFloating: 'nonNegative' },
+};
+
 /**
  * Проверка `config.json`: ссылки на покупки, вероятности и диапазоны.
  * Ловит то, что иначе молча выключает механику: опечатку в id сотрудника
@@ -354,6 +400,28 @@ export function validateConfig(config: GameConfig, upgrades: UpgradeDef[]): void
   if (!config.tax || !within(config.tax.baseRate, 0, 1) || !within(config.tax.minRate, 0, 1) ||
     config.tax.minRate > config.tax.baseRate || !nonNegative(config.tax.influenceDrop)) {
     fail('tax: ставки должны быть от 0 до 1, minRate не больше baseRate');
+  }
+
+  // Числа, которые ядро перемножает напрямую. Пропущенное или нечисловое
+  // поле дало бы NaN в добыче, расходах или ценах, и он разошёлся бы по всей
+  // экономике до кошелька, поэтому каждое проверяется при загрузке.
+  for (const [name, fields] of Object.entries(ECONOMY_NUMBERS)) {
+    const values = (config as unknown as Record<string, unknown>)[name];
+    const section: Record<string, unknown> = values && typeof values === 'object'
+      ? (values as Record<string, unknown>)
+      : fail(`${name}: раздел не описан`);
+    for (const [field, rule] of Object.entries(fields)) {
+      const value = section[field];
+      const ok = rule === 'positive' ? positive(value)
+        : rule === 'share' ? within(value, 0, 1)
+          : nonNegative(value);
+      if (!ok) fail(`${name}.${field} ${NUMBER_RULE_TEXT[rule]}`);
+    }
+  }
+  const split = config.product.transportSplit;
+  if (!split || !nonNegative(split.crude) || !nonNegative(split.productDomestic) ||
+    !nonNegative(split.productExport)) {
+    fail('product.transportSplit: нужны неотрицательные доли crude, productDomestic и productExport');
   }
 
   const world = config.worldPrice;
