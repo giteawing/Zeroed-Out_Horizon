@@ -590,3 +590,29 @@ describe('проверка публикации без интерфейса GitH
     expect(agents).toMatch(/Пустой (вывод|ответ)[^.]*не успех/);
   });
 });
+
+describe('E2E ждёт событий, а не пауз (REVIEW H11)', () => {
+  const spec = read('tests/e2e/smoke.spec.ts');
+
+  it('в сценариях нет пауз наугад', () => {
+    // Навык testing-regressions запрещает sleep: пауза либо слишком коротка
+    // на медленном раннере, либо зря тянет время. Ждать нужно условия:
+    // `expect.poll`, `toBeVisible`, `waitForFunction`.
+    expect(spec).not.toMatch(/waitForTimeout\s*\(/);
+    expect(spec).not.toMatch(/setTimeout\s*\(/);
+  });
+
+  it('покрыты сценарии, которых не хватало ревизии', () => {
+    const titles = [...spec.matchAll(/^test\('([^']+)'/gm)].map((match) => match[1]!);
+    for (const fragment of [
+      'на стартовом экране игра стоит',
+      'продолжение партии начисляет доход за отсутствие',
+      '«Новая игра» со стартового экрана',
+      '«Новая игра» из настроек',
+      'правила игры закрываются по Escape',
+      'стёртое значение потока включает «Авто»',
+    ]) {
+      expect(titles.some((title) => title.includes(fragment)), fragment).toBe(true);
+    }
+  });
+});

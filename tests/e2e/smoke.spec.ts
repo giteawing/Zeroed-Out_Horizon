@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { SAVE_KEY } from '../../src/core/state';
 
 /**
  * Дымовой тест desktop-сценариев: непрерывная добыча, ручная маршрутизация,
@@ -20,6 +21,70 @@ async function start(page: Page): Promise<void> {
   await expect(startButton).toBeVisible();
   await startButton.click();
   await expect(page.locator('.start')).toHaveCount(0, { timeout: 5000 });
+}
+
+/** Часть состояния игры, которую читают сценарии. */
+interface Snapshot {
+  coins: number;
+  oil: number;
+  totalSold: number;
+  totalEarned: number;
+  totalPurchases: number;
+  playtimeMs: number;
+  savedAtWallMs: number;
+  flowControl: Record<'contract' | 'export' | 'refine', { mode: 'auto' | 'fixed'; value: number }>;
+}
+
+/** Состояние игры в памяти страницы. */
+function gameState(page: Page): Promise<Snapshot> {
+  return page.evaluate(() => (window as unknown as { __game: { state: Snapshot } }).__game.state);
+}
+
+/** Сохранение так, как оно лежит в хранилище браузера. */
+function storedSave(page: Page): Promise<string | null> {
+  return page.evaluate((key) => localStorage.getItem(key), SAVE_KEY);
+}
+
+/** Записать сохранение так, как это делает игра при уходе со страницы. */
+async function saveNow(page: Page): Promise<Snapshot> {
+  const raw = await page.evaluate((key) => {
+    window.dispatchEvent(new Event('pagehide'));
+    return localStorage.getItem(key);
+  }, SAVE_KEY);
+  expect(raw, 'игра не записала сохранение').not.toBeNull();
+  return JSON.parse(raw!) as Snapshot;
+}
+
+/**
+ * Прожить заданное число кадров страницы. Игровой цикл идёт по
+ * requestAnimationFrame, поэтому «ничего не произошло» проверяется по
+ * кадрам, которые цикл точно получил, а не по паузе наугад.
+ */
+async function frames(page: Page, count: number): Promise<void> {
+  await page.evaluate(
+    (total) =>
+      new Promise<void>((resolve) => {
+        let left = total;
+        const tick = (): void => {
+          left -= 1;
+          if (left <= 0) resolve();
+          else requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }),
+    count,
+  );
+}
+
+/**
+ * Закрепить поток на внутренний рынок вручную. Заодно это след партии,
+ * который сам не меняется: по нему видно, та же партия на экране или новая.
+ */
+async function fixContractFlow(page: Page, value: number): Promise<void> {
+  const input = page.locator('[data-flow-input="contract"]');
+  await input.fill(String(value));
+  await input.press('Enter');
+  await expect.poll(async () => (await gameState(page)).flowControl.contract).toEqual({ mode: 'fixed', value });
 }
 
 /** Дождаться фактической продажи сырья без действий игрока. */
@@ -174,21 +239,205 @@ test('вкладки магазина переключаются', async ({ page
 test('прогресс сохраняется после перезагрузки', async ({ page }) => {
   await start(page);
   await waitForSale(page);
-  const before = await page.evaluate(
-    () => (window as unknown as { __game: { state: { totalSold: number } } }).__game.state.totalSold,
-  );
-  expect(before).toBeGreaterThan(0);
+  // Сохранение пишется синхронно при уходе со страницы: ждать нечего.
+  const written = await saveNow(page);
+  expect(written.totalSold).toBeGreaterThan(0);
+  await page.reload();
+  await expect(page.locator('.start .btn--gold')).toHaveText('Продолжить империю');
+  // Уходящая страница сохраняется ещё раз сама — сейв от этого только новее.
+  const stored = JSON.parse((await storedSave(page))!) as Snapshot;
+  expect(stored.playtimeMs).toBeGreaterThanOrEqual(written.playtimeMs);
+  expect(stored.totalSold).toBeGreaterThanOrEqual(written.totalSold);
+  // Страница подняла ровно то, что записано, и ждёт кнопки.
+  const loaded = await gameState(page);
+  expect(loaded.totalSold).toBe(stored.totalSold);
+  expect(loaded.playtimeMs).toBe(stored.playtimeMs);
+  await page.locator('.start .btn--gold').click();
+  await expect(page.locator('.start')).toHaveCount(0, { timeout: 5000 });
+  await waitForSale(page);
+  expect((await gameState(page)).totalSold).toBeGreaterThan(stored.totalSold);
+  expect(errors).toEqual([]);
+});
+
+test('на стартовом экране игра стоит и не трогает сохранение', async ({ page }) => {
+  // REVIEW A1: раньше игра шла и сохранялась под стартовым экраном, и время
+  // отсутствия терялось. Проверяется на странице с сохранением.
+  await start(page);
+  await saveNow(page);
+  await page.reload();
+  await expect(page.locator('.start .btn--gold')).toHaveText('Продолжить империю');
+  const saved = await storedSave(page);
+  const before = await gameState(page);
+  // Секунда кадров: запущенная игра сделала бы десяток тиков.
+  await frames(page, 60);
+  // Уход со страницы и возврат тоже ничего не пишут.
   await page.evaluate(() => {
-    document.dispatchEvent(new Event('visibilitychange'));
     window.dispatchEvent(new Event('pagehide'));
+    document.dispatchEvent(new Event('visibilitychange'));
   });
-  await page.waitForTimeout(300);
+  expect(await gameState(page)).toEqual(before);
+  expect(await storedSave(page)).toBe(saved);
+  expect(errors).toEqual([]);
+});
+
+test('продолжение партии начисляет доход за отсутствие один раз', async ({ page }) => {
+  await start(page);
+  await saveNow(page);
+  // Игрок вернулся через две минуты: при следующих загрузках страницы часы
+  // идут на две минуты вперёд. Сохранение при этом пишет сама игра.
+  const AWAY_SECONDS = 120;
+  await page.addInitScript((shiftMs) => {
+    const realNow = Date.now.bind(Date);
+    Date.now = () => realNow() + shiftMs;
+  }, AWAY_SECONDS * 1000);
+  await page.reload();
+  await expect(page.locator('.start .btn--gold')).toHaveText('Продолжить империю');
+  const { coins, netPerSecond } = await page.evaluate(() => {
+    const game = (window as unknown as {
+      __game: { state: { coins: number }; derived(): { netPerSecond: number } };
+    }).__game;
+    return { coins: game.state.coins, netPerSecond: game.derived().netPerSecond };
+  });
+  expect(netPerSecond).toBeGreaterThan(0);
+  const expected = netPerSecond * AWAY_SECONDS;
+
+  await page.locator('.start .btn--gold').click();
+  // Доход за отсутствие приходит сразу и показывается игроку.
+  await expect(page.locator('.badge')).toContainText('+₦');
+  const paid = (await gameState(page)).coins - coins;
+  expect(paid).toBeGreaterThanOrEqual(Math.floor(expected));
+  // Не вдвое: время на стартовом экране и повторный расчёт сюда не входят.
+  expect(paid).toBeLessThan(expected * 1.5);
+  // Интервал закрыт сразу: в сохранении уже стоит время возвращения.
+  const savedAgoMs = await page.evaluate(
+    (key) => Date.now() - (JSON.parse(localStorage.getItem(key)!) as { savedAtWallMs: number }).savedAtWallMs,
+    SAVE_KEY,
+  );
+  expect(savedAgoMs).toBeLessThan((AWAY_SECONDS * 1000) / 2);
+
+  // Быстрая перезагрузка не платит за те же две минуты снова.
+  const afterFirst = (await gameState(page)).coins;
   await page.reload();
   await page.locator('.start .btn--gold').click();
-  const sold = await page.evaluate(
-    () => (window as unknown as { __game: { state: { totalSold: number } } }).__game.state.totalSold,
+  await expect(page.locator('.start')).toHaveCount(0, { timeout: 5000 });
+  expect((await gameState(page)).coins - afterFirst).toBeLessThan(expected / 2);
+  expect(errors).toEqual([]);
+});
+
+test('«Новая игра» со стартового экрана начинает с нуля и заменяет сохранение', async ({ page }) => {
+  await start(page);
+  // След старой партии, который сам не меняется: поток закреплён вручную.
+  await fixContractFlow(page, 5);
+  await saveNow(page);
+  await page.reload();
+  const fresh = page.locator('.start .btn--ghost');
+  await expect(fresh).toHaveText('Новая игра');
+  const stored = await storedSave(page);
+  expect((await gameState(page)).flowControl.contract).toEqual({ mode: 'fixed', value: 5 });
+
+  // Отказ в подтверждении ничего не меняет.
+  page.once('dialog', (dialog) => void dialog.dismiss());
+  await fresh.click();
+  await expect(page.locator('.start .btn--gold')).toBeVisible();
+  expect((await gameState(page)).flowControl.contract).toEqual({ mode: 'fixed', value: 5 });
+  expect(await storedSave(page)).toBe(stored);
+
+  page.once('dialog', (dialog) => void dialog.accept());
+  await fresh.click();
+  await expect(page.locator('.start')).toHaveCount(0, { timeout: 5000 });
+  expect((await gameState(page)).flowControl.contract).toEqual({ mode: 'auto', value: 0 });
+  await expect(page.locator('[data-flow-auto="contract"]')).toHaveAttribute('aria-pressed', 'true');
+  // Старый сейв заменён сразу, а не через автосохранение.
+  const replaced = JSON.parse((await storedSave(page))!) as Snapshot;
+  expect(replaced.flowControl.contract.mode).toBe('auto');
+  expect(replaced.totalPurchases).toBe(0);
+  // Новая партия идёт: время игры пошло с нуля.
+  await expect.poll(async () => (await gameState(page)).playtimeMs).toBeGreaterThan(0);
+  expect(errors).toEqual([]);
+});
+
+test('«Новая игра» из настроек сбрасывает партию и стирает сохранение', async ({ page }) => {
+  await start(page);
+  await fixContractFlow(page, 5);
+  await saveNow(page);
+  await page.locator('.iconbtn--menu').click();
+  await page.locator('[data-menu="settings"]').click();
+  const settings = page.locator('.sheet').filter({ has: page.locator('.btn--danger') });
+  await expect(settings).toBeVisible();
+
+  // Отказ в подтверждении ничего не меняет.
+  page.once('dialog', (dialog) => void dialog.dismiss());
+  await settings.locator('.btn--danger').click();
+  await expect(settings).toBeVisible();
+  expect((await gameState(page)).flowControl.contract).toEqual({ mode: 'fixed', value: 5 });
+
+  page.once('dialog', (dialog) => void dialog.accept());
+  await settings.locator('.btn--danger').click();
+  await expect(settings).toBeHidden();
+  expect((await gameState(page)).flowControl.contract).toEqual({ mode: 'auto', value: 0 });
+  await expect(page.locator('[data-flow-auto="contract"]')).toHaveAttribute('aria-pressed', 'true');
+  // Старой партии нет и в хранилище: сейв стёрт или уже записан новой.
+  const raw = await storedSave(page);
+  expect(raw === null ? 'auto' : (JSON.parse(raw) as Snapshot).flowControl.contract.mode).toBe('auto');
+  // Игра не остановилась, и перезагрузка старую партию не возвращает.
+  await expect.poll(async () => (await gameState(page)).playtimeMs).toBeGreaterThan(0);
+  await page.reload();
+  await expect(page.locator('.start .btn--gold')).toBeVisible();
+  expect((await gameState(page)).flowControl.contract.mode).toBe('auto');
+  expect(errors).toEqual([]);
+});
+
+test('правила игры закрываются по Escape, кнопкой и кликом по фону', async ({ page }) => {
+  // REVIEW A7: окно правил было единственным, которое не закрывалось по Escape.
+  await start(page);
+  const rules = page.locator('.sheet--rules');
+  const open = async (): Promise<void> => {
+    await page.locator('.iconbtn--menu').click();
+    await page.locator('[data-menu="rules"]').click();
+    await expect(rules).toBeVisible();
+  };
+  await open();
+  await expect(rules).toContainText('Правила игры');
+  await page.keyboard.press('Escape');
+  await expect(rules).toBeHidden();
+
+  await open();
+  await rules.locator('.btn--gold').click();
+  await expect(rules).toBeHidden();
+
+  await open();
+  await page.mouse.click(8, 8);
+  await expect(rules).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test('стёртое значение потока включает «Авто», а не нулевой поток', async ({ page }) => {
+  // REVIEW A6: пустое поле превращалось в «фиксированный 0» и молча
+  // перекрывало маршрут.
+  await start(page);
+  const input = page.locator('[data-flow-input="contract"]');
+  const auto = page.locator('[data-flow-auto="contract"]');
+  const domesticFlow = (): Promise<number> => page.evaluate(
+    () => (window as unknown as {
+      __game: { derived(): { flows: { domestic: number } } };
+    }).__game.derived().flows.domestic,
   );
-  expect(sold).toBeGreaterThan(0);
+  await expect(auto).toHaveAttribute('aria-pressed', 'true');
+  const open = await domesticFlow();
+  expect(open).toBeGreaterThan(3);
+
+  await fixContractFlow(page, 3);
+  await expect(auto).toHaveAttribute('aria-pressed', 'false');
+  expect(await domesticFlow()).toBe(3);
+
+  await input.fill('');
+  await input.press('Enter');
+  await expect.poll(async () => (await gameState(page)).flowControl.contract).toEqual({ mode: 'auto', value: 0 });
+  await expect(auto).toHaveAttribute('aria-pressed', 'true');
+  await expect(input).toHaveValue('');
+  // Маршрут открыт: на внутренний рынок снова уходит вся добыча.
+  expect(await domesticFlow()).toBeGreaterThan(3);
+  expect(errors).toEqual([]);
 });
 
 test('вторая вкладка ждёт первую и продолжает с её сохранения', async ({ page, context }) => {
