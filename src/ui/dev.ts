@@ -7,7 +7,7 @@ import { formatMoney } from '../core/format';
 import type { Texts } from './texts';
 
 export interface DevMenuCallbacks {
-  /** Начислить деньги «из воздуха» (в нефтефантиках). */
+  /** Начислить деньги «из воздуха» (в нефтефаниках). */
   onAddMoney: (amount: number) => void;
   /** Мгновенно купить финальный насос, не собирая деньги. */
   onWin: () => void;

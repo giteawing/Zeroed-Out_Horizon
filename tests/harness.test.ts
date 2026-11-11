@@ -5,6 +5,7 @@
  * ни одного теста (REVIEW H3, H4, H5).
  */
 import { describe, expect, it } from 'vitest';
+import ts from 'typescript';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { EFFECT_FIELDS, loadContent } from '../src/core/content';
@@ -733,5 +734,77 @@ describe('линтер и типы скриптов (REVIEW H13)', () => {
         `${name}: все зависимости уже просят ${forced} или новее — удали overrides из package.json`,
       ).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('состояние партии закрыто от записи снаружи (AUDIT F04)', () => {
+  /*
+   * Threat-модель исправления — компилятор: `Game.state` объявлен как
+   * `DeepReadonly<GameState>`, поэтому `game.state.coins = 1` не собирается.
+   * Этот тест запускает настоящий компилятор на двух коротких файлах и
+   * требует ровно такого поведения: правильное чтение собирается, запись —
+   * нет. Если кто-то вернёт публичное изменяемое поле, тест упадёт.
+   */
+  function compile(source: string): string[] {
+    const fileName = resolve(root, 'tests/__state_readonly_fixture.ts');
+    const host = ts.createCompilerHost({});
+    const options: ts.CompilerOptions = {
+      target: ts.ScriptTarget.ES2020,
+      module: ts.ModuleKind.ESNext,
+      moduleResolution: ts.ModuleResolutionKind.Bundler,
+      lib: ['lib.es2020.d.ts', 'lib.dom.d.ts'],
+      resolveJsonModule: true,
+      esModuleInterop: true,
+      skipLibCheck: true,
+      strict: true,
+      noEmit: true,
+      types: ['node'],
+    };
+    const original = host.getSourceFile.bind(host);
+    host.getSourceFile = (name, languageVersion, onError, shouldCreate) =>
+      name === fileName
+        ? ts.createSourceFile(name, source, languageVersion, true)
+        : original(name, languageVersion, onError, shouldCreate);
+    host.fileExists = (name) => name === fileName || ts.sys.fileExists(name);
+    host.readFile = (name) => (name === fileName ? source : ts.sys.readFile(name));
+    const program = ts.createProgram([fileName], options, host);
+    return ts.getPreEmitDiagnostics(program)
+      .map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
+  }
+
+  it('чтение состояния собирается', () => {
+    const errors = compile(`
+import { Game } from '../src/core/game';
+export function read(game: Game): number {
+  return game.state.coins + game.state.wells.length + game.state.levels['x']!;
+}
+`);
+    expect(errors).toEqual([]);
+  });
+
+  it('запись в деньги, уровни и маршруты не компилируется', () => {
+    const errors = compile(`
+import { Game } from '../src/core/game';
+export function write(game: Game): void {
+  game.state.coins = 1;
+  game.state.levels['x'] = 2;
+  game.state.flowControl.export = { mode: 'auto', value: 0 };
+}
+`);
+    // Три записи — три ошибки «только для чтения»: поле, индекс уровня и
+    // вложенный объект маршрута.
+    const readonly = errors.filter((message) => /read-only|only permits reading|только для чтения/i.test(message));
+    expect(readonly).toHaveLength(3);
+    expect(errors).toHaveLength(3);
+  });
+
+  it('явная дверь для тестов остаётся изменяемой', () => {
+    const errors = compile(`
+import { Game } from '../src/core/game';
+export function prepare(game: Game): void {
+  game.stateForTests().coins = 1e9;
+}
+`);
+    expect(errors).toEqual([]);
   });
 });

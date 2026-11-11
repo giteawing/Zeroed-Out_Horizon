@@ -247,8 +247,8 @@ describe('магазин', () => {
     expect(technical).not.toBeNull();
     technical!.click();
     // Дадим денег и перерисуем карточки.
-    game.state.coins = 1e6;
-    game.state.totalEarned = 1e6;
+    game.stateForTests().coins = 1e6;
+    game.stateForTests().totalEarned = 1e6;
     await waitFor(() => document.querySelector('.card__buy:not([disabled])') !== null);
     const buy = document.querySelector<HTMLButtonElement>('.card__buy:not([disabled])');
     expect(buy).not.toBeNull();
@@ -265,8 +265,8 @@ describe('магазин', () => {
       const floats = vi.spyOn(Effects.prototype, 'floatText');
       try {
         document.querySelector<HTMLButtonElement>(`[data-tab="${tab}"]`)!.click();
-        game.state.coins = 1e9;
-        game.state.totalEarned = 1e9;
+        game.stateForTests().coins = 1e9;
+        game.stateForTests().totalEarned = 1e9;
         const selector = `.card[data-id="${id}"] .card__buy:not([disabled])`;
         await waitFor(() => document.querySelector(selector) !== null);
         document.querySelector<HTMLButtonElement>(selector)!.click();
@@ -307,8 +307,8 @@ describe('магазин', () => {
     // случайным фоном — в том числе до первой покупки.
     const topNews = (): string => document.querySelector('.news__item .news__text')?.textContent ?? '';
     document.querySelector<HTMLButtonElement>('[data-tab="luxury"]')!.click();
-    game.state.coins = 1e9;
-    game.state.totalEarned = 1e9;
+    game.stateForTests().coins = 1e9;
+    game.stateForTests().totalEarned = 1e9;
     const selector = '.card[data-id="l_usedcar"] .card__buy:not([disabled])';
     await waitFor(() => document.querySelector(selector) !== null);
     document.querySelector<HTMLButtonElement>(selector)!.click();
@@ -440,7 +440,7 @@ describe('мировая цена, магазин и инженерное мен
     const technical = document.querySelector<HTMLButtonElement>('[data-tab="technical"]');
     expect(technical).not.toBeNull();
     technical!.click();
-    game.state.coins = 0;
+    game.stateForTests().coins = 0;
     await waitFor(() => document.querySelectorAll('.card--locked').length > 0);
     const locked = [...document.querySelectorAll<HTMLElement>('.card--locked')];
     expect(locked.length).toBeGreaterThan(0);
@@ -479,7 +479,7 @@ describe('мировая цена, магазин и инженерное мен
     menu?.querySelector<HTMLButtonElement>('[data-action="unlock"]')?.click();
     await flush();
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    game.state.coins = 0;
+    game.stateForTests().coins = 0;
     // Требования по накопленному заработку сняты — закрытых карточек не осталось.
     await waitFor(() => document.querySelectorAll('.card--locked').length === 0);
     const locked = [...document.querySelectorAll<HTMLElement>('.card--locked')];
@@ -497,11 +497,11 @@ describe('финал', () => {
   let newsAfterWin = '';
 
   it('открывает титры и показывает стихотворение из credits.txt', async () => {
-    game.state.coins = game.config.winCost * 2;
+    game.stateForTests().coins = game.config.winCost * 2;
     for (const req of game.config.winRequirements) {
-      if (req.upgrade) game.state.levels[req.upgrade] = req.level ?? 1;
+      if (req.upgrade) game.stateForTests().levels[req.upgrade] = req.level ?? 1;
     }
-    game.state.totalEarned = game.config.winCost * 2;
+    game.stateForTests().totalEarned = game.config.winCost * 2;
     // Финальную покупку игрок делает кнопкой магазина, а не вызовом ядра:
     // так проверяется и то, что интерфейс делает вокруг покупки.
     document.querySelector<HTMLButtonElement>('[data-tab="goals"]')!.click();
@@ -579,8 +579,8 @@ describe('финал', () => {
 
 describe('этап 5: банк, реприватизация, активы и контробанда', () => {
   it('убыточный банк покупается один раз и открывает «масштабы»', async () => {
-    game.state.coins = 1e12;
-    game.state.totalEarned = 1e12;
+    game.stateForTests().coins = 1e12;
+    game.stateForTests().totalEarned = 1e12;
     await nextFrame();
     const political = [...document.querySelectorAll<HTMLButtonElement>('.tab')].find(
       (tab) => tab.textContent === 'Политика',

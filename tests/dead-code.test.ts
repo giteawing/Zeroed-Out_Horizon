@@ -39,7 +39,7 @@ const testFiles = filesIn('tests', /\.ts$/);
  *  - «наблюдение»: геттер без логики, по которому тест видит внутреннее
  *    состояние. Тест проверяет, что такой член действительно читают тесты.
  */
-const ALLOWED_MEMBERS: Record<string, 'окно Escape' | 'наблюдение'> = {
+const ALLOWED_MEMBERS: Record<string, 'окно Escape' | 'наблюдение' | 'дверь для тестов'> = {
   'src/ui/asset-details.ts#AssetDetails.visible': 'окно Escape',
   'src/ui/dev.ts#DevMenu.visible': 'окно Escape',
   'src/ui/settings.ts#Settings.visible': 'окно Escape',
@@ -47,6 +47,9 @@ const ALLOWED_MEMBERS: Record<string, 'окно Escape' | 'наблюдение'
   'src/audio/sound.ts#SoundEngine.isEnabled': 'наблюдение',
   'src/core/clock.ts#FrameClock.pendingMs': 'наблюдение',
   'src/ui/shop.ts#Shop.cardCount': 'наблюдение',
+  // Публичная запись в `Game.state` закрыта (AUDIT F04): сценарии вроде
+  // «у игрока ровно столько денег» готовят тесты через эту дверь.
+  'src/core/game.ts#Game.stateForTests': 'дверь для тестов',
 };
 
 interface Declared {
@@ -183,6 +186,12 @@ describe('в игре нет кода, которым пользуются то�
     const main = readFileSync(join(root, 'src/main.ts'), 'utf8');
     for (const [id, reason] of Object.entries(ALLOWED_MEMBERS)) {
       const member = id.slice(id.lastIndexOf('.') + 1);
+      if (reason === 'дверь для тестов') {
+        // Такой член существует только ради тестов и обязан в них встречаться.
+        expect(tests, `${id}: дверь для тестов, которой не пользуется ни один тест`)
+          .toMatch(new RegExp(`\\.${member}\\(`));
+        continue;
+      }
       if (reason === 'наблюдение') {
         expect(tests, `${id}: «наблюдение», которое не читает ни один тест`).toMatch(new RegExp(`\\.${member}\\b`));
       } else {

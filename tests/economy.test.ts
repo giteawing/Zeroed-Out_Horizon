@@ -981,3 +981,43 @@ describe('регрессии аудита: периодика, банк, рын�
     expect(prize.shares.reduce((sum, share) => sum + share, 0)).toBe(prize.dailyTonnes);
   });
 });
+
+describe('точность денег (REVIEW F11)', () => {
+  it('любая цена и финальная покупка — точное целое в пределах 2^53', () => {
+    // Цены считаются в double. Пока результат остаётся точным целым, сложение
+    // и сравнение денег не врёт; выше 2^53 «цена» перестала бы быть ценой.
+    let worst = 0;
+    let worstId = '';
+    for (const def of content.upgrades) {
+      for (let level = 0; level < def.maxLevel; level++) {
+        const price = costFor(config, def, level);
+        expect(Number.isSafeInteger(price), `${def.id}@${level}: ${price}`).toBe(true);
+        if (price > worst) {
+          worst = price;
+          worstId = `${def.id}@${level}`;
+        }
+      }
+    }
+    // Худшая цена — финальный насос: 2,5e24 номинала сжаты до 5e14.
+    expect(worstId.startsWith('win_pump')).toBe(true);
+    expect(worst).toBeLessThan(Number.MAX_SAFE_INTEGER);
+  });
+
+  it('кривая цен никогда не выдаёт значение выше безопасного предела', () => {
+    for (const nominal of [1e5, 1e9, 1e15, 2.5e24, 1e25, 1e26, 1e30, 1e40]) {
+      const value = adjustCurrencyCost(config, nominal);
+      expect(Number.isSafeInteger(value), `${nominal}: ${value}`).toBe(true);
+      // До предела значение — округление кривой, а не «потолок».
+      if (nominal <= 1e26) expect(value).toBeLessThan(Number.MAX_SAFE_INTEGER);
+    }
+    // Выше предела кривая не отдаёт нецелое: цена упирается в потолок.
+    expect(adjustCurrencyCost(config, 1e40)).toBe(Number.MAX_SAFE_INTEGER);
+  });
+
+  it('цена финала, которую платит игрок, — это сжатый номинал, а не 2,5e24', () => {
+    const paid = winCostOf(config, content.upgrades);
+    expect(paid).toBe(adjustCurrencyCost(config, config.winCost));
+    expect(paid).toBe(5e14);
+    expect(paid).toBeLessThan(config.winCost);
+  });
+});

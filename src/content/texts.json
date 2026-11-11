@@ -79,7 +79,7 @@
     "assetsEquipment": "Оборудование",
     "assetsMedia": "Газеты и телеканалы",
     "assetsFacilities": "Принадлежащие объекты",
-    "exchangeRate": "Нефтефантиков за $1",
+    "exchangeRate": "Нефтефаников за $1",
     "productStorageEtaLabel": "до заполнения склада",
     "productStorageEta": "через {seconds} с",
     "productStorageFull": "нефтебазы заполнены",
@@ -565,7 +565,7 @@
     "t_productport": "Построить наливной терминал под нефтепродукты",
     "p_domestic_cartel": "Устроить монопольный сговор на внутреннем рынке",
     "p_export_cartel": "Создать международный нефтяной картель",
-    "p_devalue_currency": "Девальвировать нефтефантики",
+    "p_devalue_currency": "Девальвировать нефтефаники",
     "p_fuel_damper": "Пропихнуть в министерстве энергетики топливный демпфер",
     "g_capital_flight": "Вывоз капитала за границу"
   },

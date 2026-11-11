@@ -77,7 +77,7 @@ export function calculateMarket(
   const productionCapped = rawOilPerSecond > productionLimit;
 
   // Мировая котировка остаётся базовой. Внутренний рынок получает только
-  // внутреннюю надбавку; экспорт пересчитывается в нефтефантики по курсу.
+  // внутреннюю надбавку; экспорт пересчитывается в нефтефаники по курсу.
   const oilPricePerTon = config.oil.basePricePerTon * state.worldPrice * effects.priceMultiplier;
   const exchangeRate = config.exchangeRate.initial * effects.exchangeRateMultiplier;
   const domesticOilPricePerTon = oilPricePerTon * effects.domesticPriceMultiplier;

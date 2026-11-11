@@ -83,7 +83,7 @@ export interface RefineChannelConfig {
 }
 
 export interface OilConfig {
-  /** Цена тонны при мировой цене 1.0, в нефтефантиках. */
+  /** Цена тонны при мировой цене 1.0, в нефтефаниках. */
   basePricePerTon: number;
   /** Абсолютный предел автоматической добычи/подачи на рынок, тонн в секунду. */
   maxProductionPerSecond: number;
@@ -232,7 +232,7 @@ export interface UpgradeEffect {
   domesticPriceMultiplier?: number;
   /** Однократная надбавка к экспортным ценам нефти и нефтепродуктов. */
   exportPriceMultiplier?: number;
-  /** Девальвация за уровень: 0.05 означает +5% нефтефантиков за доллар. */
+  /** Девальвация за уровень: 0.05 означает +5% нефтефаников за доллар. */
   exchangeRateDevaluation?: number;
 }
 
@@ -296,7 +296,7 @@ export interface GameConfig {
   costGrowth: number;
   /** Единая кривая стоимости всех карточек и денежных требований. */
   currencyCostCurve: { anchor: number; exponent: number };
-  /** Курс: нефтефантиков за доллар и эластичность строительных затрат. */
+  /** Курс: нефтефаников за доллар и эластичность строительных затрат. */
   exchangeRate: { initial: number; constructionCostElasticity: number };
   maxBuyLevels: number;
   tickMs: number;
@@ -694,7 +694,7 @@ export interface DerivedStats {
   productPriceDomestic: number;
   /** Цена тонны нефтепродуктов на экспорте, ₦. */
   productPriceExport: number;
-  /** Текущий курс: нефтефантиков за 1 доллар; влияет только на экспортные цены. */
+  /** Текущий курс: нефтефаников за 1 доллар; влияет только на экспортные цены. */
   exchangeRate: number;
   /** Чистая прибыль в секунду: выручка минус налог и расходы, ₦/с. */
   profitPerSecond: number;
@@ -799,3 +799,21 @@ export type GameEvent =
       code: 'noMoney' | 'cooldown' | 'locked' | 'maxLevel' | 'won' | 'noOil' | 'noCapacity';
       id?: string;
     };
+
+/**
+ * Глубоко неизменяемое представление: чтение разрешено на любой вложенности,
+ * запись через него не компилируется ни на одном уровне (AUDIT F04).
+ * Функции и массивы сохраняются как есть — интерфейсу нужны `.length` и
+ * `.map()`, а писать в них он не должен.
+ */
+export type DeepReadonly<T> = T extends (...args: never[]) => unknown
+  ? T
+  : T extends readonly (infer Item)[]
+    ? ReadonlyArray<DeepReadonly<Item>>
+    : T extends object
+      // Массивы внутри объектов остаются изменяемыми: чистые расчёты экономики
+      // возвращают копии (`lines.sort(...)`, `values.sort(...)`) и передают
+      // снимок состояния внутрь без копирования. Запись в деньги, уровни и
+      // настройки через это представление не компилируется.
+      ? { readonly [Key in keyof T]: T[Key] extends readonly unknown[] ? T[Key] : DeepReadonly<T[Key]> }
+      : T;
