@@ -49,13 +49,12 @@ export function adjustCurrencyCost(config: GameConfig, value: number): number {
 /**
  * Строительный CAPEX дорожает при девальвации; политические услуги не индексируются.
  *
- * Формула — `max(initial, курс)^эластичность`, то есть индекс считается от
- * абсолютного курса, а не от его роста. При `initial = 1` (текущий конфиг)
- * это одно и то же, но при другом стартовом курсе все постройки подорожали
- * бы сразу, ещё до первой девальвации. Записано как известное ограничение:
- * менять формулу — значит менять числа игры, а для этого нужен отчёт по
- * балансу. Тест `tests/economy.test.ts` фиксирует текущее поведение и
- * предупредит, если конфиг перейдёт на другой стартовый курс.
+ * Индекс считается от роста курса: `(курс / initial)^эластичность`, но не
+ * ниже единицы — укрепление нефтефаника стройку не удешевляет. Раньше
+ * формула брала абсолютный курс (`max(initial, курс)`), и при стартовом курсе,
+ * отличном от 1, все постройки подорожали бы ещё до первой девальвации
+ * (REVIEW, «найдено по ходу»). При текущем `initial = 1` числа игры те же:
+ * тест `tests/economy.test.ts` сверяет обе формулы на текущем конфиге.
  */
 export function constructionCostMultiplier(
   config: GameConfig,
@@ -65,7 +64,10 @@ export function constructionCostMultiplier(
   const isCapitalAsset = Boolean(def.assetKind) || def.type === 'well' || def.type === 'field';
   if (!isCapitalAsset) return 1;
   const elasticity = Math.max(0, config.exchangeRate.constructionCostElasticity);
-  return Math.pow(Math.max(config.exchangeRate.initial, exchangeRate), elasticity);
+  const initial = config.exchangeRate.initial;
+  if (!(initial > 0)) return 1;
+  const growth = Math.max(1, exchangeRate / initial);
+  return Math.pow(growth, elasticity);
 }
 
 /** Цена следующего уровня: nominal baseCost · growth^level, общая кривая и индекс CAPEX. */

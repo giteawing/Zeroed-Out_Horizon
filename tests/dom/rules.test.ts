@@ -402,10 +402,22 @@ describe('правила: механики, о которых они молча�
     expect(upgradesText).toContain(formatPercent(slowGrowth, 1));
 
     // Движок: покупка с общим темпом и без индекса стройки дорожает именно так.
-    const plain = upgrades.find((def) =>
-      def.costGrowth === undefined && !def.assetKind && def.type !== 'well' && def.type !== 'field' &&
-      def.baseCost > 0 && def.baseCost < curve.anchor && def.maxLevel >= 40)!;
-    expect(plain, 'нужна покупка с общим темпом роста цены').toBeDefined();
+    // Уровни карточки для формулы цены не важны, а карточки с общим темпом
+    // сейчас короткие (после срезания уровней у бригады самая длинная — 10),
+    // поэтому кривая проверяется на пробной покупке тех же свойств.
+    const plain: UpgradeDef = {
+      id: 'probe_curve',
+      tab: 'technical',
+      group: 'test',
+      name: 'Проба: общая кривая цены',
+      description: 'Проверочная покупка, в игре её нет.',
+      icon: 'well',
+      type: 'periodic',
+      baseCost: 1000,
+      maxLevel: 100,
+      effect: { seconds: 60, value: 1 },
+    };
+    expect(upgrades.some((def) => def.costGrowth === undefined && !def.assetKind), 'в контенте есть покупки с общим темпом').toBe(true);
     expect(costFor(config, plain, 1) / costFor(config, plain, 0)).toBeCloseTo(config.costGrowth, 2);
     const late = Math.ceil(Math.log(curve.anchor / plain.baseCost) / Math.log(config.costGrowth)) + 5;
     expect(plain.baseCost * Math.pow(config.costGrowth, late)).toBeGreaterThan(curve.anchor);

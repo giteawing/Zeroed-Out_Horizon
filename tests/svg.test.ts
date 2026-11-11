@@ -124,6 +124,24 @@ describe('генераторы графики не портят ресурсы (
     expect(renders(senate!)).toBeGreaterThan(0);
   });
 
+  it('закоммиченные иконки совпадают с генератором: ручных расхождений больше нет', () => {
+    // Раньше 118 файлов отличались от вывода генератора (правки руками), и
+    // `npm run art:force` показывал другую картинку. Теперь расхождение —
+    // ошибка: `npm run art` воспроизводит то, что лежит в репозитории.
+    // Рукописные иконки (их нет в генераторе) сюда не входят.
+    const icons = [...new Set(content.upgrades.map((def) => def.icon))];
+    const handmade = ['devalue', 'domestic-cartel', 'export-cartel'];
+    for (const name of icons) {
+      if (handmade.includes(name)) {
+        expect(existsSync(resolve(iconRoot, `${name}.svg`)), name).toBe(true);
+        continue;
+      }
+      const generated = buildIcon(name);
+      expect(generated, name).not.toBeNull();
+      expect(generated === readFileSync(resolve(iconRoot, `${name}.svg`), 'utf8'), `${name} совпадает с файлом`).toBe(true);
+    }
+  });
+
   it('недостающая иконка создаётся: из словаря или из заглушки вкладки', () => {
     const missing = new Set(['well', 'devalue']);
     const plan = planIcons(content.upgrades, { exists: (name) => !missing.has(name) });

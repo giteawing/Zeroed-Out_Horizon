@@ -33,6 +33,14 @@
     <stop offset="55%" stop-color="#9aa4ad" />
     <stop offset="100%" stop-color="#6d7780" />
   </linearGradient>
+  <linearGradient id="steelDark" x1="0" y1="0" x2="0.3" y2="1">
+    <stop offset="0%" stop-color="#9aa4ad" />
+    <stop offset="100%" stop-color="#6d7780" />
+  </linearGradient>
+  <linearGradient id="cream" x1="0" y1="0" x2="0.3" y2="1">
+    <stop offset="0%" stop-color="#ffffff" />
+    <stop offset="100%" stop-color="#fdf3dd" />
+  </linearGradient>
   <linearGradient id="purple" x1="0" y1="0" x2="0.3" y2="1">
     <stop offset="0%" stop-color="#a563cc" />
     <stop offset="100%" stop-color="#7b3fa0" />
@@ -41,7 +49,7 @@
     <stop offset="0%" stop-color="#ffd0ac" />
     <stop offset="100%" stop-color="#f3b98c" />
   </linearGradient>
-<linearGradient id="steelDark" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0%" stop-color="#9aa4ad"/><stop offset="100%" stop-color="#6d7780"/></linearGradient><linearGradient id="cream" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#fdf3dd"/></linearGradient></defs>
+</defs>
   <circle cx="50" cy="50" r="47" fill="url(#soft)" />
   <circle cx="50" cy="50" r="47" fill="none" stroke="#17110c" stroke-width="2.2" opacity="0.14" />
 <rect x="18" y="22" width="64" height="14" rx="4" fill="url(#steel)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="40" y="36" width="20" height="18" rx="3" fill="url(#crimson)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><rect x="20" y="62" width="60" height="20" rx="4" fill="url(#steelDark)" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><path d="M34 62q0-10 8-10t8 10" fill="none" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"  /><circle cx="70" cy="72" r="5" fill="#fdf3dd" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" /><path d="M20 56L80 56" stroke="#17110c" stroke-width="3" stroke-linecap="round" fill="none" /><polygon points="84,19 85.85,23.45 90.66,23.84 87,26.97 88.11,31.66 84,29.15 79.89,31.66 81,26.97 77.34,23.84 82.15,23.45" fill="#f2b430" stroke="#17110c" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" />
