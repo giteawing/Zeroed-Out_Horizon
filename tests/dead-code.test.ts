@@ -208,3 +208,82 @@ describe('разметка не собирается из строк (REVIEW C12
     expect(offenders).toEqual([]);
   });
 });
+
+describe('панель империи не пишет в строки, которых нет (REVIEW C2)', () => {
+  /*
+   * Запись в строку шла через `rows.get(key)` с молчаливым пропуском, если
+   * строки нет. Так в панели остались три вызова для строк, убранных из
+   * разметки: значения считались на каждое обновление и никуда не шли.
+   */
+  const file = 'src/ui/hud.ts';
+  const source = ts.createSourceFile(file, readFileSync(join(root, file), 'utf8'), ts.ScriptTarget.ES2020, true);
+  /** Первые аргументы-литералы всех вызовов функции или метода с таким именем. */
+  const keysOf = (name: string): string[] => {
+    const keys: string[] = [];
+    const visit = (node: ts.Node): void => {
+      if (ts.isCallExpression(node)) {
+        const callee = node.expression;
+        const called = ts.isIdentifier(callee)
+          ? callee.text
+          : ts.isPropertyAccessExpression(callee) ? callee.name.text : '';
+        const first = node.arguments[0];
+        if (called === name && first && ts.isStringLiteral(first)) keys.push(first.text);
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(source);
+    return keys;
+  };
+  const created = keysOf('row');
+  const written = keysOf('set');
+  const looked = [...keysOf('rowOf'), ...keysOf('setLabel')];
+
+  it('разбор видит строки панели и записи в них', () => {
+    expect(created.length).toBeGreaterThan(50);
+    expect(written.length).toBeGreaterThan(50);
+    expect(created).toContain('produced');
+    expect(written).toContain('produced');
+    // Ключ строки — всегда литерал: иначе сверка ниже ничего не доказывает.
+    const dynamic: string[] = [];
+    const visit = (node: ts.Node): void => {
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) &&
+        ['row', 'set'].includes(node.expression.text) && node.arguments[0] &&
+        !ts.isStringLiteral(node.arguments[0])) {
+        dynamic.push(node.getText(source).slice(0, 60));
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(source);
+    expect(dynamic).toEqual([]);
+  });
+
+  it('каждая строка создаётся один раз', () => {
+    expect(created.filter((key, index) => created.indexOf(key) !== index)).toEqual([]);
+  });
+
+  it('каждая запись идёт в существующую строку', () => {
+    const rows = new Set(created);
+    expect([...new Set([...written, ...looked])].filter((key) => !rows.has(key))).toEqual([]);
+  });
+
+  it('в каждую строку что-то пишут', () => {
+    const filled = new Set(written);
+    expect(created.filter((key) => !filled.has(key))).toEqual([]);
+  });
+
+  it('строку по ключу ищет одна функция', () => {
+    // `rowOf()` бросает ошибку, если строки нет (tests/dom/hud.test.ts).
+    // Второе обращение к `this.rows.get` вернуло бы молчаливый пропуск.
+    const lookups: string[] = [];
+    const visit = (node: ts.Node): void => {
+      if (ts.isCallExpression(node) && node.expression.getText(source) === 'this.rows.get') {
+        let owner: ts.Node | undefined = node.parent;
+        while (owner && !ts.isMethodDeclaration(owner)) owner = owner.parent;
+        lookups.push(owner && ts.isMethodDeclaration(owner) ? owner.name.getText(source) : '?');
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(source);
+    expect(lookups).toEqual(['rowOf']);
+  });
+});

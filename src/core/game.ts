@@ -51,9 +51,10 @@ const MAX_LOG = 24;
 
 /**
  * Куда утекает излишек. Тексты берутся из `texts.spill.places` по ключу,
- * чтобы падежи и предлоги не собирались в коде.
+ * чтобы падежи и предлоги не собирались в коде. Список экспортирован для
+ * проверки текстов: у каждого места должна быть строка, у строки — место.
  */
-const SPILL_PLACES = ['sea', 'taiga', 'river', 'tundra', 'field', 'yard'] as const;
+export const SPILL_PLACES = ['sea', 'taiga', 'river', 'tundra', 'field', 'yard'] as const;
 
 export interface BuyResult {
   ok: boolean;

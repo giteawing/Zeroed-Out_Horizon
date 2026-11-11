@@ -62,7 +62,8 @@ npm run test:e2e
 | Темп, выкуп контента, рост экономики | `tests/balance-pace.test.ts`, `tests/balance-content.test.ts`, `tests/balance-growth.test.ts` |
 | CI, деплой, npm-скрипты, генераторы графики | `tests/harness.test.ts`, `tests/svg.test.ts` |
 | Проверка контента при загрузке | `tests/content-validation.test.ts` |
-| Мёртвый код и запрет `innerHTML` | `tests/dead-code.test.ts` |
+| Мёртвый код, запрет `innerHTML`, строки панели без записей | `tests/dead-code.test.ts` |
+| Тексты ↔ код: ключи без строк и строки без ключей | `tests/texts-usage.test.ts` |
 | DOM-магазин, HUD, раскладка | `tests/dom/` |
 | Реальный desktop-путь игрока | `tests/e2e/smoke.spec.ts` |
 

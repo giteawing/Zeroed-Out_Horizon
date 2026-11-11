@@ -184,8 +184,6 @@ export class Hud {
           ]),
         ]),
 
-        el('div', { class: 'hud__rows' }, [
-        ]),
         // Автодобыча — отдельной строкой на всю ширину колонки: короткий
         // вердикт «команда в сборе / не собрана» важнее соседства с маршрутами.
         el('div', { class: 'hud__rows hud__rows--single' }, [
@@ -224,10 +222,10 @@ export class Hud {
     ]);
 
     // Строка «Активы» открывает подробную оценку собственности.
-    const assetsRow = this.rows.get('assets')?.root;
-    assetsRow?.setAttribute('role', 'button');
-    assetsRow?.setAttribute('tabindex', '0');
-    assetsRow?.classList.add('hud__row--action');
+    const assetsRow = this.rowOf('assets').root;
+    assetsRow.setAttribute('role', 'button');
+    assetsRow.setAttribute('tabindex', '0');
+    assetsRow.classList.add('hud__row--action');
 
     // Таблица счёта: доход раскрыт по направлениям продаж, расходы — по статьям.
     this.invoice.append(
@@ -257,6 +255,23 @@ export class Hud {
         this.profitValue,
       ]),
     );
+  }
+
+  /**
+   * Строка панели по ключу. Ключа нет — это ошибка в коде панели: молчаливый
+   * пропуск только прятал бы её (так в `update()` оставались записи в
+   * строки, убранные из разметки).
+   */
+  private rowOf(key: string): Row {
+    const row = this.rows.get(key);
+    if (!row) throw new Error(`Hud: unknown row "${key}"`);
+    return row;
+  }
+
+  /** Подпись строки: у налога, штрафа и процентов она меняется вместе с числом. */
+  private setLabel(key: string, label: string): void {
+    const node = this.rowOf(key).root.querySelector('.hud__row-label');
+    if (node && node.textContent !== label) node.textContent = label;
   }
 
   /** Мелкая пометка под ценой: что входит в число. */
@@ -289,8 +304,8 @@ export class Hud {
     }
 
     const set = (key: string, value: string) => {
-      const row = this.rows.get(key);
-      if (!row || row.last === value) return;
+      const row = this.rowOf(key);
+      if (row.last === value) return;
       row.last = value;
       row.value.textContent = value;
     };
@@ -398,9 +413,9 @@ export class Hud {
     set('damperIncome', moneyRate(derived.damperIncomePerSecond));
     set('capitalFlightIncome', moneyRate(derived.capitalFlightIncomePerSecond));
     set('investmentIncome', moneyRate(derived.investmentIncomePerSecond));
-    const investmentLabel = this.texts.get('hud.investmentIncome', { rate: formatNumber(derived.investmentRatePercent) });
-    const investmentLabelNode = this.rows.get('investmentIncome')?.root.querySelector('.hud__row-label');
-    if (investmentLabelNode && investmentLabelNode.textContent !== investmentLabel) investmentLabelNode.textContent = investmentLabel;
+    this.setLabel('investmentIncome', this.texts.get('hud.investmentIncome', {
+      rate: formatNumber(derived.investmentRatePercent),
+    }));
     // EBT — прибыль до налога: доход минус расходы. Из неё считается налог,
     // поэтому в таблице она стоит отдельной строкой перед налогом.
     const ebtText = units('moneyRate', {
@@ -429,14 +444,8 @@ export class Hud {
     const fineLabel = this.texts.get('hud.fineHint', {
       relief: formatPercent(1 - derived.fineFactor, 0),
     });
-    const fineNote = this.rows.get('fine')?.root.querySelector('.hud__row-label');
-    if (fineNote && fineNote.textContent !== `${this.texts.get('hud.fineTitle')} · ${fineLabel}`) {
-      fineNote.textContent = `${this.texts.get('hud.fineTitle')} · ${fineLabel}`;
-    }
-    const taxLabel = this.texts.get('hud.taxPaid', { rate: formatPercent(derived.taxRate) });
-    const taxRow = this.rows.get('taxPaid');
-    const taxLabelNode = taxRow?.root.querySelector('.hud__row-label');
-    if (taxLabelNode && taxLabelNode.textContent !== taxLabel) taxLabelNode.textContent = taxLabel;
+    this.setLabel('fine', `${this.texts.get('hud.fineTitle')} · ${fineLabel}`);
+    this.setLabel('taxPaid', this.texts.get('hud.taxPaid', { rate: formatPercent(derived.taxRate) }));
     // Внутренняя цена сырья — рядом с мировой (см. блок цен выше).
     // Цены: мировая — базовая (без надбавок), остальные — фактические,
     // те же, по которым считаются строки сбыта.
@@ -530,9 +539,6 @@ export class Hud {
     }));
     set('domesticThroughput', rate(derived.domesticThroughputCapacity));
     set('exportThroughput', rate(derived.exportThroughputCapacity));
-    set('exportPipelineCapacity', rate(derived.exportCapacityByMode.pipeline));
-    set('exportRailCapacity', rate(derived.exportCapacityByMode.rail));
-    set('exportTankerCapacity', rate(derived.exportCapacityByMode.tanker));
     set('refineryThroughput', rate(derived.refineryThroughputCapacity));
 
     const fill = Math.max(0, Math.min(1, derived.oilCapacity > 0 ? state.oil / derived.oilCapacity : 0));

@@ -417,7 +417,7 @@ export interface NewsTexts {
 }
 
 export interface TextsFile {
-  meta: { title: string; subtitle: string; lang: string };
+  meta: { title: string };
   start: Record<string, string>;
   hud: Record<string, string>;
   tabs: Record<string, string>;
@@ -431,7 +431,6 @@ export interface TextsFile {
   finale: {
     pumpName: string;
     buyButton: string;
-    locked: string;
     cutscene: string[];
     victoryTitle: string;
     creditsTitle: string;
@@ -444,10 +443,8 @@ export interface TextsFile {
   settings: Record<string, string>;
   news: NewsTexts;
   achievements: { list: Array<{ id: string; name: string; description: string }> };
-  tips: string[];
   /** id покупки → название: журналу нужны имена без обращения к играм-данным. */
   upgrades?: Record<string, string>;
-  purchase: { okNews: string[] };
 }
 
 export interface Content {

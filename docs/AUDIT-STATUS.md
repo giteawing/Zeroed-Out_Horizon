@@ -108,6 +108,8 @@
 | C1 | Из ядра убрано всё, чем игра не пользовалась, и тесты, которые это «проверяли»: `sellOil`, `saleProceeds`, `exportTonnes`, `netForInterval`, `freeOilSpace`, `iconPath`, `formatClock`, `Rng.int`, `Effects.destroy`, помощники `raf`, `prefersReducedMotion`, `onActivate`; счётчик `Game.revenuePerSecond()`, который пересчитывался каждый шаг и читался только тестом; недостижимые ветки — «цена × factor» в `eventPayout()` (выигрыш ставки платит `Game.tickGambles`), `refine` в плане разовой продажи, перенос добычи из уровней пассивных покупок в старых сейвах (у пассивных покупок нет `value`, перенос всегда давал ноль). Список `WELL_UPGRADE_IDS` заменён правилом по типу покупки, симулятор отличает месторождение от скважины той же `grantsField()`, а не по `id`. `cooldownSeconds: 0` у министерства удалён, загрузчик такого значения больше не принимает. Свойства, которые проверялись на мёртвых функциях, перенесены на работающий код: раздача по цене — на `allocateByPrice()`, «не продать больше, чем есть» и «цена дня» — на покупку `p_export`, выигрыш ставки — на `Game`; тест сброса партии сравнивает игру после `reset()` с созданной заново шаг в шаг. Новый тест требует ссылку из кода игры или скрипта на каждый экспорт и каждый публичный член класса в `src/` | `tests/dead-code.test.ts`, `tests/economy.test.ts`, `tests/regressions.test.ts`, `tests/game.test.ts`, `tests/wells.test.ts`, `tests/content-validation.test.ts` |
 | C12 | `el()` не принимает ключ `html`: разметка собирается только из узлов и `textContent`. Тест запрещает `innerHTML`, `outerHTML`, `insertAdjacentHTML` и `document.write` во всём `src/` | `tests/dead-code.test.ts`, `tests/dom/dom-helpers.test.ts` |
 | Найдено по ходу | Финал не закрывался по Escape: его не было в списке окон, хотя геттер `visible` у него был. Теперь Escape закрывает финал так же, как кнопка «Закрыть»; вернуться к титрам можно из меню | `tests/dom/app.test.ts` |
+| C2 | Панель империи больше не считает значения для трёх строк, убранных из разметки (`exportPipelineCapacity`, `exportRailCapacity`, `exportTankerCapacity`): запись в несуществующую строку теперь ошибка, а не молчаливый пропуск, и тест сверяет список строк со списком записей. Удалён пустой блок строк между нефтепродуктами и автодобычей | `tests/dead-code.test.ts`, `tests/dom/hud.test.ts` |
+| H6 | Тексты и код сверяются в обе стороны разбором исходников: каждый запрошенный ключ есть в `texts.json`, каждая строка `texts.json` кем-то запрашивается, ключи, которые собираются из данных, объявлены вместе с источником значений. Из `texts.json` удалены 50 ключей (59 строк), которые игра не показывала (список — ниже, в «Решениях») | `tests/texts-usage.test.ts` |
 
 ### Решения, принятые по ходу
 
@@ -250,13 +252,37 @@
 - **E2E в песочнице.** Там, где CDN Playwright недоступен, e2e идёт на своём
   Chromium через `E2E_CHROMIUM_PATH` (рецепт — в навыке
   `testing-regressions`).
+- **Удалённые строки `texts.json` (H6).** Ни одну из них код не запрашивал —
+  это остатки прежних версий интерфейса. Если что-то из списка нужно
+  показать игроку, строку можно вернуть из истории git вместе с кодом,
+  который её выводит:
+  - `tips` — восемь подсказок об игре (то же сказано в «Правилах»);
+  - `purchase.okNews` — три новости «Империя совершила покупку…»;
+  - `meta.subtitle` («Нефть есть. Всё остальное купим.»), `meta.lang`;
+  - `hud.*` — `progress`, `gross`, `channelContract`, `channelExport`,
+    `channelRefine`, `wellsCount`, `refineries`, `depots`, `azsCount`,
+    `exportPipes`, `refineryPipes`, `capacity`, `productsCapacity`,
+    `productsStored`, `exportPipelineCapacity`, `exportRailCapacity`,
+    `exportTankerCapacity`;
+  - `shop.*` — `level`, `effectOneShot`, `effectWin`, `effectSellPrice`,
+    `effectConquest`, `effectTaxLaw`, `effectThroughputBonus`;
+  - `panel.*` — `shop`, `expand`, `collapse`, `log`, `hint`;
+  - `stats.*` — `title`, `oil`, `influence`; `finale.locked`;
+    `settings.sound`; `wells.title`;
+  - `sales.*` — `title`, `hint`, `rate`, `price`, `locked`, `empty`;
+  - `units.*` — `tonnesPerDay`, `pricesPerTon`, `assetsValue`,
+    `domesticPrice`, `percentRate`.
+- **Названия покупок хранятся дважды.** Карточка берёт название из
+  `upgrades.json`, журнал — из `texts.json → upgrades`. Копии сверяются
+  тестами (набор id и сами названия), поэтому разойтись молча они не
+  могут; убрать вторую копию — отдельное упрощение, оно не делалось.
 
 ### Ещё не сделано
 
 Порядок — по `REVIEW.md` §F. Раздел обновляется вместе с пакетами.
 
-- **Пакет 4 (чистка и обвязка), остаток:** C2, C3, C5, C8–C10, H6, H7, H9,
-  H11, H13, H14, F11; навык `rules-docs-sync`.
+- **Пакет 4 (чистка и обвязка), остаток:** C3, C5, C8–C10, H7, H9, H11,
+  H13, H14, F11; навык `rules-docs-sync`.
 - **Найдено по ходу, в ревизии нет:**
   - уровни со 2-го по 45-й у пяти карточек буровой бригады и все уровни
     «ГТИ-шника» ничего не дают, только увеличивают зарплаты: бригаде хватает

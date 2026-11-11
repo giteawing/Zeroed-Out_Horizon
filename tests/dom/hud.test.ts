@@ -100,3 +100,44 @@ describe('панель империи: множитель добычи от до
     expect(rowOf(hud, 'salesBoost').value).not.toBe('×1');
   });
 });
+
+describe('панель империи: строки и записи в них (REVIEW C2)', () => {
+  it('после обновления у каждой строки есть значение', () => {
+    // Строка, в которую никто не пишет, выглядит как подпись без числа.
+    const { hud } = hudFor({});
+    const values = [
+      ...hud.root.querySelectorAll('.hud__row-value'),
+      ...hud.marketPrices.querySelectorAll('.hud__row-value'),
+    ];
+    expect(values.length).toBeGreaterThan(50);
+    const empty = values
+      .filter((node) => (node.textContent ?? '').trim() === '')
+      .map((node) => node.closest('[data-row]')?.getAttribute('data-row') ?? node.className);
+    expect(empty).toEqual([]);
+  });
+
+  it('в разметке нет пустых блоков строк', () => {
+    const { hud } = hudFor({});
+    const hollow = [...hud.root.querySelectorAll('.hud__rows')].filter((block) => block.children.length === 0);
+    expect(hollow).toHaveLength(0);
+  });
+
+  it('обращение к строке, которой нет, — ошибка, а не молчаливый пропуск', () => {
+    // Раньше запись в несуществующую строку пропускалась, и панель на каждое
+    // обновление считала три значения для строк, убранных из разметки.
+    const { hud } = hudFor({});
+    const lookup = hud as unknown as { rowOf(key: string): unknown };
+    expect(() => lookup.rowOf('exportRailCapacity')).toThrow(/exportRailCapacity/);
+    expect(() => lookup.rowOf('produced')).not.toThrow();
+  });
+
+  it('подписи с числами обновляются вместе со значениями', () => {
+    // Налог, штраф и проценты на остаток: ставка стоит в подписи строки.
+    const { hud } = hudFor({});
+    for (const key of ['taxPaid', 'fine', 'investmentIncome']) {
+      const { label } = rowOf(hud, key);
+      expect(label, key).toMatch(/\d/);
+      expect(label, key).not.toMatch(/\{\w+\}/);
+    }
+  });
+});
