@@ -65,6 +65,8 @@ npm run test:e2e
 | Проверка контента при загрузке | `tests/content-validation.test.ts` |
 | Мёртвый код, запрет `innerHTML`, строки панели без записей | `tests/dead-code.test.ts` |
 | Тексты ↔ код: ключи без строк и строки без ключей | `tests/texts-usage.test.ts` |
+| Стили ↔ разметка: правила без элементов и классы без правил | `tests/css-usage.test.ts` |
+| Адреса в сборке: игра работает из подпапки | `tests/build-paths.test.ts`, сценарий с подпапкой в E2E |
 | DOM-магазин, HUD, раскладка | `tests/dom/` |
 | Реальный desktop-путь игрока | `tests/e2e/smoke.spec.ts` |
 

@@ -235,7 +235,7 @@ function boot(): void {
         el('span', { class: 'topbar__wallet-label' }, texts.get('hud.balance')),
         hud.balance,
       ]),
-      el('div', { class: 'topbar__stat topbar__stat--influence' }, [
+      el('div', { class: 'topbar__stat' }, [
         el('span', { class: 'topbar__wallet-label' }, texts.get('hud.influence')),
         el('div', { class: 'topbar__influence' }, [
           hud.influence.value,

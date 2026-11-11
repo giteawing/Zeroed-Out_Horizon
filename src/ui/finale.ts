@@ -34,7 +34,6 @@ export class Finale {
   show(state: GameState): void {
     this.clearCutsceneTimer();
     this.root.hidden = false;
-    this.root.classList.remove('finale--done');
     this.root.replaceChildren(this.buildCutscene(state));
   }
 
@@ -43,7 +42,6 @@ export class Finale {
     const cutscene = el('div', { class: 'cutscene' }, [
       el('div', { class: 'cutscene__pump' }, [
         el('img', { src: icon('win-pump'), alt: '', width: 160, height: 160 }),
-        el('div', { class: 'cutscene__shake' }),
       ]),
     ]);
     lines.forEach((line, index) => {
@@ -68,7 +66,6 @@ export class Finale {
   }
 
   private buildCredits(state: GameState): HTMLElement {
-    this.root.classList.add('finale--done');
     const poem =
       this.content.credits && !creditsIsPlaceholder(this.content.credits)
         ? this.content.credits.trim()

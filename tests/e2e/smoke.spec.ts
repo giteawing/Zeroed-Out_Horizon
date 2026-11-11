@@ -62,6 +62,59 @@ test('игра запускается без ошибок в консоли', as
   expect(errors).toEqual([]);
 });
 
+test('игра работает из подпапки: ни один запрос не уходит к корню домена', async ({ page }) => {
+  // GitHub Pages раздаёт игру по адресу /<репозиторий>/. Превью раздаёт
+  // сборку из корня, поэтому подпапка изображается подменой адресов: запрос
+  // внутри подпапки получает файл из корня, а запрос мимо неё — это адрес
+  // от корня домена, который на GitHub Pages указывает мимо игры.
+  const folder = '/games/horizon/';
+  const escaped: string[] = [];
+  const broken: string[] = [];
+  const served: string[] = [];
+  const TYPES: Array<[RegExp, RegExp]> = [
+    [/\.svg$/, /image\/svg\+xml/],
+    [/\.js$/, /javascript/],
+    [/\.css$/, /text\/css/],
+  ];
+  await page.route('**/*', async (route) => {
+    const url = new URL(route.request().url());
+    if (!url.pathname.startsWith(folder)) {
+      escaped.push(url.pathname);
+      await route.abort();
+      return;
+    }
+    const inside = `/${url.pathname.slice(folder.length)}`;
+    const response = await route.fetch({ url: new URL(inside + url.search, url.origin).toString() });
+    const type = response.headers()['content-type'] ?? '';
+    // Превью на неизвестный адрес может ответить страницей игры: статус 200,
+    // а вместо картинки — HTML. Поэтому сверяется и тип ответа.
+    const expected = TYPES.find(([path]) => path.test(inside));
+    if (!response.ok() || (expected && !expected[1].test(type))) {
+      broken.push(`${response.status()} ${type} ${inside}`);
+    }
+    served.push(inside);
+    await route.fulfill({ response });
+  });
+
+  await page.goto(folder);
+  const loaded = (selector: string): Promise<boolean> =>
+    page.locator(selector).first().evaluate((node) => (node as HTMLImageElement).naturalWidth > 0);
+  // Логотип и иконки — пути из кода, фон — путь из стилей.
+  await expect.poll(() => loaded('.start__logo')).toBe(true);
+  await page.locator('.start .btn--gold').click();
+  await expect(page.locator('.start')).toHaveCount(0, { timeout: 5000 });
+  await expect.poll(() => loaded('.card img')).toBe(true);
+  await expect.poll(() => served.includes('/images/bg.svg')).toBe(true);
+  const background = await page.evaluate(
+    () => getComputedStyle(document.querySelector('.screen')!, '::before').backgroundImage,
+  );
+  expect(background).toContain(`${folder}images/bg.svg`);
+
+  expect(escaped).toEqual([]);
+  expect(broken).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
 test('непрерывная добыча отправляет сырую нефть в сбыт', async ({ page }) => {
   await start(page);
   const before = await page.evaluate(

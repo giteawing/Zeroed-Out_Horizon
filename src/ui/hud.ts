@@ -134,19 +134,19 @@ export class Hud {
             // Договоры о сбыте умножают саму добычу; без этой строки игрок
             // видит рост «производства», но не видит, откуда он взялся.
             row('salesBoost', texts.get('hud.salesBoost'), 'hud__row-value--factor').root,
-            row('crudeDomestic', texts.get('hud.saleDomestic'), 'hud__row-value--sell').root,
-            row('crudeExport', texts.get('hud.saleExport'), 'hud__row-value--sell').root,
+            row('crudeDomestic', texts.get('hud.saleDomestic')).root,
+            row('crudeExport', texts.get('hud.saleExport')).root,
             // Три способа доставки — подпункты экспорта: отступ слева и
             // вертикальная связка показывают, что они входят в строку выше.
             row('exportPipeline', texts.get('hud.exportPipeline'),
-              'hud__row-value--sell hud__row-value--under', 'hud__row--under').root,
+              'hud__row-value--under', 'hud__row--under').root,
             row('exportRail', texts.get('hud.exportRail'),
-              'hud__row-value--sell hud__row-value--under', 'hud__row--under').root,
+              'hud__row-value--under', 'hud__row--under').root,
             row('exportTanker', texts.get('hud.exportTanker'),
-              'hud__row-value--sell hud__row-value--under', 'hud__row--under').root,
-            row('crudeRefine', texts.get('hud.toRefine'), 'hud__row-value--sell').root,
+              'hud__row-value--under', 'hud__row--under').root,
+            row('crudeRefine', texts.get('hud.toRefine')).root,
             // Сколько добычи легло в резервуары и ждёт отправки.
-            row('crudeStored', texts.get('hud.stored'), 'hud__row-value--stored').root,
+            row('crudeStored', texts.get('hud.stored')).root,
             // «Доступный объём» рынков: сколько они ещё могут принять.
             // Занято / всего — сразу видно, где узкое место.
             row('crudeMarketDomestic', texts.get('hud.marketDomestic'),
@@ -161,21 +161,21 @@ export class Hud {
           el('span', { class: 'hud__section-title' }, texts.get('hud.products')),
           el('div', { class: 'hud__rows hud__rows--single' }, [
             row('productsOut', texts.get('hud.production'), 'hud__row-value--oil').root,
-            row('productsDomestic', texts.get('hud.saleDomestic'), 'hud__row-value--sell').root,
+            row('productsDomestic', texts.get('hud.saleDomestic')).root,
             // Излишек сверх рынка и склада — подпункт внутренней продажи:
             // он уходит по внутренней цене, но уже без мощности рынка.
             row('productsSpill', texts.get('hud.productsSpill'),
-              'hud__row-value--sell hud__row-value--under', 'hud__row--under').root,
-            row('productsExport', texts.get('hud.saleExport'), 'hud__row-value--sell').root,
+              'hud__row-value--under', 'hud__row--under').root,
+            row('productsExport', texts.get('hud.saleExport')).root,
             // Топливо, которому не хватило рынка: оно лежит на нефтебазах.
             // Без этой строки производство не сходилось с продажей, и
             // казалось, что продукты исчезают.
             row('productsLeft', texts.get('hud.productsUnsold'),
-              'hud__row-value--stored hud__row-value--under').root,
+              'hud__row-value--under').root,
             // Нефтебазы хранят нефтепродукты: показываем, сколько их лежит
             // и сколько всего влезает.
-            row('productsOnHand', texts.get('hud.productStorage'), 'hud__row-value--stored').root,
-            row('productsStorageEta', texts.get('hud.productStorageEtaLabel'), 'hud__row-value--stored').root,
+            row('productsOnHand', texts.get('hud.productStorage')).root,
+            row('productsStorageEta', texts.get('hud.productStorageEtaLabel')).root,
             // Те же «доступные объёмы» рынков, но для нефтепродуктов.
             row('productsMarketDomestic', texts.get('hud.marketDomestic'),
               'hud__row-value--market').root,
@@ -187,7 +187,7 @@ export class Hud {
         // Автодобыча — отдельной строкой на всю ширину колонки: короткий
         // вердикт «команда в сборе / не собрана» важнее соседства с маршрутами.
         el('div', { class: 'hud__rows hud__rows--single' }, [
-          row('autoDrill', '', 'hud__row-value--crew hud__row-value--wide').root,
+          row('autoDrill', '', 'hud__row-value--wide').root,
         ]),
       ]),
 
