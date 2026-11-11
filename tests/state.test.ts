@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  SAVE_KEY,
   createInitialState,
   normalizeState,
   offlineReport,
@@ -94,6 +95,50 @@ describe('нормализация сохранения', () => {
     expect(restored.won).toBe(true);
     expect(restored.wonAtMs).toBe(1000);
     expect(restored.achievements).toHaveLength(2);
+  });
+});
+
+describe('формат сохранения не версионируется (REVIEW C3)', () => {
+  /**
+   * В сейве было поле `version`, которое игра писала и никогда не читала;
+   * рядом жили ещё два числа — «v2» в ключе хранилища и `config.version`.
+   * Номер в старых сейвах к тому же ненадёжен: в истории он менялся
+   * 3 → 2 → 3 при одном и том же формате. Совместимость держится на
+   * `normalizeState()`: каждое поле читается с проверкой и значением по
+   * умолчанию.
+   */
+  it('ключ хранилища — адрес сохранений всех игроков', () => {
+    // Сменить ключ — оставить каждого игрока без сохранения. «v2» в нём —
+    // поколение сейвов (нефтяная модель), а не версия формата.
+    expect(SAVE_KEY).toBe('zeroed-out-horizon:save:v2');
+  });
+
+  it('новая игра не пишет номер версии', () => {
+    const saved = JSON.parse(serializeState(createInitialState(config, 1))) as Record<string, unknown>;
+    expect(saved).not.toHaveProperty('version');
+    expect(config).not.toHaveProperty('version');
+  });
+
+  it('номер версии в старом сейве не влияет на загрузку и не возвращается в сейв', () => {
+    const old = JSON.parse(serializeState(createInitialState(config, 77))) as Record<string, unknown>;
+    old.coins = 4321;
+    old.levels = { t_well: 4 };
+    old.achievements = ['a_tap100'];
+    const load = (version: unknown): Record<string, unknown> => {
+      const raw = { ...old };
+      if (version === undefined) delete raw.version;
+      else raw.version = version;
+      return normalizeState(raw, config, content) as unknown as Record<string, unknown>;
+    };
+    const plain = load(undefined);
+    expect(plain).not.toHaveProperty('version');
+    expect(plain.coins).toBe(4321);
+    expect(plain.levels).toEqual({ t_well: 4 });
+    // Перенос старых id работает по виду данных, а не по номеру.
+    expect(plain.achievements).toEqual(['a_sold_1000']);
+    for (const version of [1, 2, 3, 999, 'три', null]) {
+      expect(load(version), String(version)).toEqual(plain);
+    }
   });
 });
 

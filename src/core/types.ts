@@ -291,7 +291,6 @@ export interface UpgradeDef {
 }
 
 export interface GameConfig {
-  version: number;
   currency: string;
   startCoins: number;
   costGrowth: number;
@@ -499,7 +498,6 @@ export interface Well {
 
 /** Полный снимок прогресса, который сохраняется в localStorage. */
 export interface GameState {
-  version: number;
   coins: number;
   /** Добытая и ещё не проданная сырая нефть в резервуарах, тонн. */
   oil: number;

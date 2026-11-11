@@ -1,15 +1,24 @@
 /**
  * Состояние игры: создание, миграция (мягкое слияние), сериализация, офлайн-доход.
+ *
+ * Формат сохранения не версионируется. Совместимость со старыми сейвами
+ * держит `normalizeState()`: каждое поле читается с проверкой и значением по
+ * умолчанию, старые имена переводятся по виду данных. Если старое значение
+ * нельзя отличить от нового по виду — дай полю новое имя и перенеси старое
+ * в `normalizeState()`.
  */
 import type { Content, GameConfig, GameState, Well } from './types';
 import { randomSeed } from './rng';
 
+/**
+ * Адрес сохранения в localStorage. «v2» — поколение сейвов (нефтяная модель),
+ * а не версия формата: сменить ключ — значит оставить всех игроков без
+ * сохранения, старые сейвы останутся лежать под прежним ключом.
+ */
 export const SAVE_KEY = 'zeroed-out-horizon:save:v2';
-export const SAVE_VERSION = 3;
 
 export function createInitialState(config: GameConfig, seed = randomSeed()): GameState {
   return {
-    version: SAVE_VERSION,
     coins: config.startCoins,
     oil: config.oil.startOil,
     products: 0,
