@@ -10,6 +10,7 @@ import {
   oilFlowsOf,
   affordableLevels,
   computeDerived,
+  constructionCostMultiplier,
   costFor,
   eventPayout,
   isUnlocked,
@@ -1019,5 +1020,32 @@ describe('точность денег (REVIEW F11)', () => {
     expect(paid).toBe(adjustCurrencyCost(config, config.winCost));
     expect(paid).toBe(5e14);
     expect(paid).toBeLessThan(config.winCost);
+  });
+});
+
+describe('индекс стройки и стартовый курс (REVIEW, «найдено по ходу»)', () => {
+  const capital = content.upgrades.find((def) => def.type === 'well')!;
+
+  it('при стартовом курсе 1 стройка дорожает только от девальвации', () => {
+    expect(config.exchangeRate.initial).toBe(1);
+    expect(constructionCostMultiplier(config, capital, 1)).toBeCloseTo(1, 12);
+    const twice = constructionCostMultiplier(config, capital, 2);
+    expect(twice).toBeCloseTo(Math.pow(2, config.exchangeRate.constructionCostElasticity), 12);
+    expect(twice).toBeGreaterThan(1);
+  });
+
+  it('политические услуги не индексируются', () => {
+    const political = content.upgrades.find((def) => def.type === 'oneShot' && !def.assetKind)!;
+    expect(constructionCostMultiplier(config, political, 2.65)).toBe(1);
+  });
+
+  it('формула привязана к абсолютному курсу: стартовый курс выше 1 подорожает всё', () => {
+    // Это ограничение, а не желаемое поведение. Если формулу переведут на рост
+    // курса (`(курс / initial)^эластичность`), тест упадёт — и это будет
+    // осознанное изменение баланса, а не случайность.
+    const shifted = structuredClone(content.config);
+    shifted.exchangeRate.initial = 2;
+    const index = constructionCostMultiplier(shifted, capital, 2);
+    expect(index).toBeCloseTo(Math.pow(2, shifted.exchangeRate.constructionCostElasticity), 12);
   });
 });
