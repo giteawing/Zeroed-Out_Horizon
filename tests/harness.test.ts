@@ -359,3 +359,38 @@ describe('инструкции совпадают с настройками пр
     }
   });
 });
+
+describe('страница игры — только десктоп (REVIEW C10)', () => {
+  /**
+   * Игра делается под настольный браузер (AGENTS.md §2). Мета-теги
+   * «веб-приложения на телефоне», ограничение масштаба и отступы под вырез
+   * экрана остались от мобильной версии: они ничего не дают на десктопе и
+   * подсказывают, будто телефоны поддерживаются.
+   */
+  const html = read('index.html');
+  const meta = (name: string): string | null => {
+    const tag = new RegExp(`<meta\\s[^>]*name="${name}"[^>]*>`).exec(html)?.[0];
+    return tag ? (/content="([^"]*)"/.exec(tag)?.[1] ?? '') : null;
+  };
+
+  it('в странице нет тегов мобильного веб-приложения', () => {
+    expect(html).not.toMatch(/apple-mobile-web-app|mobile-web-app-capable|apple-touch-icon/);
+  });
+
+  it('viewport не ограничивает масштаб и не занимает вырез экрана', () => {
+    expect(meta('viewport')).toBe('width=device-width, initial-scale=1');
+  });
+
+  it('в стилях нет отступов под вырез экрана телефона', () => {
+    expect(read('src/styles/base.css')).not.toMatch(/safe-area-inset|--safe-/);
+  });
+
+  it('заголовок и описание страницы называют игру так же, как сама игра', () => {
+    const title = loadContent().texts.meta.title;
+    expect(/<title>([^<]*)<\/title>/.exec(html)?.[1]).toBe(title);
+    const description = meta('description') ?? '';
+    expect(description.startsWith(`${title} — `)).toBe(true);
+    // Добычи по нажатию в игре давно нет (AGENTS.md §8).
+    expect(description).not.toMatch(/кликер|тапалк/i);
+  });
+});

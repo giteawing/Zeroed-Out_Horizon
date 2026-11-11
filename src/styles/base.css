@@ -25,12 +25,6 @@
 
   --font: 'Trebuchet MS', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-display: Georgia, 'Times New Roman', serif;
-
-  /* Безопасные зоны iOS (ТЗ §8.1) */
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --safe-left: env(safe-area-inset-left, 0px);
-  --safe-right: env(safe-area-inset-right, 0px);
 }
 
 * {
@@ -84,8 +78,7 @@ img {
   display: grid;
   grid-template-rows: auto 1fr auto;
   height: 100%;
-  padding: calc(var(--safe-top) + 6px) calc(var(--safe-right) + 8px)
-    calc(var(--safe-bottom) + 6px) calc(var(--safe-left) + 8px);
+  padding: 6px 8px;
   gap: 6px;
   background:
     radial-gradient(120% 80% at 50% 0%, #3b2a44 0%, transparent 60%),
@@ -1238,7 +1231,7 @@ img {
   z-index: 50;
   display: grid;
   place-items: center;
-  padding: calc(var(--safe-top) + 16px) 16px calc(var(--safe-bottom) + 16px);
+  padding: 16px;
   background: rgba(10, 7, 5, 0.82);
   backdrop-filter: blur(4px);
   overflow-y: auto;
@@ -1522,7 +1515,7 @@ img {
 
 /* Основная раскладка (игра под десктоп): магазин слева, империя справа. */
 .screen {
-  padding: calc(var(--safe-top) + 10px) 18px calc(var(--safe-bottom) + 10px);
+  padding: 10px 18px;
   gap: 10px;
 }
 
@@ -1576,8 +1569,8 @@ img {
 
 .menu {
   position: fixed;
-  top: calc(var(--safe-top) + 68px);
-  right: calc(var(--safe-right) + 16px);
+  top: 68px;
+  right: 16px;
   z-index: 40;
   display: grid;
   min-width: 210px;
