@@ -8,7 +8,15 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { EFFECT_FIELDS, loadContent } from '../src/core/content';
+import {
+  INVESTMENT_RATE_MAX_PERCENT,
+  INVESTMENT_RATE_MIN_PERCENT,
+  INVESTMENT_YEAR_DAYS,
+  computeDerived,
+} from '../src/core/economy';
+import { formatMoney, formatNumber } from '../src/core/format';
 import { BALANCE_PROFILES } from '../src/core/simulator';
+import { createInitialState } from '../src/core/state';
 import { balanceProfiles } from './helpers/balance-profiles';
 
 const root = resolve(__dirname, '..');
@@ -236,6 +244,74 @@ describe('инструкции совпадают с настройками пр
     const superscript = String(level).replace(/\d/g, (digit) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[Number(digit)]!);
     expect(economy).toContain(`${comma(step)}${superscript} ≈ ${comma(Math.pow(step, level))}`);
     expect(level).toBeLessThanOrEqual(byId.get('p_devalue_currency')!.maxLevel);
+  });
+
+  it('README и ECONOMY описывают договоры, потолок добычи и проценты числами из данных (REVIEW A5, B1)', () => {
+    const content = loadContent();
+    const { config, upgrades } = content;
+    const comma = (value: number, digits: number): string => value.toFixed(digits).replace('.', ',');
+    const economy = read('docs/ECONOMY.md');
+    const readme = read('README.md');
+
+    // Множитель добычи от договоров: по каждому направлению и общий предел.
+    const total = (channel: 'contract' | 'export'): number => upgrades
+      .filter((def) => def.type === 'sell' && def.effect.percent && (def.effect.channel ?? 'contract') === channel)
+      .reduce((sum, def) => sum + (def.effect.percent! / 100) * def.maxLevel, 0);
+    const state = createInitialState(config, 1);
+    for (const def of upgrades) if (def.type === 'sell') state.levels[def.id] = def.maxLevel;
+    const maxBoost = computeDerived(config, upgrades, state, [], content).salesVolumeMultiplier;
+    expect(maxBoost).toBeCloseTo(1 + Math.max(total('contract'), total('export')), 9);
+    const section = economy.slice(economy.indexOf('## Договоры о сбыте и добыча'));
+    expect(section.length).toBeGreaterThan(100);
+    expect(section).toContain('salesVolumeMultiplier');
+    expect(section).toContain(`×${comma(1 + total('contract'), 2)}`);
+    expect(section).toContain(`×${comma(1 + total('export'), 2)}`);
+    expect(readme).toContain(`×${formatNumber(maxBoost)}`);
+
+    // Потолок добычи.
+    const cap = `${formatMoney(config.oil.maxProductionPerSecond, '').trim()} т/с`;
+    expect(economy).toContain('## Потолок добычи');
+    expect(economy).toContain(cap);
+    expect(economy).toContain('oil.maxProductionPerSecond');
+    expect(readme).toContain(cap);
+
+    // Проценты на остаток: шкала из ядра и то, до чего хватает влияния в магазине.
+    const givers = createInitialState(config, 1);
+    for (const def of upgrades) if (def.effect.influence) givers.levels[def.id] = def.maxLevel;
+    const attainable = computeDerived(config, upgrades, givers, [], content);
+    expect(economy).toContain(`от ${INVESTMENT_RATE_MIN_PERCENT} % до ${INVESTMENT_RATE_MAX_PERCENT} % годовых`);
+    expect(economy).toContain(`${INVESTMENT_YEAR_DAYS} игровых суток`);
+    expect(economy).toContain(`влиянии ${config.influence.cap}`);
+    expect(economy).toContain(`${attainable.influence} влияния`);
+    expect(economy).toContain(`${comma(attainable.investmentRatePercent, 1)} % годовых`);
+    expect(economy).toContain(`скидка на штраф ${comma((1 - attainable.fineFactor) * 100, 0)} %`);
+
+    // «Откуда берутся деньги»: темп выплат в базах выплаты за секунду.
+    const bankScale = 1 + upgrades
+      .filter((def) => def.type === 'taxCut' && def.effect.bankScale)
+      .reduce((sum, def) => sum + def.effect.bankScale! * def.maxLevel, 0);
+    const oneShots = upgrades.filter((def) => def.type === 'oneShot' && !def.effect.sellsOil);
+    const periodicRate = upgrades
+      .filter((def) => def.type === 'periodic')
+      .reduce((sum, def) => sum + (def.effect.value! * def.maxLevel) / def.effect.seconds!, 0);
+    const bankRate = oneShots
+      .filter((def) => def.effect.launder)
+      .reduce((sum, def) => sum + (def.effect.value! * bankScale) / def.cooldownSeconds!, 0);
+    const taxedRate = oneShots
+      .filter((def) => !def.effect.launder)
+      .reduce((sum, def) => sum + def.effect.value! / def.cooldownSeconds!, 0);
+    const money = economy.slice(economy.indexOf('## Откуда берутся деньги'));
+    expect(money.length).toBeGreaterThan(100);
+    expect(money).toContain(`| ${comma(periodicRate, 2)} | нет |`);
+    expect(money).toContain(`×${comma(bankScale, 1)} | ${comma(bankRate, 2)} | нет |`);
+    expect(money).toContain(`| ${comma(taxedRate, 2)} | да |`);
+
+    // Навык balance-tuning повторяет те же числа: они не должны устареть.
+    const skill = read('.agents/skills/balance-tuning/SKILL.md');
+    expect(skill).toContain(`до ×${comma(maxBoost, 2)}`);
+    expect(skill).toContain(
+      `Влияния в магазине — ${attainable.influence}\nпри потолке \`influence.cap\` ${config.influence.cap}.`,
+    );
   });
 
   it('таблица полей effect в ECONOMY совпадает с проверкой контента (REVIEW A4)', () => {

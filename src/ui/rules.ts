@@ -11,7 +11,17 @@ import { describeRequirementTerm } from './requirements';
 import type { Texts } from './texts';
 import { formatMoney, formatNumber, formatPercent } from '../core/format';
 import type { Content } from '../core/types';
-import { computeDerived, wellDeclineFloorSeconds, winCostOf, winRequirementTerms } from '../core/economy';
+import {
+  INVESTMENT_RATE_MAX_PERCENT,
+  INVESTMENT_RATE_MIN_PERCENT,
+  INVESTMENT_YEAR_DAYS,
+  computeDerived,
+  constructionCostMultiplier,
+  currencyCostCurveOf,
+  wellDeclineFloorSeconds,
+  winCostOf,
+  winRequirementTerms,
+} from '../core/economy';
 import { createInitialState } from '../core/state';
 
 export class Rules {
@@ -89,6 +99,41 @@ export class Rules {
     // так правила показывают ровно тот предел, которым ограничена продажа.
     const initial = computeDerived(config, upgrades, createInitialState(config, 1), [], this.content);
     const declineFloorSeconds = wellDeclineFloorSeconds(config);
+    /** Что покажет ядро, если купить перечисленные покупки до последнего уровня. */
+    const derivedAtMax = (owned: readonly { id: string; maxLevel: number }[]) => {
+      const state = createInitialState(config, 1);
+      for (const def of owned) state.levels[def.id] = def.maxLevel;
+      return computeDerived(config, upgrades, state, [], this.content);
+    };
+
+    // Предел множителя добычи от договоров: все покупки сбыта на последнем
+    // уровне. Какие из них договоры и как складываются итоги, решает ядро.
+    const maxSalesBoost = derivedAtMax(upgrades.filter((def) => def.type === 'sell')).salesVolumeMultiplier;
+
+    // Всё влияние, которое продаётся в магазине. Потолки ставки по счёту и
+    // скидки на штраф могут быть выше — тогда правила называют и достижимое.
+    const attainable = derivedAtMax(upgrades.filter((def) => def.effect.influence));
+    const finesCap = Math.ceil(config.fines.maxRelief / config.fines.influenceReliefPerPoint);
+
+    // Механики, которые включает одна покупка: правила называют её по имени.
+    const damper = upgrades.find((def) => def.effect.fuelDamper);
+    const capitalFlight = upgrades.find((def) => def.effect.capitalFlightPerSecond);
+    const devaluation = upgrades.filter((def) => def.type === 'priceBoost' && def.effect.exchangeRateDevaluation);
+    const maxRate = derivedAtMax(devaluation).exchangeRate;
+    // Стройка дорожает вместе с курсом; насколько — считает та же функция,
+    // что и цену в магазине. Скважина здесь — образец строительной покупки.
+    const built = upgrades.find((def) => def.type === 'well');
+    const capexGrowth = built
+      ? constructionCostMultiplier(config, built, maxRate) /
+        constructionCostMultiplier(config, built, initial.exchangeRate) - 1
+      : 0;
+
+    const curve = currencyCostCurveOf(config);
+    const levelGrowth = config.costGrowth - 1;
+    const compressedGrowth = Math.pow(config.costGrowth, curve.exponent) - 1;
+    /** Дробь с запятой и без хвостовых нулей: 0,065. */
+    const decimal = (value: number, digits: number): string =>
+      value.toFixed(digits).replace(/\.?0+$/, '').replace('.', ',');
 
     return [
       this.section('rules.goalTitle', [
@@ -111,6 +156,22 @@ export class Rules {
           crew: crew.join(', '),
           bonus: formatPercent(oil.autoDrill.bonus, 0),
         }),
+        // Потолок добычи: число из конфига и пометка, которую покажет панель.
+        t('rules.productionCapText', {
+          cap: t('units.tonnesRate', {
+            value: formatMoney(oil.maxProductionPerSecond, '').trim(),
+            tonnes,
+            s: perSecond.replace('/', ''),
+          }),
+          label: this.texts.get('hud.production'),
+          mark: this.texts.get('hud.productionCap'),
+        }),
+        // Договоры о сбыте умножают саму добычу (REVIEW A5).
+        ...(maxSalesBoost > 1 ? [t('rules.salesBoostText', {
+          tab: this.texts.get('tabs.sales'),
+          label: this.texts.get('hud.salesBoost'),
+          max: t('units.times', { value: formatNumber(maxSalesBoost) }),
+        })] : []),
       ]),
 
       this.section('rules.wellsTitle', [
@@ -173,12 +234,18 @@ export class Rules {
           oil: formatMoney(config.fines.oilPerTon, this.currency),
           product: formatMoney(config.fines.productPerTon, this.currency),
         }),
-        t('rules.finesInfluence', {
-          relief: formatPercent(config.fines.influenceReliefPerPoint, 1),
-          max: formatPercent(config.fines.maxRelief, 0),
-          // Влияние, после которого скидка упирается в потолок.
-          cap: formatNumber(Math.ceil(config.fines.maxRelief / config.fines.influenceReliefPerPoint)),
-        }),
+        [
+          t('rules.finesInfluence', {
+            relief: formatPercent(config.fines.influenceReliefPerPoint, 1),
+            max: formatPercent(config.fines.maxRelief, 1),
+            // Влияние, после которого скидка упирается в потолок.
+            cap: formatNumber(finesCap),
+          }),
+          ...(attainable.influence < finesCap ? [t('rules.finesReach', {
+            have: formatNumber(attainable.influence),
+            relief: formatPercent(1 - attainable.fineFactor, 0),
+          })] : []),
+        ].join(' '),
         t('rules.finesTable', {}),
       ]),
 
@@ -204,7 +271,7 @@ export class Rules {
         t('rules.taxText', {
           base: formatPercent(config.tax.baseRate, 0),
           min: formatPercent(config.tax.minRate, 0),
-          drop: (config.tax.influenceDrop * 100).toFixed(3),
+          drop: decimal(config.tax.influenceDrop * 100, 3),
         }),
         t('rules.expensesText', {
           salaries: formatMoney(config.expenses.baseSalaries, this.currency),
@@ -215,18 +282,66 @@ export class Rules {
         // Формула — отдельным пунктом с рамкой: её ищут глазами.
         el('p', { class: 'rules__formula' }, t('rules.formula', {})),
         t('rules.profitText', {}),
+        // Доходы помимо продажи нефти: проценты, демпфер, вывоз капитала.
+        [
+          t('rules.investmentText', {
+            min: formatPercent(INVESTMENT_RATE_MIN_PERCENT / 100, 0),
+            max: formatPercent(INVESTMENT_RATE_MAX_PERCENT / 100, 0),
+            cap: formatNumber(config.influence.cap),
+            days: INVESTMENT_YEAR_DAYS,
+          }),
+          ...(attainable.influence < config.influence.cap ? [t('rules.investmentReach', {
+            have: formatNumber(attainable.influence),
+            rate: formatPercent(attainable.investmentRatePercent / 100, 1),
+          })] : []),
+        ].join(' '),
+        ...(damper ? [t('rules.damperText', { name: damper.name })] : []),
+        ...(capitalFlight ? [t('rules.capitalFlightText', {
+          name: capitalFlight.name,
+          value: t('units.moneyRate', {
+            value: formatMoney(capitalFlight.effect.capitalFlightPerSecond ?? 0, this.currency),
+            s: perSecond.replace('/', ''),
+          }),
+          growth: formatPercent(capitalFlight.effect.capitalFlightGrowthPerMinute ?? 0, 0),
+        })] : []),
+        t('rules.externalIncomeText', {}),
+        t('rules.untaxedText', {}),
       ]),
 
       this.section('rules.upgradesTitle', [
         t('rules.upgradesText', {
           count: upgrades.filter((u) => !u.win).length,
         }),
-        t('rules.conquestText', {}),
+        // Рост цены уровня и сжатие больших цен общей кривой.
+        compressedGrowth < levelGrowth
+          ? t('rules.costText', {
+              growth: formatPercent(levelGrowth, 0),
+              anchor: formatMoney(curve.anchor, this.currency),
+              slow: formatPercent(compressedGrowth, 1),
+            })
+          : t('rules.costTextFlat', { growth: formatPercent(levelGrowth, 0) }),
+        t('rules.conquestText', {
+          min: oil.conquestWells.min,
+          max: oil.conquestWells.max,
+        }),
         t('rules.bankText', {}),
+        ...(devaluation.length > 0 ? [t('rules.devaluationText', {
+          name: devaluation.map((def) => def.name).join('», «'),
+          step: formatPercent(devaluation[0]?.effect.exchangeRateDevaluation ?? 0, 0),
+          rate: t('units.times', { value: formatNumber(maxRate / initial.exchangeRate) }),
+          capex: formatPercent(capexGrowth, 0),
+        })] : []),
       ]),
 
       this.section('rules.saveTitle', [
-        t('rules.saveText', { cap: Math.round(config.offline.capSeconds / 60) }),
+        // Скорость офлайн-дохода — из конфига: «как в игре» пишем, только
+        // если она действительно полная.
+        config.offline.efficiency >= 1
+          ? t('rules.saveText', { cap: Math.round(config.offline.capSeconds / 60) })
+          : t('rules.saveTextSlow', {
+              cap: Math.round(config.offline.capSeconds / 60),
+              efficiency: formatPercent(config.offline.efficiency, 0),
+            }),
       ]),
     ];
   }

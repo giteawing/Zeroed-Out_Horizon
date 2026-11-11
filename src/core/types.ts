@@ -747,6 +747,17 @@ export interface DerivedStats {
   taxPaidPerSecond: number;
   taxRate: number;
   costCutPercent: number;
+  /**
+   * Множитель добычи от договоров о сбыте: 1 + больший из двух итогов —
+   * сумма процентов купленных уровней по внутреннему рынку или по экспорту.
+   * Уже входит в `oilPerSecond`; отдельным полем — для панели и правил.
+   */
+  salesVolumeMultiplier: number;
+  /**
+   * Добыча упёрлась в `oil.maxProductionPerSecond`: покупки, которые её
+   * увеличивают, сейчас ничего не прибавляют. Панель помечает это в строке добычи.
+   */
+  productionCapped: boolean;
   multiplier: number;
   /** Множители производственной добычи. */
   productionMultiplier: number;

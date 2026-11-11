@@ -53,7 +53,8 @@ public/images/   изображения и иконки
 | Задача | Основное место | Обязательная проверка |
 |---|---|---|
 | Цена/эффект покупки | `src/content/upgrades.json` | экономика + баланс |
-| Параметр экономики | `src/content/config.json` + `economy.ts` | economy/regression/balance |
+| Параметр экономики | `src/content/config.json` + `economy.ts`; число в `config.json` — ещё и в проверку загрузчика (`ECONOMY_NUMBERS` или отдельное правило в `validateConfig`) | economy/regression/balance + `content-validation` |
+| Правило игры, которое видит игрок | ядро + «Правила» (`src/ui/rules.ts`, `texts.json → rules`), панель (`src/ui/hud.ts`), `README.md`, `docs/ECONOMY.md` | `dom/rules` + `dom/hud` + `harness` (числа в документах) |
 | Новый тип эффекта или поле `effect` | `types.ts`, `EFFECT_FIELDS` в `content.ts`, `economy.ts`, `game.ts`, `simulator.ts`, строка эффекта `src/ui/effect-line.ts` | `effect-fields` + `effect-line` + regression + balance |
 | Сохранение нового поля | `types.ts`, `state.ts`, `game.ts` | state migration + serialization |
 | Подпись интерфейса | `texts.json` и компонент UI | content + DOM/E2E |

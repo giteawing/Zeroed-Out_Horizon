@@ -131,6 +131,9 @@ export class Hud {
           el('span', { class: 'hud__section-title' }, texts.get('hud.crudeOil')),
           el('div', { class: 'hud__rows hud__rows--single' }, [
             row('produced', texts.get('hud.production'), 'hud__row-value--oil').root,
+            // Договоры о сбыте умножают саму добычу; без этой строки игрок
+            // видит рост «производства», но не видит, откуда он взялся.
+            row('salesBoost', texts.get('hud.salesBoost'), 'hud__row-value--factor').root,
             row('crudeDomestic', texts.get('hud.saleDomestic'), 'hud__row-value--sell').root,
             row('crudeExport', texts.get('hud.saleExport'), 'hud__row-value--sell').root,
             // Три способа доставки — подпункты экспорта: отступ слева и
@@ -326,7 +329,15 @@ export class Hud {
       });
 
     set('wellsCount', assetLine(state.wells.length, derived.oilPerSecond));
-    set('produced', rate(flows.produced));
+    // На потолке добычи строка говорит об этом: иначе непонятно, почему
+    // производственные покупки перестали прибавлять.
+    set('produced', derived.productionCapped
+      ? this.texts.get('hud.productionAtCap', {
+          rate: rate(flows.produced),
+          mark: this.texts.get('hud.productionCap'),
+        })
+      : rate(flows.produced));
+    set('salesBoost', units('times', { value: formatNumber(derived.salesVolumeMultiplier) }));
     set('crudeDomestic', sale(flows.domestic, derived.channels.contract.price));
     set('crudeExport', sale(flows.export, derived.channels.export.price));
     // Экспорт по видам транспорта: поезда, танкеры, трубопровод.

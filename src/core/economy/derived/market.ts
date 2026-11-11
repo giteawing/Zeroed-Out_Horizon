@@ -18,6 +18,10 @@ import type { UpgradeEffects } from './effects';
 
 export interface MarketStats {
   crew: boolean;
+  /** Множитель добычи от договоров о сбыте (REVIEW A5). */
+  salesVolumeMultiplier: number;
+  /** Добыча срезана потолком `oil.maxProductionPerSecond`. */
+  productionCapped: boolean;
   oilPerSecond: number;
   oilPricePerTon: number;
   exchangeRate: number;
@@ -50,6 +54,10 @@ export function calculateMarket(
   const crewMultiplier = crew ? 1 + config.oil.autoDrill.bonus : 1;
   // Контракты и экспортные договорённости открывают рынок для дополнительного
   // объёма добычи. Это рост реализуемых тонн, а не повышение цены за тонну.
+  // Итоги двух направлений не складываются: добычу умножает больший из них,
+  // а свой рынок расширяет каждый (см. `channels` и `capacities` ниже).
+  // Механика задуманная и описана игроку: «Правила», строка панели
+  // «множитель от договоров», docs/ECONOMY.md. Тест: tests/sales-volume.test.ts.
   const salesVolumeMultiplier = 1 + Math.max(
     effects.throughputBonus.contract,
     effects.throughputBonus.export,
@@ -61,9 +69,12 @@ export function calculateMarket(
     ) *
     config.balance.passiveScale *
     salesVolumeMultiplier;
-  // Защита экономики от экстремальных комбинаций апгрейдов и старых сейвов.
+  // Потолок добычи. Задуман как защита от экстремальных комбинаций и старых
+  // сейвов, но в обычной партии достигается к середине (см. docs/ECONOMY.md,
+  // «Потолок добычи»), поэтому панель и «Правила» сообщают о нём игроку.
   const productionLimit = Math.max(0, config.oil.maxProductionPerSecond);
   const oilPerSecond = Math.min(productionLimit, rawOilPerSecond);
+  const productionCapped = rawOilPerSecond > productionLimit;
 
   // Мировая котировка остаётся базовой. Внутренний рынок получает только
   // внутреннюю надбавку; экспорт пересчитывается в нефтефантики по курсу.
@@ -194,6 +205,8 @@ export function calculateMarket(
 
   return {
     crew,
+    salesVolumeMultiplier,
+    productionCapped,
     oilPerSecond,
     oilPricePerTon,
     exchangeRate,

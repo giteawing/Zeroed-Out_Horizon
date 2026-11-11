@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { loadContent } from '../src/core/content';
 import { computeDerived } from '../src/core/economy';
 import { formatNumber, formatPercent } from '../src/core/format';
+import { Game } from '../src/core/game';
 import { createInitialState } from '../src/core/state';
 import { describeEffect, type EffectLineContext } from '../src/ui/effect-line';
 import { Texts } from '../src/ui/texts';
@@ -171,9 +172,24 @@ describe('строка эффекта: то, чего раньше не было
   });
 
   it('разовая продажа нефти описана как продажа запаса, а не как выплата', () => {
+    const burst = shopText('effectOilBurst', { seconds: content.config.oil.exportBurstSeconds });
+    expect(burst).not.toMatch(/\{[a-zA-Z]+\}/);
     for (const def of cardsWith((card) => !!card.effect.sellsOil)) {
-      expect(line(def), def.id).toBe(shopText('effectOilBurst'));
+      expect(line(def), def.id).toBe(burst);
       expect(line(def), def.id).not.toContain(shopText('effectOneShotHint'));
+    }
+  });
+
+  it('договор показывает свой вклад в итог договоров, модернизация НПЗ — в переработку', () => {
+    for (const def of cardsWith((card) => card.type === 'sell' && !!card.effect.percent)) {
+      const key = def.effect.channel === 'refine' ? 'effectSellThroughput' : 'effectSellVolume';
+      const other = def.effect.channel === 'refine' ? 'effectSellVolume' : 'effectSellThroughput';
+      const share = (level: number): string => formatPercent((def.effect.percent! / 100) * level, 1);
+      expect(line(def), def.id).toContain(shopText(key, { value: share(1) }));
+      expect(line(def), def.id).not.toContain(shopText(other, { value: share(1) }));
+      // Как и тонны в секунду, процент показан за все купленные уровни.
+      const level = Math.min(3, def.maxLevel);
+      expect(describeEffect(def, level, context), def.id).toContain(shopText(key, { value: share(level) }));
     }
   });
 });
@@ -234,6 +250,41 @@ describe('строка эффекта: её утверждения провер�
     for (const def of content.upgrades) {
       if (!ids.has(def.id)) expect(line(def), def.id).not.toContain(marker);
     }
+  });
+
+  it('«половина запаса, но не больше, чем канал берёт за N секунд» — так и продаёт', () => {
+    const seconds = content.config.oil.exportBurstSeconds;
+    const burst = cardsWith((card) => !!card.effect.sellsOil)[0]!;
+    expect(line(burst)).toContain('половину');
+    expect(line(burst)).toContain(`${seconds} с`);
+    expect(line(burst)).toMatch(/налог/i);
+
+    const sell = (oil: number, levels: Record<string, number>) => {
+      const state = createInitialState(content.config, 7);
+      state.coins = 1e9;
+      state.totalEarned = 1e9;
+      state.levels = levels;
+      state.oil = oil;
+      const game = new Game(structuredClone(content), state);
+      const derived = game.derived();
+      const result = game.buy(burst.id);
+      expect(result.ok, JSON.stringify(result)).toBe(true);
+      const sale = state.log.find((entry) => entry.kind === 'sold')!;
+      return { sale, derived, paid: result.payouts[0]!.amount };
+    };
+
+    // Запас меньше приёмной мощности: уходит ровно половина.
+    const half = sell(400, { x_cistern: 1 });
+    expect(half.derived.capacities.export.crude * seconds).toBeGreaterThan(400);
+    expect(half.sale.tonnes).toBeCloseTo(200, 6);
+    // Запас огромный: уходит столько, сколько канал берёт за N секунд.
+    const capped = sell(1e9, { x_cistern: 1 });
+    expect(capped.sale.tonnes).toBeCloseTo(capped.derived.capacities.export.crude * seconds, 6);
+    expect(capped.sale.tonnes).toBeLessThan(1e9 / 2);
+    // Выручка проходит обычную кассу: налог удержан.
+    expect(half.derived.taxRate).toBeGreaterThan(0);
+    expect(half.paid).toBeLessThan(half.sale.money!);
+    expect(half.paid).toBeLessThanOrEqual(half.sale.money! * (1 - half.derived.taxRate) + 1e-6);
   });
 
   it('реприватизация и отжатие месторождения показывают одну и ту же строку', () => {

@@ -9,14 +9,24 @@ export function levelOf(state: GameState, id: string): number {
 }
 
 /**
+ * Параметры общей кривой цен в рабочих границах. Их же печатают «Правила»:
+ * выше `anchor` номинальный рост цены за уровень `g` превращается в `g^exponent`.
+ */
+export function currencyCostCurveOf(config: GameConfig): { anchor: number; exponent: number } {
+  return {
+    anchor: Math.max(1, config.currencyCostCurve?.anchor ?? 100_000),
+    exponent: Math.min(1, Math.max(0.01, config.currencyCostCurve?.exponent ?? 1)),
+  };
+}
+
+/**
  * Сжимает денежные значения по общей кривой:
  * значения до anchor не меняются, поздние цены растут степенно.
  * Это сохраняет стартовую экономику и делает финальные покупки достижимыми.
  */
 export function adjustCurrencyCost(config: GameConfig, value: number): number {
   if (!Number.isFinite(value) || value <= 0) return 0;
-  const anchor = Math.max(1, config.currencyCostCurve?.anchor ?? 100_000);
-  const exponent = Math.min(1, Math.max(0.01, config.currencyCostCurve?.exponent ?? 1));
+  const { anchor, exponent } = currencyCostCurveOf(config);
   if (value <= anchor) return Math.round(value);
   return Math.max(1, Math.round(anchor * Math.pow(value / anchor, exponent)));
 }

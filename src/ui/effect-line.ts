@@ -118,7 +118,7 @@ export function describeEffect(def: UpgradeDef, level: number, context: EffectLi
     case 'oneShot':
       if (e.sellsOil) {
         // Продаётся нефть со склада: сумму задают запас и цена, не `value`.
-        parts.push(t('effectOilBurst'));
+        parts.push(t('effectOilBurst', { seconds: config.oil.exportBurstSeconds }));
       } else {
         // Точная выплата зависит от текущего темпа империи, поэтому в
         // карточке понятное описание, а не фиктивное число.
@@ -140,8 +140,11 @@ export function describeEffect(def: UpgradeDef, level: number, context: EffectLi
       const channel = e.channel ?? 'contract';
       parts.push(t('effectSell', { value: formatNumber((e.value ?? 0) * shownLevel) }));
       if (e.percent) {
+        // Процент договора идёт в итог своего направления: тот расширяет рынок,
+        // а больший из двух итогов умножает добычу. У НПЗ — только переработка.
+        // Как и тонны в секунду, показан вклад всех купленных уровней.
         const key = channel === 'refine' ? 'effectSellThroughput' : 'effectSellVolume';
-        parts.push(t(key, { value: formatPercent(e.percent / 100, 1) }));
+        parts.push(t(key, { value: formatPercent((e.percent / 100) * shownLevel, 1) }));
       }
       if (e.costCut) parts.push(t('effectCostCut', { value: (e.costCut * 100).toFixed(0) }));
       // В карточке видно, какой именно рынок она расширяет: сырьё,
@@ -177,7 +180,8 @@ export function describeEffect(def: UpgradeDef, level: number, context: EffectLi
       parts.push(t('effectUnlocks', { names: context.unlocks.slice(0, 3).join(', ') }));
     }
     // Покупка без единого действующего поля ничего не прибавляет, и карточка
-    // говорит это прямо. Бригада — исключение: её полный состав удваивает добычу.
+    // говорит это прямо. Бригада — исключение: её полный состав даёт бонус
+    // автодобычи (`config.oil.autoDrill.bonus`).
     const crew = config.oil.autoDrill.requires.includes(def.id);
     if (Object.keys(e).length === 0 && !crew) parts.push(t('effectNoDirectBonus'));
   }

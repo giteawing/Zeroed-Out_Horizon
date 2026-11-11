@@ -479,6 +479,8 @@ img {
 .hud__row-value--plus { color: var(--green-light); }
 .hud__row-value--minus { color: var(--crimson-light); }
 .hud__row-value--oil { color: var(--gold-light); }
+/* Множитель, а не поток: приглушён, чтобы не спорить с тоннами в секунду. */
+.hud__row-value--factor { color: var(--steel); font-weight: 600; }
 .hud__row-value--price { color: var(--cream); }
 .hud__row-value--assets { color: var(--gold-light); font-weight: 800; }
 

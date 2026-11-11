@@ -3,7 +3,12 @@
  * Вычисления делегированы effects, market и financial-rates.
  */
 import type { AssetKind, Content, DerivedStats, GameConfig, GameState, UpgradeDef } from '../types';
-import { type TaxBuff } from './definitions';
+import {
+  INVESTMENT_RATE_MAX_PERCENT,
+  INVESTMENT_RATE_MIN_PERCENT,
+  INVESTMENT_YEAR_DAYS,
+  type TaxBuff,
+} from './definitions';
 import { adjustCurrencyCost, levelOf, winRequirementBlocker } from './purchases';
 import { oilCapacityOf } from './production';
 import { assetCountsOf, assetsValueOf } from './assets';
@@ -34,15 +39,16 @@ export function computeDerived(
   const capitalFlightIncomePerSecond = effects.capitalFlightPerSecond > 0 && state.capitalFlightStartedAtMs !== null
     ? effects.capitalFlightPerSecond * (1 + capitalFlightElapsedMinutes * effects.capitalFlightGrowthPerMinute)
     : 0;
-  // Годовая ставка — 1–20% в зависимости от влияния; начисление ежедневно.
+  // Годовая ставка зависит от влияния (INVESTMENT_RATE_*); начисление ежедневно.
   // Игровой день занимает config.oil.wells.secondsPerDay реальных секунд.
   const baseExternalIncome = damperIncomePerSecond + capitalFlightIncomePerSecond;
   const baseFinance = calculateFinancialRates(config, state, effects, market.grossPerSecond, baseExternalIncome);
   const influenceShare = Math.min(1, Math.max(0, baseFinance.influence / Math.max(1, config.influence.cap)));
-  const investmentRatePercent = 1 + 19 * influenceShare;
+  const investmentRatePercent = INVESTMENT_RATE_MIN_PERCENT +
+    (INVESTMENT_RATE_MAX_PERCENT - INVESTMENT_RATE_MIN_PERCENT) * influenceShare;
   const investmentIncomePerSecond = Math.max(0, state.coins) *
     (investmentRatePercent / 100) /
-    (360 * Math.max(1e-6, config.oil.wells.secondsPerDay));
+    (INVESTMENT_YEAR_DAYS * Math.max(1e-6, config.oil.wells.secondsPerDay));
   const additionalIncomePerSecond = baseExternalIncome + investmentIncomePerSecond;
   const finance = calculateFinancialRates(config, state, effects, market.grossPerSecond, additionalIncomePerSecond);
   const assetThroughputByKind: Partial<Record<AssetKind, number>> = {};
@@ -115,6 +121,8 @@ export function computeDerived(
     taxPaidPerSecond: finance.taxPerSecond,
     taxRate: finance.taxRate,
     costCutPercent: finance.costCutPercent,
+    salesVolumeMultiplier: market.salesVolumeMultiplier,
+    productionCapped: market.productionCapped,
     multiplier: effects.multProduction * effects.multPassive,
     productionMultiplier: effects.multProduction,
     passiveMultiplier: effects.multPassive,

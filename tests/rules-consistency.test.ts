@@ -65,10 +65,11 @@ const NUMERIC_FACTS: Record<string, (def: UpgradeDef) => string[]> = {
   },
 };
 
-// Договоры и модернизация НПЗ называют свой процент за уровень.
+// Договоры и модернизация НПЗ называют свой процент за уровень — с десятичной
+// запятой, как все числа в интерфейсе.
 for (const def of upgrades) {
   if (def.type === 'sell' && def.effect.percent !== undefined) {
-    NUMERIC_FACTS[def.id] = (current) => [`на ${plain(current.effect.percent!)}% за уровень`];
+    NUMERIC_FACTS[def.id] = (current) => [`на ${comma(current.effect.percent!)}% за уровень`];
   }
 }
 
@@ -100,6 +101,24 @@ describe('описания карточек: числа берутся из да
       .filter((def) => MULTIPLIER_WORDS.test(def.description))
       .map((def) => `${def.id}: «${def.description}»`);
     expect(wordy).toEqual([]);
+  });
+
+  it('дробные числа в описаниях и текстах пишутся через запятую', () => {
+    // «11.1%» в описании рядом с «11,1%» в строке эффекта — два разных числа на вид.
+    const dotted = upgrades
+      .filter((def) => /\d\.\d/.test(def.description))
+      .map((def) => `${def.id}: «${def.description}»`);
+    expect(dotted).toEqual([]);
+    const strings: string[] = [];
+    const collect = (node: unknown, path: string): void => {
+      if (typeof node === 'string') {
+        if (/\d\.\d/.test(node)) strings.push(`${path}: «${node}»`);
+      } else if (node && typeof node === 'object') {
+        for (const [key, value] of Object.entries(node)) collect(value, path ? `${path}.${key}` : key);
+      }
+    };
+    collect(content.texts, '');
+    expect(strings).toEqual([]);
   });
 
   it('таблица чисел не ссылается на несуществующие покупки', () => {
