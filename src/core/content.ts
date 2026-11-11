@@ -177,8 +177,12 @@ export function validateUpgrades(upgrades: UpgradeDef[], texts?: TextsFile): voi
     if (u.repeatable && !u.cooldownSeconds) {
       throw new Error(`upgrades.json: repeatable-покупка ${u.id} без cooldownSeconds`);
     }
-    if (u.cooldownSeconds !== undefined && !(isNumber(u.cooldownSeconds) && u.cooldownSeconds >= 0)) {
-      throw new Error(`upgrades.json: ${u.id}: cooldownSeconds должен быть неотрицательным числом`);
+    // Ноль — не «без перезарядки», а ошибка: кнопка-действие платила бы на
+    // каждый клик, а у остальных покупок поле ничего бы не делало.
+    if (u.cooldownSeconds !== undefined && !(isNumber(u.cooldownSeconds) && u.cooldownSeconds > 0)) {
+      throw new Error(
+        `upgrades.json: ${u.id}: cooldownSeconds должен быть числом больше 0 (без перезарядки поле не указывают)`,
+      );
     }
     if (u.costGrowth !== undefined && !(isNumber(u.costGrowth) && u.costGrowth >= 1)) {
       throw new Error(`upgrades.json: ${u.id}: costGrowth должен быть числом не меньше 1`);
@@ -592,9 +596,4 @@ export function creditsIsPlaceholder(credits: string): boolean {
     .join('\n')
     .trim();
   return body.includes(CREDITS_PLACEHOLDER_MARKER) || body.length < 40;
-}
-
-/** Путь к иконке покупки (относительно базы статики). */
-export function iconPath(icon: string): string {
-  return `images/icons/${icon}.svg`;
 }

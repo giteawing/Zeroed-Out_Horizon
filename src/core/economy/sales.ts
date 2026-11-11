@@ -6,13 +6,11 @@
  */
 import type {
   Channel,
-  DerivedStats,
   ExportMode,
   GameConfig,
   FlowControls,
   OilFlows,
   Product,
-  UpgradeDef,
 } from '../types';
 
 export interface Market<Key extends string> {
@@ -22,8 +20,10 @@ export interface Market<Key extends string> {
 }
 
 /**
- * Общий алгоритм для сырья и нефтепродуктов:
- * рынки сортируются по цене, каждый забирает доступную часть остатка.
+ * Раздача товара по рынкам «сначала дороже»: рынки сортируются по цене,
+ * каждый забирает доступную часть остатка. Так делятся нефтепродукты и
+ * запас на складе; сырьё между экспортом, НПЗ и внутренним рынком делит
+ * `routeCrude()` — там есть ручные заявки и сравнение по выручке с тонны.
  *
  * Входные capacity должны быть уже приведены к нужному временному интервалу.
  */
@@ -158,23 +158,6 @@ function routeCrude(
   if (automatic.includes('refine')) take('refine', Number.POSITIVE_INFINITY);
 
   return { byMarket, remaining };
-}
-
-/** Объём нефти для разовой экспортной акции. */
-export function exportTonnes(config: GameConfig, derived: DerivedStats, oil: number): number {
-  const want = derived.channels.export.rate * config.oil.exportBurstSeconds;
-  return Math.min(oil, Math.max(0, want));
-}
-
-/** Валовая выручка разовой продажи через выбранный канал. */
-export function saleProceeds(
-  def: Pick<UpgradeDef, 'effect'>,
-  derived: DerivedStats,
-  tonnes: number,
-): number {
-  const channel = def.effect.burstChannel ?? 'export';
-  const rate = derived.channels[channel];
-  return Math.max(0, tonnes * rate.price);
 }
 
 /**
@@ -418,27 +401,4 @@ export function allocateBatch(
     productsExport: productSale.byMarket.export,
     rest: crude.remaining,
   };
-}
-
-/** Продажа имеющегося запаса по каналам; деньги считаются по фактическому объёму. */
-export function sellOil(
-  derived: DerivedStats,
-  oil: number,
-  dtSeconds: number,
-  unlimited: Channel[] = ['contract'],
-): { oil: number; gross: number; sold: number; byChannel: Record<Channel, number> } {
-  const plan = allocateByPrice(Math.max(0, oil), (['contract', 'export', 'refine'] as Channel[]).map((channel) => ({
-    key: channel,
-    price: derived.channels[channel].price,
-    capacity: unlimited.includes(channel)
-      ? Number.POSITIVE_INFINITY
-      : derived.channels[channel].rate * Math.max(0, dtSeconds),
-  })));
-  const byChannel = plan.byMarket;
-  const sold = Object.values(byChannel).reduce((sum, tonnes) => sum + tonnes, 0);
-  const gross = (Object.keys(byChannel) as Channel[]).reduce(
-    (sum, channel) => sum + byChannel[channel] * derived.channels[channel].price,
-    0,
-  );
-  return { oil: plan.remaining, gross, sold, byChannel };
 }

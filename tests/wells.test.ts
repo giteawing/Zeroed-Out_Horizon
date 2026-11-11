@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { loadContent } from '../src/core/content';
 import { computeDerived, wellsDailyTonnes } from '../src/core/economy';
 import { Game } from '../src/core/game';
+import { estimatedGain } from '../src/core/simulator';
 import { createInitialState, normalizeState, parseSave, serializeState } from '../src/core/state';
 import type { GameState, Well } from '../src/core/types';
 
@@ -130,6 +131,42 @@ describe('движок добавляет скважины заменой мас
     expect(before).toEqual(beforeCopy);
     expect(game.state.wells).toHaveLength(before.length + prize.wells);
     expect(wellsDailyTonnes(game.state)).toBe(actualSum(game.state));
+  });
+
+  /**
+   * Бурит ли покупка скважину, решал список id в `game.ts`. Новая карточка
+   * `type: 'well'` покупалась, деньги списывались, а скважины не появлялось.
+   */
+  it('покупка типа well бурит скважину, даже если её id нигде не записан', () => {
+    const extra = structuredClone(content);
+    const template = extra.byId.get('t_well')!;
+    const added = { ...structuredClone(template), id: 't_well_extra', name: 'Вторая буровая' };
+    extra.upgrades.push(added);
+    extra.byId = new Map(extra.upgrades.map((def) => [def.id, def]));
+
+    const state = createInitialState(extra.config, 31);
+    state.coins = 1e12;
+    state.totalEarned = 1e12;
+    const game = new Game(extra, state);
+    const before = game.state.wells.length;
+    const rate = game.derived().oilPerSecond;
+
+    const result = game.buy('t_well_extra', 3);
+    expect(result.ok, JSON.stringify(result)).toBe(true);
+    expect(game.state.levels.t_well_extra).toBe(3);
+    expect(game.state.wells).toHaveLength(before + 3);
+    expect(game.derived().oilPerSecond).toBeGreaterThan(rate);
+    // Выплата покупки — суммарный дебит пробуренных скважин, как у «t_well».
+    expect(result.payouts).toHaveLength(1);
+    expect(result.payouts[0]!.amount).toBeCloseTo(
+      game.state.wells.slice(before).reduce((sum, well) => sum + well.dailyTonnes, 0), 9,
+    );
+
+    // Бот оценивает такую покупку как скважину, а не как месторождение.
+    const fresh = new Game(extra, createInitialState(extra.config, 31));
+    const asWell = estimatedGain(fresh, template, 1_000);
+    expect(asWell).toBeGreaterThan(0);
+    expect(estimatedGain(fresh, added, 1_000)).toBe(asWell);
   });
 
   it('сохранение и загрузка дают тот же дебит и рабочую игру', () => {

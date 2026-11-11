@@ -185,11 +185,4 @@ export class Effects {
     }
     ctx.globalAlpha = 1;
   }
-
-  destroy(): void {
-    if (this.rafId) cancelAnimationFrame(this.rafId);
-    this.rafId = 0;
-    this.particles = [];
-    this.floats = [];
-  }
 }

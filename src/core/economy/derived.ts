@@ -142,11 +142,6 @@ export function computeDerived(
   };
 }
 
-/** Свободная ёмкость сырьевых резервуаров. */
-export function freeOilSpace(derived: DerivedStats): number {
-  return Math.max(0, derived.oilCapacity - derived.oil);
-}
-
 /** Цена финальной покупки: сначала проверяется определение win, затем config. */
 export function winCostOf(config: GameConfig, upgrades: UpgradeDef[]): number {
   const winDef = upgrades.find((upgrade) => upgrade.win);
@@ -170,26 +165,20 @@ export function payoutBase(derived: DerivedStats): number {
   return Math.max(1, derived.grossPerSecond + derived.oilPerSecond * derived.oilPricePerTon * 0.5);
 }
 
-/** Сумма разовой или периодической выплаты покупки. */
+/**
+ * Сумма разовой или периодической выплаты покупки.
+ * Выигрыш ставки сюда не относится: его считает `Game` (ставка × `factor`).
+ */
 export function eventPayout(
   def: UpgradeDef,
   derived: DerivedStats,
   level: number,
-  paidCost: number,
 ): number {
   const effect = def.effect;
-  if (effect.factor !== undefined && paidCost > 0) {
-    return Math.max(1, Math.round(paidCost * Math.pow(effect.factor, Math.max(1, level))));
-  }
   if (def.type === 'periodic') {
     // Округляем выплату одного уровня один раз, затем масштабируем уровень.
     const perLevel = Math.max(1, Math.round(payoutBase(derived) * (effect.value ?? 1)));
     return perLevel * Math.max(1, level);
   }
   return Math.max(1, Math.round(payoutBase(derived) * (effect.value ?? 1)));
-}
-
-/** Чистые деньги за интервал: EBT минус налог на прибыль. */
-export function netForInterval(derived: DerivedStats, dtSeconds: number): number {
-  return Math.max(0, derived.ebtPerSecond * (1 - derived.taxRate) * dtSeconds);
 }

@@ -20,7 +20,9 @@ description: Use when modifying content JSON, Russian UI copy, shop cards, HUD, 
 Поле `effect` работает только у своего `type`: список — `EFFECT_FIELDS` в
 `src/core/content.ts`, смысл полей — `docs/ECONOMY.md`, «Поля `effect`
 покупок». Чужое или неработающее поле не пройдёт `loadContent()` и
-`tests/effect-fields.test.ts`.
+`tests/effect-fields.test.ts`. То же с полями самой покупки: значение,
+которое ничего не делает, загрузчик не принимает — например,
+`cooldownSeconds: 0` (без перезарядки поле просто не указывают).
 
 У карточки два текста, и у них разные роли:
 
@@ -52,6 +54,11 @@ description: Use when modifying content JSON, Russian UI copy, shop cards, HUD, 
 Добавляй ключ в JSON, используй типизированный accessor `texts.get()` и
 проверяй `tests/content.test.ts`. Исключения допустимы для технических
 идентификаторов, комментариев и диагностических сообщений разработчика.
+
+Разметка собирается только из узлов: `el()` в `src/ui/dom.ts` кладёт
+строку в `textContent`, ключа `html` у него нет. `innerHTML`, `outerHTML`,
+`insertAdjacentHTML` и `document.write` в `src/` запрещены тестом
+`tests/dead-code.test.ts` — текст из JSON не должен становиться разметкой.
 
 ## Магазин и HUD
 

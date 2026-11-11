@@ -155,21 +155,10 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
   }
   state.wells = wells;
 
-  // Старые сейвы хранили добычу в уровнях пассивных покупок. Переносим её
-  // в скважины, чтобы прогресс не обнулился: суммарный дебит остаётся прежним.
-  if (state.wells.length === 0) {
-    let legacyDaily = 0;
-    for (const [id, level] of Object.entries(state.levels)) {
-      const def = content.byId.get(id);
-      if (!def || def.type !== 'passive' || !def.effect.value) continue;
-      legacyDaily += def.effect.value * level * (config.oil.wells?.secondsPerDay || 86400);
-    }
-    if (legacyDaily > 0) {
-      state.wells = [{ kind: 'unique', dailyTonnes: Math.round(legacyDaily) }];
-    }
-  }
   // Старые сохранения без скважин получают стартовый дебит, чтобы переход
   // с ручной добычи на непрерывную не оставлял партию без источника сырья.
+  // (Раньше сюда же переносилась добыча из уровней пассивных покупок, но у
+  // пассивных покупок давно нет `effect.value`, и перенос ничего не давал.)
   if (state.wells.length === 0 && config.oil.starterWellDailyTonnes > 0) {
     state.wells = [{ kind: 'ordinary', dailyTonnes: config.oil.starterWellDailyTonnes }];
   }

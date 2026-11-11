@@ -28,6 +28,9 @@ export type UpgradeType =
 /** Каналы сбыта нефти: внутренний рынок, экспорт и переработка. */
 export type Channel = 'contract' | 'export' | 'refine';
 
+/** Рынок разовой продажи запаса: акция продаёт сырьё, переработки в ней нет. */
+export type BurstChannel = Exclude<Channel, 'refine'>;
+
 /** Что продаётся: сырая нефть или нефтепродукты. */
 export type Product = 'crude' | 'products';
 
@@ -210,7 +213,7 @@ export interface UpgradeEffect {
    */
   sellsOil?: boolean;
   /** Рынок сырой нефти, через который разовая акция сбрасывает запас: contract или export. */
-  burstChannel?: Channel;
+  burstChannel?: BurstChannel;
   /** Разовая акция отмывает деньги: не платит налог. */
   launder?: boolean;
   /**

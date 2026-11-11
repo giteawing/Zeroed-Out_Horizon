@@ -470,6 +470,24 @@ describe('финал', () => {
     expect(toggle?.textContent).toBe('Скрыть статистику');
   });
 
+  it('Escape закрывает финал, меню открывает его снова', async () => {
+    const finale = document.querySelector<HTMLElement>('.finale')!;
+    expect(finale.hidden).toBe(false);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(finale.hidden).toBe(true);
+    // Победа остаётся победой: окно — не единственный путь к титрам.
+    expect(game.state.won).toBe(true);
+
+    document.querySelector<HTMLButtonElement>('.iconbtn--menu')!.click();
+    const item = document.querySelector<HTMLButtonElement>('[data-menu="finale"]');
+    expect(item).not.toBeNull();
+    item!.click();
+    expect(finale.hidden).toBe(false);
+    document.querySelector<HTMLButtonElement>('.cutscene .btn--ghost')!.click();
+    await flush();
+    expect(document.querySelector('.credits')).not.toBeNull();
+  });
+
   it('«Играть снова» сбрасывает прогресс', async () => {
     const again = document.querySelector<HTMLButtonElement>('.credits__actions .btn--gold');
     expect(again).not.toBeNull();

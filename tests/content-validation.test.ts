@@ -267,7 +267,8 @@ describe('validateUpgrades: новые проверки (REVIEW C6)', () => {
     expect(broken('p_monarch', (def) => { def.effect.burstChannel = 'export'; }))
       .toThrow(/p_monarch.*burstChannel/);
     // Разовая акция продаёт сырую нефть: переработки в ней нет.
-    expect(broken('p_export', (def) => { def.effect.burstChannel = 'refine'; }))
+    // Тип поля это уже запрещает; проверка загрузчика — для самого JSON.
+    expect(broken('p_export', (def) => { def.effect.burstChannel = 'refine' as never; }))
       .toThrow(/p_export.*burstChannel.*refine/);
   });
 
@@ -301,6 +302,12 @@ describe('validateUpgrades: новые проверки (REVIEW C6)', () => {
     expect(broken('p_crisis', (def) => { delete def.effect.seconds; })).toThrow(/p_crisis.*seconds/);
     expect(broken('p_ministry', (def) => { def.effect.seconds = 0; })).toThrow(/p_ministry.*seconds/);
     expect(broken('p_ministry', (def) => { def.cooldownSeconds = -1; })).toThrow(/p_ministry.*cooldownSeconds/);
+    // Нулевая перезарядка — это её отсутствие. У кнопки-действия она значила бы
+    // выплату на каждый клик, у остальных покупок поле просто ничего не делало.
+    expect(broken('p_ministry', (def) => { def.cooldownSeconds = 0; })).toThrow(/p_ministry.*cooldownSeconds/);
+    expect(broken('p_monarch', (def) => { def.cooldownSeconds = 0; })).toThrow(/p_monarch.*cooldownSeconds/);
+    const zero = content.upgrades.filter((def) => def.cooldownSeconds === 0).map((def) => def.id);
+    expect(zero).toEqual([]);
     expect(broken('t_well', (def) => { def.costGrowth = 0.5; })).toThrow(/t_well.*costGrowth/);
   });
 

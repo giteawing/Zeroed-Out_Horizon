@@ -53,14 +53,6 @@ export function formatNumber(value: number): string {
   return Number.isFinite(value) ? formatSmall(value) : '∞';
 }
 
-/** Секунды -> «12:34» */
-export function formatClock(seconds: number): string {
-  const total = Math.max(0, Math.floor(seconds));
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
-
 /** Миллисекунды -> «15 мин 20 с» */
 export function formatDuration(ms: number): string {
   const total = Math.max(0, Math.round(ms / 1000));

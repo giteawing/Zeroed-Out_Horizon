@@ -22,6 +22,7 @@ import {
   worldPriceAt,
 } from './economy';
 import type {
+  BurstChannel,
   Channel,
   Content,
   DerivedStats,
@@ -76,10 +77,6 @@ export interface BuyCheck {
   blocker: ReturnType<typeof unlockBlocker>;
 }
 
-/** Покупки, которые бурят новую скважину со случайным дебитом. */
-/** Покупки, которые бурят ОДНУ скважину-лотерею. */
-const WELL_UPGRADE_IDS = new Set(['t_well', 'p_reprivatize']);
-
 /** Покупка-действие (событие с перезарядкой) или обычная прокачка. */
 export function isRepeatable(def: UpgradeDef): boolean {
   return def.repeatable === true || (!def.win && def.cooldownSeconds !== undefined && def.type === 'oneShot');
@@ -100,8 +97,6 @@ export class Game {
   private activeDtSeconds = 0;
   /** Выручка текущей финансовой сделки, ещё не прошедшая расходы и налог. */
   private pendingSalesGross = 0;
-  /** Сглаженный фактический доход (то, что реально капает на счёт), ₦/с. */
-  private revenueEma = 0;
   private lastSaleLogMs = 0;
   private lastSpillLogMs: Record<'crude' | 'products', number> = {
     crude: Number.NEGATIVE_INFINITY,
@@ -133,7 +128,6 @@ export class Game {
     this.spillProductsThisStep = 0;
     this.activeDtSeconds = 0;
     this.pendingSalesGross = 0;
-    this.revenueEma = 0;
     this.lastSaleLogMs = 0;
     this.lastSpillLogMs = { crude: Number.NEGATIVE_INFINITY, products: Number.NEGATIVE_INFINITY };
     this.spillBuckets.crude = null;
@@ -458,7 +452,9 @@ export class Game {
         dailyTonnes += prize.dailyTonnes;
       }
       payouts.push({ id: def.id, amount: dailyTonnes });
-    } else if (WELL_UPGRADE_IDS.has(def.id) && !repeatable) {
+    } else if (def.type === 'well' && !repeatable) {
+      // Каждый уровень покупки типа `well` — одна скважина со случайным
+      // дебитом. Месторождение (пакет скважин) отобрано веткой выше.
       let dailyTonnes = 0;
       for (let i = 0; i < effectCount; i++) dailyTonnes += this.drillWell().dailyTonnes;
       payouts.push({ id: def.id, amount: dailyTonnes });
@@ -573,13 +569,9 @@ export class Game {
   private exportBurstPlan(
     def: UpgradeDef,
     derived: DerivedStats,
-  ): { channel: Channel; price: number; tonnes: number } {
-    const crudeRateOf = (channel: Channel): number =>
-      channel === 'export'
-        ? derived.capacities.export.crude
-        : channel === 'contract'
-          ? derived.capacities.domestic.crude
-          : derived.capacities.refine;
+  ): { channel: BurstChannel; price: number; tonnes: number } {
+    const crudeRateOf = (channel: BurstChannel): number =>
+      channel === 'export' ? derived.capacities.export.crude : derived.capacities.domestic.crude;
     // Экспортные акции продают реальную нефть со склада: тонны уходят,
     // деньги приходят по цене канала (и по мировой цене).
     // Если экспортный канал ещё не построен, акция всё равно работает:
@@ -588,7 +580,7 @@ export class Game {
     const requestedCfg = this.config.oil.channels[requested];
     // Цена канала существует и без инфраструктуры, поэтому выбирать
     // fallback нужно по мощности ИМЕННО для сырой нефти.
-    const channel: Channel = requestedCfg.unlimited || crudeRateOf(requested) > 0
+    const channel: BurstChannel = requestedCfg.unlimited || crudeRateOf(requested) > 0
       ? requested
       : 'contract';
     const channelCfg = this.config.oil.channels[channel];
@@ -630,7 +622,7 @@ export class Game {
         this.emit({ type: 'sold', channel, tonnes, money: gross });
         return payouts;
       }
-      const base = eventPayout(def, derived, level, cost);
+      const base = eventPayout(def, derived, level);
       // Операции через банк усиливаются «масштабом деятельности банка».
       const amount = def.effect.bankScale
         ? Math.round(base * this.bankScale())
@@ -757,7 +749,7 @@ export class Game {
       ? Math.max(1e-6 * dtSeconds, fineNow * current.fineFactor)
       : 0;
     this.state.expensesAccrued += Math.max(0, expensesWithoutFine) + fineCharge;
-    this.settleSales(dtSeconds);
+    this.settleSales();
 
     this.tickCooldowns(dtMs);
     this.tickPeriodic(dtMs, derived);
@@ -776,12 +768,9 @@ export class Game {
   }
 
   /** Единая касса для нефти, продуктов, трубы и экспортной акции. */
-  private settleSales(dtSeconds = 0): { gross: number; expenses: number; tax: number; net: number } {
+  private settleSales(): { gross: number; expenses: number; tax: number; net: number } {
     const gross = this.pendingSalesGross;
-    if (!(gross > 1e-9)) {
-      if (dtSeconds > 0) this.trackRevenue(0, dtSeconds);
-      return { gross: 0, expenses: 0, tax: 0, net: 0 };
-    }
+    if (!(gross > 1e-9)) return { gross: 0, expenses: 0, tax: 0, net: 0 };
     const accruedExpenses = this.state.expensesAccrued;
     const settlement = calculateSaleSettlement(
       gross,
@@ -794,7 +783,6 @@ export class Game {
     // обнуляют расходы, начисленные в ожидании основной отгрузки.
     this.state.expensesAccrued = Math.max(0, accruedExpenses - Math.min(gross, accruedExpenses));
     if (settlement.net > 0) this.grantCoins(settlement.net);
-    if (dtSeconds > 0) this.trackRevenue(settlement.net, dtSeconds);
     return settlement;
   }
 
@@ -1062,18 +1050,6 @@ export class Game {
     }
   }
 
-  /** Фактический доход в секунду: сглаженное среднее по начислениям. */
-  revenuePerSecond(): number {
-    return this.revenueEma;
-  }
-
-  private trackRevenue(net: number, dtSeconds: number): void {
-    if (dtSeconds <= 0) return;
-    const instant = net / dtSeconds;
-    // Экспоненциальное сглаживание: 0.15 — компромисс между «дёргается» и «тормозит».
-    this.revenueEma += (instant - this.revenueEma) * Math.min(1, 0.15 + dtSeconds);
-  }
-
   /** Добавить запись в журнал операций (храним последние MAX_LOG). */
   pushLog(entry: Omit<LogEntry, 'at'>): void {
     this.state.log.unshift({ at: this.state.clockMs, ...entry });
@@ -1100,7 +1076,7 @@ export class Game {
       while (acc >= intervalMs && fired < 50) {
         acc -= intervalMs;
         fired++;
-        const amount = eventPayout(def, derived, level, 0);
+        const amount = eventPayout(def, derived, level);
         this.grantCoins(amount);
         this.emit({ type: 'periodic', id: def.id, amount });
       }

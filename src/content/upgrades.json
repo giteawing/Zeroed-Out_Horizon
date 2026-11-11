@@ -999,7 +999,6 @@
       "type": "periodic",
       "baseCost": 457,
       "maxLevel": 10,
-      "cooldownSeconds": 0,
       "effect": {
         "seconds": 75,
         "value": 14

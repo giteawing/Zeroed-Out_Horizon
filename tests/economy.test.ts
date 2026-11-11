@@ -12,12 +12,9 @@ import {
   computeDerived,
   costFor,
   eventPayout,
-  exportTonnes,
   isUnlocked,
   isWinReady,
-  netForInterval,
-  saleProceeds,
-  sellOil,
+  allocateByPrice,
   taxRateOf,
   totalCostFor,
   unlockBlocker,
@@ -286,7 +283,8 @@ describe('производные показатели', () => {
     const bad = makeUpgrade({ id: 'bad', type: 'passive', effect: { value: 1, salaryAdd: 500 } });
     const d = computeDerived(config, [bad], withUpgrades({ bad: 10 }));
     expect(d.netPerSecond).toBeGreaterThanOrEqual(0);
-    expect(netForInterval(d, 1)).toBeGreaterThanOrEqual(0);
+    expect(d.ebtPerSecond).toBeGreaterThanOrEqual(0);
+    expect(d.taxPaidPerSecond).toBeGreaterThanOrEqual(0);
   });
 
   it('налог не «прыгает»: временные буффы больше не меняют ставку', () => {
@@ -337,55 +335,63 @@ describe('выплаты событий', () => {
 
   it('растут вместе с империей', () => {
     const def = content.byId.get('p_monarch') as UpgradeDef;
-    const small = eventPayout(def, { ...derived, grossPerSecond: 1, oilPerSecond: 0 }, 1, 0);
-    const big = eventPayout(def, { ...derived, grossPerSecond: 1000, oilPerSecond: 0 }, 1, 0);
+    const small = eventPayout(def, { ...derived, grossPerSecond: 1, oilPerSecond: 0 }, 1);
+    const big = eventPayout(def, { ...derived, grossPerSecond: 1000, oilPerSecond: 0 }, 1);
     expect(big).toBeGreaterThan(small);
   });
 
-  it('платный розыгрыш возвращает множитель от цены', () => {
-    const def = content.byId.get('p_crisis') as UpgradeDef;
-    const payout = eventPayout(def, derived, 1, 1000);
-    expect(payout).toBe(1000 * (def.effect.factor ?? 1));
+  /*
+   * Раньше здесь проверялись `sellOil`, `saleProceeds`, `exportTonnes` и ветка
+   * «выигрыш ставки» в `eventPayout`. Игра этими функциями не пользовалась
+   * (REVIEW C1): тесты были зелёными при любом поведении самой игры. Те же
+   * свойства теперь проверяются на коде, который действительно продаёт:
+   * раздача по цене — ниже, разовая продажа запаса — tests/regressions.test.ts
+   * («p_export …»), выигрыш ставки — tests/game.test.ts («гэмблы: …»).
+   */
+  it('товар уходит на рынки по принципу «сначала дороже»', () => {
+    const plan = allocateByPrice(3, [
+      { key: 'cheap', price: 1, capacity: 1 },
+      { key: 'middle', price: 10, capacity: 1 },
+      { key: 'dear', price: 100, capacity: 5 },
+    ]);
+    // Самый дорогой рынок вмещает всё — остальным ничего не достаётся.
+    expect(plan.byMarket).toEqual({ cheap: 0, middle: 0, dear: 3 });
+    expect(plan.remaining).toBe(0);
+
+    // Дорогой рынок заполнен — остаток идёт следующему по цене, а не по
+    // порядку в списке; непроданное возвращается вызывающему.
+    const tight = allocateByPrice(10, [
+      { key: 'cheap', price: 1, capacity: 2 },
+      { key: 'middle', price: 10, capacity: 3 },
+      { key: 'dear', price: 100, capacity: 4 },
+    ]);
+    expect(tight.byMarket).toEqual({ cheap: 2, middle: 3, dear: 4 });
+    expect(tight.remaining).toBe(1);
+    expect(tight.byMarket.cheap + tight.byMarket.middle + tight.byMarket.dear + tight.remaining).toBe(10);
   });
 
-  it('экспорт продаёт нефть со склада по цене канала', () => {
-    const def = content.byId.get('p_export') as UpgradeDef;
-    const cheap = { ...derived, channels: { ...derived.channels, export: { ...derived.channels.export, price: 10 } } };
-    const dear = { ...derived, channels: { ...derived.channels, export: { ...derived.channels.export, price: 20 } } };
-    const tonnes = 100;
-    expect(saleProceeds(def, dear, tonnes)).toBeGreaterThan(saleProceeds(def, cheap, tonnes));
-    // Разовая акция не может продать больше, чем лежит в резервуарах.
-    expect(exportTonnes(config, derived, 5)).toBeLessThanOrEqual(5);
-  });
+  it('безлимитный рынок забирает весь остаток, сломанные числа не продают ничего', () => {
+    const unlimited = allocateByPrice(50, [
+      { key: 'dear', price: 100, capacity: 20 },
+      { key: 'contract', price: 1, capacity: Number.POSITIVE_INFINITY },
+    ]);
+    expect(unlimited.byMarket).toEqual({ dear: 20, contract: 30 });
+    expect(unlimited.remaining).toBe(0);
 
-  it('каналы делят нефть по приоритету «дорогой сначала»', () => {
-    const custom = {
-      ...derived,
-      channels: {
-        contract: { rate: 1, price: 1, sold: 1 },
-        export: { rate: 1, price: 10, sold: 1 },
-        refine: { rate: 1, price: 100, sold: 1 },
-      },
-    };
-    const sold = sellOil(custom, 3, 10, []);
-    // Вся нефть ушла через самый дорогой канал.
-    expect(sold.byChannel.refine).toBeCloseTo(3, 6);
-    expect(sold.gross).toBeCloseTo(300, 6);
-    expect(sold.oil).toBeCloseTo(0, 6);
-  });
+    // NaN и отрицательная пропускная способность — это «рынок закрыт»,
+    // а не «продать минус десять тонн».
+    const broken = allocateByPrice(5, [
+      { key: 'nan', price: 100, capacity: Number.NaN },
+      { key: 'negative', price: 50, capacity: -10 },
+    ]);
+    expect(broken.byMarket).toEqual({ nan: 0, negative: 0 });
+    expect(broken.remaining).toBe(5);
 
-  it('безлимитные контракты продают всё, что осталось', () => {
-    const custom = {
-      ...derived,
-      channels: {
-        contract: { rate: 0, price: 1, sold: 0 },
-        export: { rate: 0, price: 10, sold: 0 },
-        refine: { rate: 0, price: 100, sold: 0 },
-      },
-    };
-    const sold = sellOil(custom, 50, 1, ['contract']);
-    expect(sold.oil).toBeCloseTo(0, 6);
-    expect(sold.byChannel.contract).toBeCloseTo(50, 6);
+    for (const volume of [Number.NaN, -3, Number.POSITIVE_INFINITY]) {
+      const plan = allocateByPrice(volume, [{ key: 'only', price: 1, capacity: 7 }]);
+      expect(plan.byMarket.only).toBe(0);
+      expect(plan.remaining).toBe(0);
+    }
   });
 });
 
@@ -933,8 +939,8 @@ describe('регрессии аудита: периодика, банк, рын�
   it('уровни периодической покупки масштабируют фактическую выплату', () => {
     const def = content.byId.get('t_core')!;
     const derived = computeDerived(config, content.upgrades, withUpgrades());
-    const first = eventPayout(def, derived, 1, 0);
-    const fifth = eventPayout(def, derived, 5, 0);
+    const first = eventPayout(def, derived, 1);
+    const fifth = eventPayout(def, derived, 5);
     expect(fifth).toBeGreaterThan(first);
     expect(fifth).toBe(first * 5);
   });

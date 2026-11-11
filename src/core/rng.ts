@@ -18,11 +18,6 @@ export class Rng {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   }
 
-  /** Целое в [min, max]. */
-  int(min: number, max: number): number {
-    return min + Math.floor(this.next() * (max - min + 1));
-  }
-
   /** Текущее состояние — чтобы сохранить игру вместе с «зерном». */
   getSeed(): number {
     return this.state >>> 0;

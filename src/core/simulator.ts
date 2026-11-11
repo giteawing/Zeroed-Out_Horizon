@@ -11,6 +11,7 @@ import {
   bankScaleOf,
   computeDerived,
   eventPayout,
+  grantsField,
   isUnlocked,
   levelOf,
   unlockBlocker,
@@ -361,12 +362,12 @@ export function estimatedGain(
 
   // Считаем по той же денежной формуле, что и реальная выплата игры.
   if (def.type === 'oneShot') {
-    const payout = eventPayout(def, before, levelOf(game.state, def.id) + 1, cost);
+    const payout = eventPayout(def, before, levelOf(game.state, def.id) + 1);
     const bankBonus = def.effect.bankScale ? bankScaleOf(content.upgrades, game.state) : 1;
     return (payout * bankBonus) / (def.cooldownSeconds ?? 60);
   }
   if (def.type === 'periodic') {
-    const payout = eventPayout(def, before, levelOf(game.state, def.id) + 1, 0);
+    const payout = eventPayout(def, before, levelOf(game.state, def.id) + 1);
     return payout / (e.seconds ?? 60);
   }
   if (def.type === 'gamble') {
@@ -387,9 +388,11 @@ export function estimatedGain(
       : game.state.capitalFlightStartedAtMs,
   };
   if (def.type === 'well' || def.type === 'field') {
-    const daily = def.id === 't_well'
-      ? averageWellDaily(content)
-      : (cost * 7.5) / wellPricePerDailyTonne(content.config, undefined, game.derived().exchangeRate);
+    // Месторождение оценивается по бюджету приза, одиночная скважина — по
+    // среднему дебиту. Правило «это месторождение» одно — `grantsField()`.
+    const daily = grantsField(def)
+      ? (cost * 7.5) / wellPricePerDailyTonne(content.config, undefined, game.derived().exchangeRate)
+      : averageWellDaily(content);
     next.wells = [...game.state.wells, { kind: 'unique', dailyTonnes: Math.max(1, daily) }];
   }
   const after = derivedForSimulation(content, next);

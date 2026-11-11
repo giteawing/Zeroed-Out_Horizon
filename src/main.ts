@@ -560,6 +560,8 @@ function boot(): void {
   // Escape закрывает только верхнее окно. Порядок — обратный порядку
   // добавления в DOM: что добавлено позже, то нарисовано выше.
   const sheets: Array<{ visible: boolean; close: () => void }> = [
+    // Финал закрывается как остальные окна; вернуться к титрам можно из меню.
+    { get visible() { return finale.visible; }, close: () => finale.hide() },
     assetDetails,
     wealth,
     dev,

@@ -176,6 +176,42 @@ describe('единая финансовая модель продаж', () => {
     expect(sale.price).toBeCloseTo(game.derived().channels.export.price, 6);
   });
 
+  it('p_export не продаёт больше, чем лежит в резервуаре, и берёт цену дня', () => {
+    // Раньше эти два свойства «проверялись» на функциях exportTonnes и
+    // saleProceeds, которыми игра не пользовалась (REVIEW C1).
+    const content = freshContent();
+    const sell = (worldPrice: number, stock: number) => {
+      const state = rich(content, 1e9);
+      state.levels.x_cistern = 1;
+      state.worldPrice = worldPrice;
+      state.oil = stock;
+      const game = new Game(content, state);
+      const result = game.buy('p_export');
+      expect(result.ok).toBe(true);
+      const sale = state.log.find((entry) => entry.kind === 'sold')!;
+      expect(sale.channel).toBe('export');
+      expect(state.oil).toBeCloseTo(stock - sale.tonnes!, 9);
+      expect(state.oil).toBeGreaterThanOrEqual(0);
+      expect(sale.money).toBeCloseTo(sale.tonnes! * sale.price!, 6);
+      return { tonnes: sale.tonnes!, price: sale.price!, net: result.payouts[0].amount };
+    };
+
+    // Меньше тонны: правило «не меньше одной тонны» не продаёт то, чего нет.
+    const crumbs = sell(1, 0.4);
+    expect(crumbs.tonnes).toBeCloseTo(0.4, 9);
+    const single = sell(1, 1.5);
+    expect(single.tonnes).toBeCloseTo(1, 9);
+
+    // Та же нефть при дорогом рынке приносит больше — ровно во столько раз,
+    // во сколько выросла цена экспорта.
+    const { min, max } = content.config.worldPrice;
+    const cheap = sell(min, 400);
+    const dear = sell(max, 400);
+    expect(dear.tonnes).toBeCloseTo(cheap.tonnes, 9);
+    expect(dear.price / cheap.price).toBeCloseTo(max / min, 9);
+    expect(dear.net).toBeGreaterThan(cheap.net);
+  });
+
   it('p_export различает безлимитный канал и нулевую ограниченную мощность', () => {
     const content = freshContent();
     content.config.oil.channels.export.unlimited = true;
@@ -485,18 +521,45 @@ describe('устойчивость времени и состояния движ
   it('reset очищает временные накопители и устанавливает новый seed', () => {
     const content = freshContent();
     const oldState = rich(content, 0);
-    oldState.wells = [{ kind: 'good', dailyTonnes: 900 }];
+    // Прежняя партия оставляет после себя всё, что копится между шагами:
+    // выручку до закрытия кассы, разлив, таймеры журнала и достижений.
+    oldState.wells = [{ kind: 'unique', dailyTonnes: 5_000_000 }];
     const game = new Game(content, oldState);
-    game.update(5000);
-    expect(game.revenuePerSecond()).toBeGreaterThan(0);
+    game.update(7_300);
+    expect(oldState.totalSold).toBeGreaterThan(0);
+    expect(oldState.log.some((entry) => entry.kind === 'spill')).toBe(true);
 
-    const fresh = createInitialState(content.config, 456789);
+    // Новая партия тоже разливает нефть с первой секунды: так видно и таймер
+    // сообщений о разливе, оставшийся от прежней.
+    const spilling = (): GameState => {
+      const state = createInitialState(content.config, 456789);
+      state.wells = [{ kind: 'unique', dailyTonnes: 5_000_000 }];
+      return state;
+    };
+    const fresh = spilling();
     game.reset(fresh);
-    const reference = new Game(content, createInitialState(content.config, 456789));
+    const reference = new Game(content, spilling());
 
     expect(game.state).toBe(fresh);
-    expect(game.revenuePerSecond()).toBe(0);
     expect(game.derived().oilPerSecond).toBeCloseTo(reference.derived().oilPerSecond, 12);
+
+    // Ни один накопитель не пережил сброс: дальше партия идёт шаг в шаг с
+    // игрой, созданной заново с тем же сидом. Время сохранения — настенные
+    // часы, оно у двух снимков может отличаться на миллисекунду.
+    const comparable = (instance: Game): GameState => ({ ...instance.snapshot(), savedAtWallMs: 0 });
+    // Первые сверки стоят внутри первого периода проверки достижений и
+    // первого окна сообщений о разливе: остаток прежних таймеров сдвинул бы
+    // именно их.
+    const achievementsTickMs = content.config.achievementsTickSeconds * 1000;
+    const steps = [100, achievementsTickMs - 300, 500, 3_000, 350, 12_000, 60_000];
+    for (const stepMs of steps) {
+      game.update(stepMs);
+      reference.update(stepMs);
+      expect(comparable(game)).toEqual(comparable(reference));
+    }
+    expect(game.state.achievements.length).toBeGreaterThan(0);
+    expect(game.state.totalSold).toBeGreaterThan(0);
+    expect(game.state.log.some((entry) => entry.kind === 'spill')).toBe(true);
   });
 
   it('начисление денег сразу обновляет DerivedStats.progress', () => {

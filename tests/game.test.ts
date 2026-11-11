@@ -247,6 +247,54 @@ describe('гэмблы', () => {
   });
 });
 
+describe('гэмблы: ставка и выигрыш считаются в игре (REVIEW C1)', () => {
+  /** Партия с гарантированным исходом: шанс подменён в копии контента. */
+  const play = (chance: number) => {
+    const rigged = structuredClone(content);
+    const def = rigged.byId.get('p_crisis')!;
+    def.effect.chance = chance;
+    const state = createInitialState(rigged.config, 12345);
+    // Без скважин: на счёт не попадает ничего, кроме ставки и выигрыша.
+    state.wells = [];
+    const stake = costFor(rigged.config, def, 0);
+    state.coins = stake;
+    state.totalEarned = Math.max(stake, def.unlockAt?.balance ?? 0);
+    const game = new Game(rigged, state);
+    const events: GameEvent[] = [];
+    game.on((event) => events.push(event));
+    expect(game.buy('p_crisis').ok).toBe(true);
+    expect(state.coins).toBe(0);
+    expect(state.gambles).toEqual([{
+      id: 'p_crisis',
+      amount: stake,
+      factor: def.effect.factor,
+      resolveAt: state.clockMs + def.effect.seconds! * 1000,
+    }]);
+    // До срока ничего не происходит.
+    game.update(def.effect.seconds! * 1000 - 200);
+    expect(events.some((event) => event.type === 'gambleResult')).toBe(false);
+    game.update(400);
+    return { state, stake, factor: def.effect.factor!, events };
+  };
+
+  it('выигрыш возвращает ставку × factor', () => {
+    const { state, stake, factor, events } = play(1);
+    expect(factor).toBeGreaterThan(1);
+    expect(state.coins).toBe(Math.round(stake * factor));
+    expect(events).toContainEqual({
+      type: 'gambleResult', id: 'p_crisis', won: true, amount: Math.round(stake * factor),
+    });
+    expect(state.gambles).toEqual([]);
+  });
+
+  it('проигрыш не возвращает ничего', () => {
+    const { state, events } = play(0);
+    expect(state.coins).toBe(0);
+    expect(events).toContainEqual({ type: 'gambleResult', id: 'p_crisis', won: false, amount: 0 });
+    expect(state.gambles).toEqual([]);
+  });
+});
+
 describe('периодические бонусы', () => {
   it('выдают выплату по таймеру', () => {
     const { game, state, events } = setup();

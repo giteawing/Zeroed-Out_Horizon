@@ -1,6 +1,7 @@
 /**
  * Крошечный помощник для DOM. Никакой разметки строками: тексты приходят
- * из texts.json, значит innerHTML не нужен (и безопаснее).
+ * из texts.json и попадают в документ только как текст. Разбора строк как
+ * HTML здесь нет намеренно (tests/dead-code.test.ts следит за всем src/).
  *
  *   const button = el('button', { class: 'btn tap', 'aria-label': t('tap') }, [
  *     el('span', { class: 'btn__label' }, t('tap')),
@@ -19,7 +20,6 @@ export function el<K extends keyof HTMLElementTagNameMap>(
     if (value === undefined || value === null || value === false) continue;
     if (key === 'class') node.className = String(value);
     else if (key === 'text') node.textContent = String(value);
-    else if (key === 'html') node.innerHTML = String(value);
     else node.setAttribute(key, String(value));
   }
   const list = Array.isArray(children) ? children : [children];
@@ -51,23 +51,4 @@ export function setHidden(node: HTMLElement, hidden: boolean): void {
 /** Включает или выключает класс, только если его состояние другое. */
 export function setClass(node: Element, name: string, on: boolean): void {
   if (node.classList.contains(name) !== on) node.classList.toggle(name, on);
-}
-
-export function raf(callback: () => void): number {
-  return requestAnimationFrame(callback);
-}
-
-export function prefersReducedMotion(): boolean {
-  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
-
-/** Нажатие «по-настоящему» срабатывает один раз для клавиатуры и мыши. */
-export function onActivate(node: HTMLElement, handler: (event: Event) => void): void {
-  node.addEventListener('click', handler);
-  node.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      handler(event);
-    }
-  });
 }
