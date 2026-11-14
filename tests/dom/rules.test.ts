@@ -248,11 +248,19 @@ describe('правила: механики, о которых они молча�
       INVESTMENT_RATE_MIN_PERCENT + (INVESTMENT_RATE_MAX_PERCENT - INVESTMENT_RATE_MIN_PERCENT) * share,
       9,
     );
-    // Сейчас потолок влияния недостижим: правила обязаны назвать не только
-    // обещанный максимум, но и то, до чего игрок реально дойдёт.
-    expect(mighty.influence).toBeLessThan(config.influence.cap);
-    expect(money).toContain(`${formatNumber(mighty.influence)} влияния`);
-    expect(money).toContain(formatPercent(mighty.investmentRatePercent / 100, 1));
+    // После добавления влияния сенату и телеканалу потолок достижим.
+    // Оговорка нужна только когда магазин действительно не добирает влияние.
+    expect(mighty.influence).toBeGreaterThanOrEqual(config.influence.cap);
+    expect(mighty.investmentRatePercent).toBe(INVESTMENT_RATE_MAX_PERCENT);
+    expect(money).not.toContain(`${formatNumber(mighty.influence)} влияния`);
+    const scarce = structuredClone(content);
+    scarce.config.influence.cap = mighty.influence + 100;
+    const scarceMoney = rulesOf(scarce).section('rules.moneyTitle');
+    expect(scarceMoney).toContain(`${formatNumber(mighty.influence)} влияния`);
+    const scarceState = createInitialState(scarce.config, 3);
+    scarceState.levels = allInfluence;
+    const scarceDerived = computeDerived(scarce.config, scarce.upgrades, scarceState, [], scarce);
+    expect(scarceMoney).toContain(formatPercent(scarceDerived.investmentRatePercent / 100, 1));
 
     // Если потолок достижим, оговорки нет, а ставка на нём — максимальная.
     const reachable = structuredClone(content);
@@ -277,11 +285,20 @@ describe('правила: механики, о которых они молча�
     expect(config.fines.maxRelief).toBeLessThan(1);
     expect(fines).toContain(formatPercent(config.fines.maxRelief, 1));
     expect(fines).not.toContain('100%');
-    // Потолок скидки выше всего влияния в магазине — об этом сказано прямо.
-    expect(mighty.influence).toBeLessThan(cap);
-    expect(mighty.fineFactor).toBeCloseTo(1 - mighty.influence * config.fines.influenceReliefPerPoint, 9);
-    expect(fines).toContain(`${formatNumber(mighty.influence)} влияния`);
-    expect(fines).toContain(formatPercent(1 - mighty.fineFactor, 0));
+    // Все источники влияния вместе достигают предельной скидки.
+    expect(mighty.influence).toBeGreaterThanOrEqual(cap);
+    expect(mighty.fineFactor).toBeCloseTo(1 - config.fines.maxRelief, 9);
+    expect(fines).not.toContain(`${formatNumber(mighty.influence)} влияния`);
+    expect(fines).toContain(formatPercent(config.fines.maxRelief, 1));
+    const scarce = structuredClone(content);
+    scarce.config.fines.influenceReliefPerPoint = 0.0005;
+    const scarceState = createInitialState(scarce.config, 3);
+    scarceState.levels = Object.fromEntries(givers.map((def) => [def.id, def.maxLevel]));
+    const scarceDerived = computeDerived(scarce.config, scarce.upgrades, scarceState, [], scarce);
+    expect(scarceDerived.influence).toBeLessThan(Math.ceil(scarce.config.fines.maxRelief / scarce.config.fines.influenceReliefPerPoint));
+    const scarceFines = rulesOf(scarce).section('rules.finesTitle');
+    expect(scarceFines).toContain(`${formatNumber(mighty.influence)} влияния`);
+    expect(scarceFines).toContain(formatPercent(1 - scarceDerived.fineFactor, 0));
 
     const reachable = structuredClone(content);
     reachable.config.fines.influenceReliefPerPoint = config.fines.maxRelief / mighty.influence;

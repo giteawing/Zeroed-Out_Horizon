@@ -48,7 +48,7 @@ export const EFFECT_FIELDS: Record<UpgradeType, ReadonlyArray<keyof UpgradeEffec
   multiplier: ['factor', 'scope', 'influence', 'conquestCut', 'fuelDamper'],
   taxCut: ['percent', 'bankScale', 'influence'],
   costCut: ['percent'],
-  periodic: ['seconds', 'value'],
+  periodic: ['seconds', 'value', 'influence'],
   oneShot: ['value', 'bankScale', 'launder', 'sellsOil', 'usesWorldPrice', 'burstChannel'],
   gamble: ['factor', 'seconds', 'chance'],
   priceBoost: ['domesticPriceMultiplier', 'exportPriceMultiplier', 'exchangeRateDevaluation'],

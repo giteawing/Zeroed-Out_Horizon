@@ -169,6 +169,27 @@ describe('новые покупки из заявки', () => {
     expect(withPmc).toBeLessThan(noDiscount);
   });
 
+  it.each([
+    { id: 'p_senate', influence: 5 },
+    { id: 'p_tvchannel', influence: 10 },
+  ])('$id: каждый купленный уровень добавляет $influence влияния', ({ id, influence }) => {
+    const { game } = setup();
+    rich(game.stateForTests(), 1e14);
+    const def = content.byId.get(id)!;
+    expect(def.effect.influence).toBe(influence);
+    const before = game.derived().influence;
+    const coins = game.state.coins;
+    const cost = game.checkBuy(id, 2).cost;
+    expect(game.buy(id, 2).ok).toBe(true);
+    expect(game.derived().influence).toBe(before + influence * 2);
+    expect(game.state.coins).toBe(coins - cost);
+    expect(game.buy(id).ok).toBe(true);
+    expect(game.derived().influence).toBe(before + influence * 3);
+    // Влияние не отменяет прежнюю роль покупки и не выплачивает деньги сразу.
+    if (id === 'p_senate') expect(def.type).toBe('periodic');
+    else expect(game.derived().assetCounts.media).toBe(3);
+  });
+
   it('отжатый завод даёт столько же, сколько свой, но стоит дешевле', () => {
     const own = content.byId.get('t_refinery')!;
     const taken = content.byId.get('p_refinery')!;

@@ -286,7 +286,10 @@ describe('инструкции совпадают с настройками пр
     expect(economy).toContain(`влиянии ${config.influence.cap}`);
     expect(economy).toContain(`${attainable.influence} влияния`);
     expect(economy).toContain(`${comma(attainable.investmentRatePercent, 1)} % годовых`);
-    expect(economy).toContain(`скидка на штраф ${comma((1 - attainable.fineFactor) * 100, 0)} %`);
+    expect(economy).toContain(`из одиннадцати карточек`);
+    expect(upgrades.filter((def) => def.effect.influence)).toHaveLength(11);
+    const relief = Math.min(config.fines.maxRelief, attainable.influence * config.fines.influenceReliefPerPoint);
+    expect(economy).toContain(`скидка на штраф ${comma(relief * 100, 1)} %`);
 
     // «Откуда берутся деньги»: темп выплат в базах выплаты за секунду.
     const bankScale = 1 + upgrades
