@@ -999,7 +999,7 @@ describe('точность денег (REVIEW F11)', () => {
         }
       }
     }
-    // Худшая цена — финальный насос: 2,5e24 номинала сжаты до 5e14.
+    // Худшая цена — финальный насос: 1e25 номинала сжаты до 1e15.
     expect(worstId.startsWith('win_pump')).toBe(true);
     expect(worst).toBeLessThan(Number.MAX_SAFE_INTEGER);
   });
@@ -1015,10 +1015,10 @@ describe('точность денег (REVIEW F11)', () => {
     expect(adjustCurrencyCost(config, 1e40)).toBe(Number.MAX_SAFE_INTEGER);
   });
 
-  it('цена финала, которую платит игрок, — это сжатый номинал, а не 2,5e24', () => {
+  it('цена финала, которую платит игрок, — это сжатый номинал, а не 1e25', () => {
     const paid = winCostOf(config, content.upgrades);
     expect(paid).toBe(adjustCurrencyCost(config, config.winCost));
-    expect(paid).toBe(5e14);
+    expect(paid).toBe(1e15);
     expect(paid).toBeLessThan(config.winCost);
   });
 });

@@ -180,6 +180,47 @@ test('игра работает из подпапки: ни один запро�
   expect(errors).toEqual([]);
 });
 
+test('шкала нефтебазы и окно отдельных НПЗ работают в браузере', async ({ page }) => {
+  // Старый формат сейва заполняется нормализатором игры недостающими полями.
+  const state = {
+    levels: { t_refinery: 2, r_depth_vacuum: 1, t_depot: 1 },
+    products: 12_500,
+    wells: [{ kind: 'unique', dailyTonnes: 1500 }],
+    savedAtWallMs: Date.now(),
+  };
+  await page.addInitScript(({ key, save }) => localStorage.setItem(key, save), {
+    key: SAVE_KEY, save: JSON.stringify(state),
+  });
+  await start(page);
+  const bar = page.locator('[data-storage="products"]');
+  await expect(bar).toHaveAttribute('role', 'progressbar');
+  await expect(bar).toHaveAttribute('aria-valuemax', '25000');
+  // Продукты одновременно продаются игровым циклом: дождёмся синхронизации
+  // HUD с текущим остатком, а не исходным числом из сохранения.
+  await expect.poll(() => page.evaluate(() => {
+    const shown = Number(document.querySelector('[data-storage="products"]')!.getAttribute('aria-valuenow'));
+    const amount = (window as unknown as { __game: { state: { products: number } } }).__game.state.products;
+    return Math.abs(shown - Math.min(amount, 25_000));
+  })).toBeLessThan(1);
+  const { now, width } = await bar.evaluate((node) => ({
+    now: Number(node.getAttribute('aria-valuenow')),
+    width: Number.parseFloat(node.querySelector<HTMLElement>('.hud__oil-fill')!.style.width),
+  }));
+  expect(Math.abs(width - now / 25_000 * 100)).toBeLessThanOrEqual(0.051);
+  const button = page.locator('[data-row="productsOut"] [data-open-refinery]');
+  await button.click();
+  const dialog = page.getByRole('dialog', { name: 'Статистика НПЗ' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('[data-refinery-stat="plants"]')).toContainText('2');
+  await expect(dialog.locator('[data-refinery-stat="depth"]')).toContainText('60,0%');
+  await expect(dialog.locator('[data-refinery-stage="r_depth_vacuum"]')).toContainText('1 / 2');
+  await expect(dialog.locator('[data-refinery-stage]')).toHaveCount(4);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(button).toBeFocused();
+  expect(errors).toEqual([]);
+});
+
 test('непрерывная добыча отправляет сырую нефть в сбыт', async ({ page }) => {
   await start(page);
   const before = await page.evaluate(

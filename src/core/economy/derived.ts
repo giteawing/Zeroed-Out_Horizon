@@ -28,7 +28,7 @@ export function computeDerived(
   void buffs;
 
   const effects = collectUpgradeEffects(upgrades, state);
-  const market = calculateMarket(config, state, effects, content);
+  const market = calculateMarket(config, state, effects, upgrades, content);
   // Демпфер компенсирует разницу цен нефтепродуктов, проданных внутри страны.
   const damperIncomePerSecond = effects.fuelDamperEnabled
     ? Math.max(0, market.productPriceExport - market.productPriceDomestic) * market.flows.productsDomestic
@@ -70,6 +70,7 @@ export function computeDerived(
       : Number.POSITIVE_INFINITY;
 
   return {
+    refineries: market.refineries,
     oilPerSecond: market.oilPerSecond,
     flowLimits: market.flowLimits,
     sellPerSecond:

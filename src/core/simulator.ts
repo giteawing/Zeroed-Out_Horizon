@@ -345,9 +345,10 @@ export function decide(
     const level = levelOf(state, def.id);
     if (level >= def.maxLevel && !isRepeatable(def)) continue;
     const check = game.checkBuy(def.id);
-    if (!check.unlocked || check.cooldownMs > 0) continue;
+    // Помимо денег и разблокировки учитываются физические ограничения:
+    // нельзя оценивать установку на НПЗ, которому она уже поставлена.
+    if (!check.ok) continue;
     const cost = check.cost;
-    if (cost > state.coins) continue;
     before ??= derivedForSimulation(content, state);
     const gain = estimatedGain(game, def, cost, before);
     if (allowRepeatables && isRepeatable(def) && gain <= 0) continue;

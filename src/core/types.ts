@@ -21,6 +21,8 @@ export type UpgradeType =
   | 'luxury'
   | 'sell'
   | 'storage'
+  /** Модернизация глубины переработки одного существующего НПЗ. */
+  | 'refineryDepth'
   /** Отжатое месторождение: за одну покупку приходит 5–50 скважин. */
   | 'field'
   | 'win';
@@ -105,7 +107,7 @@ export interface OilConfig {
    * число в этих границах (заказчик просил 5–50).
    */
   conquestWells: { min: number; max: number };
-  /** Доля сырья, которая после переработки превращается в нефтепродукты. */
+  /** Базовая глубина НПЗ без модернизации: доля выхода нефтепродуктов. */
   refineryYield: number;
   /** Сколько тонн продаёт разовая акция «Пихнуть нефть заграницу» за секунду запаса. */
   exportBurstSeconds: number;
@@ -202,6 +204,8 @@ export interface UpgradeEffect {
    * возит только их, поле не нужно.
    */
   exportMode?: ExportMode;
+  /** Целевая глубина переработки одного НПЗ после установки этой ступени. */
+  refineryDepth?: number;
   /** Прибавка к влиянию за уровень. */
   influence?: number;
   /** Скидка на «отжатие» (доля за уровень). */
@@ -647,7 +651,24 @@ export interface OilFlows {
   productCapacity: number;
 }
 
+/** Один НПЗ: допустимая загрузка сырья и его собственная глубина. */
+export interface RefineryUnit {
+  capacity: number;
+  depth: number;
+}
+
+/** Состав парка и число установок каждой последовательной ступени. */
+export interface RefineryStats {
+  plantCount: number;
+  stages: Array<{ id: string; count: number; depth: number }>;
+  /** Среднее арифметическое по НПЗ, не используется для расчёта выпуска. */
+  averageDepth: number;
+  units: RefineryUnit[];
+}
+
 export interface DerivedStats {
+  /** Отдельные НПЗ и состояние их модернизаций. */
+  refineries: RefineryStats;
   /** Текущая непрерывная добыча скважин и оборудования, тонн/с. */
   oilPerSecond: number;
   /** Физический максимум фиксированного потока с учётом других фиксированных направлений. */
@@ -796,7 +817,7 @@ export type GameEvent =
   | { type: 'offline'; seconds: number; coins: number }
   | {
       type: 'error';
-      code: 'noMoney' | 'cooldown' | 'locked' | 'maxLevel' | 'won' | 'noOil' | 'noCapacity';
+      code: 'noMoney' | 'cooldown' | 'locked' | 'maxLevel' | 'won' | 'noOil' | 'noCapacity' | 'noRefinerySlot';
       id?: string;
     };
 

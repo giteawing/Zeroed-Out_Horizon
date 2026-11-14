@@ -186,8 +186,10 @@ describe('описания карточек: обещания подтвержд
     // Резистивиметр — обычный множитель добычи, с геонавигатором не связан.
     expect(card('t_resist').description).not.toMatch(/геонавигатор/i);
     expect(card('t_resist').description).toMatch(/добыч/);
-    // Сенат платит, но влияния не даёт.
-    expect(card('p_senate').description).not.toMatch(/влияни/i);
+    // Сенат сохраняет периодические выплаты и теперь прямо даёт влияние.
+    expect(card('p_senate').description).toMatch(/влияни/i);
+    expect(card('p_senate').effect.influence).toBe(5);
+    expect(card('p_tvchannel').effect.influence).toBe(10);
   });
 
   it('«покупается один раз» — только у покупки с одним уровнем и без перезарядки', () => {
@@ -216,6 +218,8 @@ describe('README: откуда берётся влияние (REVIEW B8)', () =>
     p_parliament: 'парламент',
     p_secretary: 'секретар',
     pmc: 'ЧВК',
+    p_senate: 'сенат',
+    p_tvchannel: 'телеканал',
   };
   const readme = readFileSync(resolve(__dirname, '..', 'README.md'), 'utf8');
   const start = readme.indexOf('**Влияние**');
@@ -238,11 +242,15 @@ describe('README: откуда берётся влияние (REVIEW B8)', () =>
     const sources = item.slice(0, item.indexOf(';'));
     expect(sources.length).toBeGreaterThan(50);
     for (const word of Object.values(SOURCES)) expect(sources).toContain(word);
-    // У «Попросить монет у императора», сената, министерства и телеканала
-    // поля influence нет: карточки это и говорят.
-    for (const id of ['p_monarch', 'p_senate', 'p_ministry', 'p_tvchannel']) {
+    // Сенат и телеканал теперь источники влияния. У просьбы к императору
+    // и министерства поля influence по-прежнему нет.
+    for (const id of ['p_senate', 'p_tvchannel']) {
+      expect(card(id).effect.influence).toBeGreaterThan(0);
+      expect(sources).toContain(SOURCES[id]!);
+    }
+    for (const id of ['p_monarch', 'p_ministry']) {
       expect(card(id).effect.influence).toBeUndefined();
     }
-    expect(sources).not.toMatch(/император|сенат|министерств/);
+    expect(sources).not.toMatch(/император|министерств/);
   });
 });

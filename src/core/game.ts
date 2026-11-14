@@ -46,7 +46,9 @@ export type BuyFailure =
   | 'won'
   | 'noOil'
   /** Нефть есть, но ни один канал разовой акции не может её принять. */
-  | 'noCapacity';
+  | 'noCapacity'
+  /** Все подходящие НПЗ уже оснащены этой ступенью либо их нет. */
+  | 'noRefinerySlot';
 
 const MAX_LOG = 24;
 
@@ -393,12 +395,20 @@ export class Game {
     const wanted = repeatable || def.cooldownSeconds || def.win
       ? 1
       : Math.min(requested, this.config.maxBuyLevels);
-    const buyCount = repeatable
-      ? 1
-      : Math.min(wanted, Math.max(0, def.maxLevel - level));
+    const stageIndex = derived.refineries.stages.findIndex((stage) => stage.id === def.id);
+    const stageLimit = stageIndex < 0
+      ? def.maxLevel
+      : stageIndex === 0
+        ? derived.refineries.plantCount
+        : derived.refineries.stages[stageIndex - 1]!.count;
+    const available = Math.max(0, Math.min(def.maxLevel, stageLimit) - level);
+    const buyCount = repeatable ? 1 : Math.min(wanted, available);
+    // Даже при отсутствии подходящего НПЗ карточка показывает цену следующей
+    // установки, а не вводящий в заблуждение ноль.
+    const pricedCount = stageIndex >= 0 && buyCount === 0 && level < def.maxLevel ? 1 : buyCount;
     const rawCost = def.win
       ? winCostOf(this.config, this.content.upgrades)
-      : this.priceOfLevels(def, repeatable ? 0 : level, buyCount, derived.exchangeRate);
+      : this.priceOfLevels(def, repeatable ? 0 : level, pricedCount, derived.exchangeRate);
     // «Отжать» дешевле, чем построить: скидка растёт от влияния и ЧВК.
     const cost = def.conquest
       ? Math.round(rawCost * (1 - derived.conquestCut))
@@ -408,6 +418,7 @@ export class Game {
     if (this.mutableState.won) reason = 'won';
     else if (!unlocked) reason = 'locked';
     else if (!repeatable && level >= def.maxLevel) reason = 'maxLevel';
+    else if (stageIndex >= 0 && available === 0) reason = 'noRefinerySlot';
     else if (cooldownMs > 0) reason = 'cooldown';
     else if (def.win) {
       if (!isWinReady(this.config, this.content.upgrades, this.mutableState, this.mutableState.coins, derived.influence)) {
@@ -435,7 +446,7 @@ export class Game {
       maxLevel: def.maxLevel,
       affordable: def.win || repeatable
         ? (this.mutableState.coins >= cost ? 1 : 0)
-        : affordableLevels(
+        : Math.min(available, affordableLevels(
             this.config,
             def,
             level,
@@ -443,7 +454,7 @@ export class Game {
               ? this.mutableState.coins / Math.max(1e-9, 1 - derived.conquestCut)
               : this.mutableState.coins,
             derived.exchangeRate,
-          ),
+          )),
       count: buyCount,
       unlocked,
       cooldownMs,
@@ -945,7 +956,8 @@ export class Game {
           value: Math.max(0, this.mutableState.flowControl.export.value - pipeUsedPerSecond),
         },
       }
-      : this.mutableState.flowControl);
+      : this.mutableState.flowControl,
+    derived.refineries.units);
 
     // Сырьё: деньги по ценам своих каналов. За продукты платит shipProducts —
     // он же решает, сколько топлива рынки реально взяли.

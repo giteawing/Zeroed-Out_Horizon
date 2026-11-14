@@ -197,7 +197,7 @@ function describeCase(c: Case): string {
 
 describe('«Авто» считает выгоду переработки по цене продуктов (REVIEW A3)', () => {
   // Пример из ревизии: сильная девальвация, продукты можно продать только
-  // внутри страны. Тонна сырья за границей — 2,65; на НПЗ — 0,85 × 1,8 = 1,53.
+  // внутри страны. Тонна сырья за границей — 2,65; на НПЗ — 0,55 × 1,8 = 0,99.
   const devaluation: Case = {
     volume: 100,
     exportCrude: 1000,
@@ -225,10 +225,10 @@ describe('«Авто» считает выгоду переработки по �
   });
 
   it('когда продукты дороже, НПЗ по-прежнему первый', () => {
-    // Те же мощности, но экспорт сырья дешевле: 1,2 против 1,53 с тонны на НПЗ.
+    // Те же мощности, но экспорт сырья дешевле: 0,8 против 0,99 с тонны на НПЗ.
     const cheapExport: Case = {
       ...devaluation,
-      prices: { ...devaluation.prices, crudeExport: 1.2 },
+      prices: { ...devaluation.prices, crudeExport: 0.8 },
     };
     const flows = forecast(cheapExport);
     expect(flows.refined).toBeCloseTo(100, 9);
@@ -240,7 +240,7 @@ describe('«Авто» считает выгоду переработки по �
   });
 
   it('выход НПЗ входит в сравнение: равные цены сырья и продуктов — сырьё выгоднее', () => {
-    // Тонна сырья стоит 1, а из неё выходит 0,85 т продуктов по той же цене.
+    // Тонна сырья стоит 1, а из неё выходит 0,55 т продуктов по той же цене.
     const equal: Case = {
       ...devaluation,
       domesticCrude: 0,
@@ -255,7 +255,7 @@ describe('«Авто» считает выгоду переработки по �
 
   it('дорогой, но тесный рынок продуктов не тянет на НПЗ всю нефть', () => {
     // Экспорт продуктов дорогой (6,89), но примет лишь 17 т. Остальные
-    // продукты стоили бы 1,8 внутри страны: 1,53 с тонны сырья против 2,65.
+    // продукты стоили бы 1,8 внутри страны: 0,99 с тонны сырья против 2,65.
     const narrow: Case = {
       volume: 600,
       exportCrude: 400,
@@ -304,7 +304,7 @@ describe('«Авто» считает выгоду переработки по �
     expect(flows.export).toBeCloseTo(80, 9);
     // Остаток, который некуда продать, перерабатывается, пока есть место.
     expect(flows.refined).toBeCloseTo(20, 9);
-    expect(flows.productsStored).toBeCloseTo(17, 9);
+    expect(flows.productsStored).toBeCloseTo(20 * YIELD, 9);
     expect(flows.productsSpill).toBe(0);
     expect(flows.stored).toBeCloseTo(0, 9);
     const plan = batch(storageOnly);
@@ -336,12 +336,12 @@ describe('«Авто» считает выгоду переработки по �
       domesticProducts: 50,
       storage: 0,
       stock: 50,
-      prices: { crudeDomestic: 0.35, crudeExport: 1, productDomestic: 1.8, productExport: 2.6 },
+      prices: { crudeDomestic: 0.35, crudeExport: 0.8, productDomestic: 1.8, productExport: 2.6 },
     };
     expect(forecast(stocked).refined).toBe(0);
     expect(forecast(stocked).export).toBeCloseTo(100, 9);
     expect(batch(stocked).refined).toBe(0);
-    // Без запаса те же 50 т продуктов выгоднее экспорта сырья (1,53 против 1).
+    // Без запаса те же 50 т продуктов выгоднее экспорта сырья (0,99 против 0,8).
     const empty = { ...stocked, stock: 0 };
     expect(forecast(empty).refined).toBeCloseTo(50 / YIELD, 9);
     expect(batch(empty).refined).toBeCloseTo(50 / YIELD, 9);
@@ -458,7 +458,7 @@ describe('ручные заявки сильнее выгоды', () => {
     const controls: FlowControls = { ...AUTO, export: { mode: 'fixed', value: 0 } };
     for (const plan of [forecast(base, controls), batch(base, controls)]) {
       expect(plan.export).toBe(0);
-      // Без экспорта тонна на НПЗ (1,53) дороже внутреннего рынка сырья (0,35).
+      // Без экспорта тонна на НПЗ (0,99) дороже внутреннего рынка сырья (0,35).
       expect(plan.refined).toBeCloseTo(300, 9);
       expect(plan.domestic).toBeCloseTo(200, 9);
     }
@@ -466,7 +466,7 @@ describe('ручные заявки сильнее выгоды', () => {
 
   it('закреплённая заявка не превышает мощность НПЗ и приёмку продуктов', () => {
     const controls: FlowControls = { ...AUTO, refine: { mode: 'fixed', value: 10_000 } };
-    const tight = { ...base, domesticProducts: 85 };
+    const tight = { ...base, domesticProducts: 100 * YIELD };
     for (const plan of [forecast(tight, controls), batch(tight, controls)]) {
       expect(plan.refined).toBeCloseTo(100, 9);
     }
@@ -523,26 +523,29 @@ describe('«Авто» в игре: девальвация и маршруты',
     expect(flows.refined).toBe(0);
   });
 
-  it('без девальвации та же империя перерабатывает всю нефть', () => {
-    const { game } = refineryGame(0);
-    const derived = game.derived();
-    expect(derived.exportPricePerTon).toBeLessThan(derived.productPriceDomestic * YIELD);
-    expect(derived.flows.refined).toBeCloseTo(derived.flows.produced, 6);
-    expect(derived.flows.export).toBe(0);
+  it('без девальвации базовый НПЗ уступает экспорту, а вакуумная ступень меняет выбор', () => {
+    const base = refineryGame(0).game.derived();
+    expect(base.exportPricePerTon).toBeGreaterThan(base.productPriceDomestic * YIELD);
+    expect(base.flows.export).toBeCloseTo(base.flows.produced, 6);
+    const upgraded = refineryGame(0, { r_depth_vacuum: 16 }).game.derived();
+    expect(upgraded.exportPricePerTon).toBeLessThan(upgraded.productPriceDomestic * 0.65);
+    expect(upgraded.flows.refined).toBeCloseTo(upgraded.flows.produced, 6);
+    expect(upgraded.flows.export).toBe(0);
   });
 
-  it('порог переключения — там, где экспорт тонны сырья обгоняет продукты из неё', () => {
+  it('порог переключения модернизированного НПЗ — там, где экспорт обгоняет продукты', () => {
     let switched = -1;
     for (let level = 0; level <= 20; level++) {
-      const { game } = refineryGame(level);
+      const { game } = refineryGame(level, { r_depth_vacuum: 16 });
       const derived = game.derived();
-      const exportBetter = derived.exportPricePerTon > derived.productPriceDomestic * YIELD;
+      const depth = derived.refineries.units[0]!.depth;
+      const exportBetter = derived.exportPricePerTon > derived.productPriceDomestic * depth;
       expect(derived.flows.export > 0, `уровень ${level}`).toBe(exportBetter);
       expect(derived.flows.refined > 0, `уровень ${level}`).toBe(!exportBetter);
       if (exportBetter && switched < 0) switched = level;
     }
-    // 1,05^9 ≈ 1,55 — первый курс выше 0,85 × 1,8 = 1,53.
-    expect(switched).toBe(9);
+    // 1,05^4 ≈ 1,22 — первый курс выше 0,65 × 1,8 = 1,17.
+    expect(switched).toBe(4);
   });
 
   it('экспортный терминал продуктов возвращает нефть на НПЗ', () => {

@@ -9,6 +9,7 @@
  */
 import type { Content, GameConfig, GameState, Well } from './types';
 import { randomSeed } from './rng';
+import { refineryCountOf, refineryStagesOf } from './economy/refineries';
 
 /**
  * Адрес сохранения в localStorage. «v2» — поколение сейвов (нефтяная модель),
@@ -131,6 +132,14 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
     }
   }
   state.levels = levels;
+  // Новые ступени вложены по заводам. В старом сейве их нет, а повреждённые
+  // счётчики не могут назначить оборудование на несуществующие НПЗ.
+  let eligibleRefineries = refineryCountOf(content.upgrades, state);
+  for (const stage of refineryStagesOf(content.upgrades)) {
+    eligibleRefineries = Math.min(eligibleRefineries, levels[stage.id] ?? 0);
+    if (eligibleRefineries > 0) levels[stage.id] = eligibleRefineries;
+    else delete levels[stage.id];
+  }
 
   const cooldowns: Record<string, number> = {};
   if (src.cooldowns && typeof src.cooldowns === 'object') {

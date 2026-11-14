@@ -18,6 +18,7 @@ import {
   computeDerived,
   constructionCostMultiplier,
   currencyCostCurveOf,
+  refineryStagesOf,
   wellDeclineFloorSeconds,
   winCostOf,
   winRequirementTerms,
@@ -252,6 +253,11 @@ export class Rules {
       this.section('rules.productsTitle', [
         t('rules.productsText', {
           yield: formatPercent(oil.refineryYield, 0),
+        }),
+        t('rules.refineryStages', {
+          stages: refineryStagesOf(upgrades)
+            .map((stage) => `${stage.name} — ${formatPercent(stage.effect.refineryDepth ?? 0, 0)}`)
+            .join(' → '),
         }),
         t('rules.productPrices', {
           domestic: price(base * config.product.domesticPriceFactor),

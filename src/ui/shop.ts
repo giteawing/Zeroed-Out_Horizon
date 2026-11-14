@@ -263,6 +263,7 @@ export class Shop {
       // на недоступной кнопке клик не срабатывает, поэтому пишем на карточке.
       if (check.reason === 'noOil') return this.texts.get('shop.buyFailOil');
       if (check.reason === 'noCapacity') return this.texts.get('shop.buyFailCapacity');
+      if (check.reason === 'noRefinerySlot') return this.texts.get('shop.buyFailRefinerySlot');
       return '';
     }
     return check.blocker ? this.describeTerm(check.blocker) : this.texts.get('shop.locked');

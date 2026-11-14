@@ -116,7 +116,16 @@ function otherValues(key: keyof UpgradeEffect, value: unknown): unknown[] {
 /** Карточка куплена и стоит: всё, что из этого выводит экономика. */
 function standing(content: Content, id: string): string {
   const def = content.byId.get(id)!;
-  const state = empire(content, { [id]: Math.min(def.maxLevel, 2) });
+  // Для ступени глубины на этих заводах должны быть все предыдущие
+  // установки: иначе поле меняет лишь подпись, но не фактический выпуск.
+  const earlier: Record<string, number> = {};
+  if (def.type === 'refineryDepth') {
+    for (const stage of content.upgrades.filter((candidate) => candidate.type === 'refineryDepth')) {
+      if (stage.id === id) break;
+      earlier[stage.id] = 2;
+    }
+  }
+  const state = empire(content, { ...earlier, [id]: Math.min(def.maxLevel, 2) });
   const derived = computeDerived(content.config, content.upgrades, state, [], content);
   return JSON.stringify([derived, bankScaleOf(content.upgrades, state)]);
 }

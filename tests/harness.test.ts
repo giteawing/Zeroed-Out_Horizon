@@ -14,6 +14,7 @@ import {
   INVESTMENT_RATE_MIN_PERCENT,
   INVESTMENT_YEAR_DAYS,
   computeDerived,
+  winCostOf,
 } from '../src/core/economy';
 import { formatMoney, formatNumber } from '../src/core/format';
 import { BALANCE_PROFILES } from '../src/core/simulator';
@@ -210,6 +211,19 @@ describe('инструкции совпадают с настройками пр
     expect(new Set(mentioned)).toEqual(new Set([workers]));
   });
 
+  it('документация называет номинальную и фактическую цену финала из контента', () => {
+    const { config, upgrades } = loadContent();
+    const exponential = (value: number): string => value.toExponential().replace('e+', 'e');
+    const nominal = exponential(config.winCost);
+    const paid = exponential(winCostOf(config, upgrades));
+    expect(upgrades.find((def) => def.win)?.baseCost).toBe(config.winCost);
+    for (const path of ['docs/ECONOMY.md', '.agents/skills/balance-tuning/SKILL.md']) {
+      const text = read(path);
+      expect(text, `${path}: номинал`).toContain(nominal);
+      expect(text, `${path}: цена игрока`).toContain(paid);
+    }
+  });
+
   it('README называет коридор мировой цены из config.worldPrice (REVIEW B5)', () => {
     const { min, max } = loadContent().config.worldPrice;
     const comma = (value: number): string => String(value).replace('.', ',');
@@ -237,14 +251,29 @@ describe('инструкции совпадают с настройками пр
     expect(economy).toContain(`${comma(share)} × ${comma(domestic)} = ${comma(share * domestic)}`);
     expect(economy).toContain(`${comma(share)} × ${comma(exported)} = ${comma(share * exported)}`);
 
-    // Уровень девальвации, с которого экспорт сырья дороже продуктов внутри страны.
+    // Все ступени и их точные значения — из карточек, в обоих документах.
+    const stages = loadContent().upgrades.filter((def) => def.type === 'refineryDepth');
+    expect(stages).toHaveLength(4);
+    for (const stage of stages) {
+      const value = `${Math.round(stage.effect.refineryDepth! * 100)} %`;
+      expect(readme, stage.id).toContain(value);
+      expect(economy, stage.id).toContain(value);
+      expect(readme.toLowerCase(), stage.id).toContain(stage.name.toLowerCase());
+    }
+    expect(economy).toContain('загрузка_N × глубина_N');
+    expect(readme).toContain('сумма объёмов отдельных НПЗ');
+
+    // Первую ступень выгодно продавать внутри, пока экспорт не обгонит её.
+    const vacuum = stages[0]!.effect.refineryDepth!;
+    expect(economy).toContain(`${comma(vacuum)} × ${comma(domestic)} = ${comma(vacuum * domestic)}`);
     const step = 1 + (byId.get('p_devalue_currency')?.effect.exchangeRateDevaluation ?? 0);
     expect(step).toBeGreaterThan(1);
     const crudeExport = config.oil.channels.export.priceFactor * config.exchangeRate.initial;
     let level = 0;
-    while (crudeExport * Math.pow(step, level) <= share * domestic) level++;
+    while (crudeExport * Math.pow(step, level) <= vacuum * domestic) level++;
     const superscript = String(level).replace(/\d/g, (digit) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[Number(digit)]!);
     expect(economy).toContain(`${comma(step)}${superscript} ≈ ${comma(Math.pow(step, level))}`);
+    expect(level).toBeGreaterThan(0);
     expect(level).toBeLessThanOrEqual(byId.get('p_devalue_currency')!.maxLevel);
   });
 
@@ -286,7 +315,10 @@ describe('инструкции совпадают с настройками пр
     expect(economy).toContain(`влиянии ${config.influence.cap}`);
     expect(economy).toContain(`${attainable.influence} влияния`);
     expect(economy).toContain(`${comma(attainable.investmentRatePercent, 1)} % годовых`);
-    expect(economy).toContain(`скидка на штраф ${comma((1 - attainable.fineFactor) * 100, 0)} %`);
+    expect(economy).toContain(`из одиннадцати карточек`);
+    expect(upgrades.filter((def) => def.effect.influence)).toHaveLength(11);
+    const relief = Math.min(config.fines.maxRelief, attainable.influence * config.fines.influenceReliefPerPoint);
+    expect(economy).toContain(`скидка на штраф ${comma(relief * 100, 1)} %`);
 
     // «Откуда берутся деньги»: темп выплат в базах выплаты за секунду.
     const bankScale = 1 + upgrades
