@@ -159,6 +159,9 @@ export function describeEffect(def: UpgradeDef, level: number, context: EffectLi
     case 'storage':
       parts.push(t('effectStorage', { value: formatNumber((e.value ?? 0) * shownLevel) }));
       break;
+    case 'refineryDepth':
+      parts.push(t('effectRefineryDepth', { value: formatPercent(e.refineryDepth ?? 0, 0) }));
+      break;
     case 'luxury':
       parts.push(t('effectLuxury'));
       break;

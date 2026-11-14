@@ -2139,7 +2139,7 @@
       "description": "Полный контроль над империей.",
       "icon": "win-pump",
       "type": "win",
-      "baseCost": 2.5e+24,
+      "baseCost": 1e+25,
       "maxLevel": 1,
       "win": true,
       "tag": "strict",
@@ -2467,6 +2467,82 @@
       },
       "costGrowth": 1.15,
       "assetKind": "exportTanker"
+    },
+    {
+      "id": "r_depth_vacuum",
+      "tab": "production",
+      "group": "refine",
+      "name": "Вакуумная перегонка и битум",
+      "description": "Вакуумная колонна и производство битума повышают глубину переработки одного НПЗ.",
+      "icon": "refinery",
+      "type": "refineryDepth",
+      "baseCost": 8000000000,
+      "maxLevel": 30,
+      "costGrowth": 1.15,
+      "effect": {
+        "refineryDepth": 0.65
+      },
+      "assetKind": "equipment"
+    },
+    {
+      "id": "r_depth_visbreaking",
+      "tab": "production",
+      "group": "refine",
+      "name": "Висбрекинг гудрона",
+      "description": "Установка на одном НПЗ с вакуумной перегонкой перерабатывает тяжёлый гудрон глубже.",
+      "icon": "refinery",
+      "type": "refineryDepth",
+      "baseCost": 15000000000,
+      "maxLevel": 30,
+      "costGrowth": 1.15,
+      "effect": {
+        "refineryDepth": 0.68
+      },
+      "assetKind": "equipment",
+      "unlockAt": {
+        "upgrade": "r_depth_vacuum",
+        "level": 1
+      }
+    },
+    {
+      "id": "r_depth_fcc",
+      "tab": "production",
+      "group": "refine",
+      "name": "Каталитический крекинг FCC",
+      "description": "Каталитический крекинг на одном НПЗ с висбрекингом повышает выход нефтепродуктов.",
+      "icon": "refinery",
+      "type": "refineryDepth",
+      "baseCost": 30000000000,
+      "maxLevel": 30,
+      "costGrowth": 1.15,
+      "effect": {
+        "refineryDepth": 0.82
+      },
+      "assetKind": "equipment",
+      "unlockAt": {
+        "upgrade": "r_depth_visbreaking",
+        "level": 1
+      }
+    },
+    {
+      "id": "r_depth_coking",
+      "tab": "production",
+      "group": "refine",
+      "name": "Замедленное коксование УЗК",
+      "description": "Замедленное коксование на одном НПЗ с FCC доводит глубину почти до предела.",
+      "icon": "refinery",
+      "type": "refineryDepth",
+      "baseCost": 60000000000,
+      "maxLevel": 30,
+      "costGrowth": 1.15,
+      "effect": {
+        "refineryDepth": 0.99
+      },
+      "assetKind": "equipment",
+      "unlockAt": {
+        "upgrade": "r_depth_fcc",
+        "level": 1
+      }
     },
     {
       "id": "r_uzine",

@@ -95,7 +95,7 @@
       "priceSeconds": 600
     },
     "shipDays": 5,
-    "refineryYield": 0.85,
+    "refineryYield": 0.55,
     "conquestWells": {
       "min": 5,
       "max": 50
@@ -107,7 +107,7 @@
     "cap": 400
   },
   "autosaveSeconds": 10,
-  "winCost": 2.5e+24,
+  "winCost": 1e+25,
   "winRequirements": [
     {
       "upgrade": "t_pump4",

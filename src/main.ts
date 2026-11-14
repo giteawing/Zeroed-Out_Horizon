@@ -47,6 +47,7 @@ import { Rules } from './ui/rules';
 import { DevMenu } from './ui/dev';
 import { Wealth } from './ui/wealth';
 import { AssetDetails } from './ui/asset-details';
+import { RefineryDetails } from './ui/refinery-details';
 import { OperationLog } from './ui/log';
 import { OtherTabNotice } from './ui/other-tab';
 import creditsRaw from './content/credits.txt?raw';
@@ -143,6 +144,9 @@ function boot(): void {
 
   const wealth = new Wealth(game, texts);
   const assetDetails = new AssetDetails(game, texts, currency);
+  const refineryDetails = new RefineryDetails(game, texts);
+  hud.root.querySelector<HTMLButtonElement>('[data-open-refinery]')
+    ?.addEventListener('click', () => refineryDetails.open());
   const assetsRow = hud.root.querySelector<HTMLElement>('[data-row="assets"]');
   assetsRow?.addEventListener('click', () => assetDetails.open());
   assetsRow?.addEventListener('keydown', (event) => {
@@ -268,6 +272,7 @@ function boot(): void {
     dev.root,
     wealth.root,
     assetDetails.root,
+    refineryDetails.root,
     finale.root,
     menu.root,
   );
@@ -327,6 +332,7 @@ function boot(): void {
     settings.close();
     wealth.close();
     assetDetails.close();
+    refineryDetails.close();
     scheduleUi();
   }
 
@@ -540,6 +546,7 @@ function boot(): void {
     uiRefreshElapsed = 0;
     const derived = game.derived();
     hud.update(game.state, derived);
+    if (refineryDetails.visible) refineryDetails.render();
     flowControls.update(game.state, derived);
     oplog.update(game.state.log);
     shop.update();
@@ -572,6 +579,7 @@ function boot(): void {
   const sheets: Array<{ visible: boolean; close: () => void }> = [
     // Финал закрывается как остальные окна; вернуться к титрам можно из меню.
     { get visible() { return finale.visible; }, close: () => finale.hide() },
+    refineryDetails,
     assetDetails,
     wealth,
     dev,

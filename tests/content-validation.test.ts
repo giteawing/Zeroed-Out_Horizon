@@ -216,6 +216,24 @@ describe('validateConfig (REVIEW C6)', () => {
   });
 });
 
+describe('цепь глубины НПЗ в контенте', () => {
+  it('отвергает недопустимую или убывающую глубину и нарушенный порядок', () => {
+    expect(() => validateUpgrades(upgradesWith('r_depth_coking', (def) => { def.effect.refineryDepth = 1; })))
+      .toThrow(/refineryDepth/);
+    expect(() => validateUpgrades(upgradesWith('r_depth_visbreaking', (def) => { def.effect.refineryDepth = 0.6; })))
+      .toThrow(/refineryDepth/);
+    expect(() => validateUpgrades(upgradesWith('r_depth_fcc', (def) => { def.unlockAt = { upgrade: 'r_depth_vacuum' }; })))
+      .toThrow(/предыдущая ступень/);
+    expect(() => validateUpgrades(upgradesWith('r_depth_vacuum', (def) => { delete def.effect.refineryDepth; })))
+      .toThrow(/refineryDepth/);
+  });
+
+  it('не разрешает базовой глубине быть выше первой ступени', () => {
+    const config = configWith((value) => { value.oil.refineryYield = 0.7; });
+    expect(() => validateConfig(config, content.upgrades)).toThrow(/ниже первой ступени/);
+  });
+});
+
 describe('validateUpgrades: новые проверки (REVIEW C6)', () => {
   const broken = (id: string, mutate: (def: UpgradeDef) => void) =>
     () => validateUpgrades(upgradesWith(id, mutate));

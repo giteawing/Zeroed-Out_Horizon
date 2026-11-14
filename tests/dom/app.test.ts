@@ -642,3 +642,20 @@ describe('этап 5: банк, реприватизация, активы и к
     expect(derived.profitPerSecond).toBe(derived.netPerSecond);
   });
 });
+
+describe('окно статистики переработки', () => {
+  it('открывается кнопкой рядом с производством и закрывается клавишей Escape', () => {
+    const button = document.querySelector<HTMLButtonElement>('[data-row="productsOut"] [data-open-refinery]');
+    expect(button).not.toBeNull();
+    const modal = document.querySelector<HTMLElement>('#refinery-stats');
+    expect(modal).not.toBeNull();
+    expect(modal!.hidden).toBe(true);
+    button!.focus();
+    button!.click();
+    expect(modal!.hidden).toBe(false);
+    expect(modal!.querySelectorAll('[data-refinery-stage]')).toHaveLength(4);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(modal!.hidden).toBe(true);
+    expect(document.activeElement).toBe(button);
+  });
+});

@@ -48,7 +48,7 @@ for (const profile of profiles) {
     const result = runSimulation(content, { ...profile.options, maxSeconds: 60 * 40 });
     const minutes = (result.seconds / 60).toFixed(1);
     // Номинал и фактическая цена — разные числа: `currencyCostCurve` сжимает
-    // всё выше anchor под корень, поэтому 2,5e24 игрок платит как 5e14
+    // всё выше anchor под корень, поэтому 1e25 игрок платит как 1e15
     // (REVIEW D5, AUDIT F11). Печатаем оба, чтобы отчёт нельзя было прочитать
     // как «цена партии».
     const paid = winCostOf(content.config, content.upgrades);
@@ -56,7 +56,7 @@ for (const profile of profiles) {
       `winCost=${winCost.toExponential(0).padEnd(6)} (игрок платит ${paid.toExponential(2)}) -> ` +
         `${result.won ? 'ПОБЕДА' : 'провал'} за ${minutes} мин, ` +
         `покупок ${result.purchases}, добыча ${result.samples.at(-1)?.productionRate.toFixed(1) ?? '—'} т/с, ` +
-        `(${Date.now() - started} мс)`,
+        `заработано ${result.totalEarned.toExponential(3)} (${Date.now() - started} мс)`,
     );
     // Откуда деньги: периодика, банк и ставки идут мимо налога и расходов (REVIEW D1, D2).
     console.log(`  доход по источникам: ${sourceShares(result.earnedBySource, result.totalEarned)}`);

@@ -101,6 +101,14 @@ describe('строка эффекта: у каждой карточки и бе�
 });
 
 describe('строка эффекта: то, чего раньше не было видно', () => {
+  it('модернизация показывает целевую глубину одного завода, а не сумму процентов', () => {
+    for (const def of cardsWith((card) => card.type === 'refineryDepth')) {
+      const expected = shopText('effectRefineryDepth', { value: formatPercent(def.effect.refineryDepth!, 0) });
+      expect(line(def), def.id).toContain(expected);
+      expect(describeEffect(def, 3, context), def.id).toContain(expected);
+    }
+  });
+
   it('влияние показано у каждой карточки, которая его даёт', () => {
     for (const def of cardsWith((card) => !!card.effect.influence)) {
       expect(line(def), def.id)

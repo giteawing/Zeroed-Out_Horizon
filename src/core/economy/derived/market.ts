@@ -10,8 +10,11 @@ import type {
   GameConfig,
   GameState,
   Product,
+  RefineryStats,
+  UpgradeDef,
 } from '../../types';
 import { CHANNELS } from '../definitions';
+import { refineryStatsOf } from '../refineries';
 import { hasFullCrew, productCapacityOf, wellsTonnesPerSecond } from '../production';
 import { oilFlowsOf } from '../sales';
 import type { UpgradeEffects } from './effects';
@@ -40,6 +43,7 @@ export interface MarketStats {
   exportCapacityByMode: Record<ExportMode, number>;
   hasPipeline: boolean;
   productStorage: number;
+  refineries: RefineryStats;
   flows: ReturnType<typeof oilFlowsOf>;
   grossPerSecond: number;
 }
@@ -48,6 +52,7 @@ export function calculateMarket(
   config: GameConfig,
   state: GameState,
   effects: UpgradeEffects,
+  upgrades: UpgradeDef[],
   content: Content | null,
 ): MarketStats {
   const crew = hasFullCrew(config, state);
@@ -93,8 +98,8 @@ export function calculateMarket(
   const priceOf: Record<Channel, number> = {
     contract: crudePrice('contract'),
     export: crudePrice('export'),
-    // Сырьё на НПЗ не продаётся: его цена — то, что дадут продукты из тонны.
-    refine: config.oil.refineryYield * Math.max(productPriceDomestic, productPriceExport),
+    // После расчёта парка подставим максимальную предельную выгоду НПЗ.
+    refine: 0,
   };
 
   for (const channel of CHANNELS) {
@@ -104,6 +109,13 @@ export function calculateMarket(
     const boostedRate = channel === 'export' ? rate * effects.exportMultiplier : rate;
     channels[channel] = { rate: boostedRate, price: priceOf[channel], sold: boostedRate };
   }
+
+  const refineries = refineryStatsOf(upgrades, state, config.oil.refineryYield, channels.refine.rate);
+  // Трубы и вспомогательное оборудование не перерабатывают нефть сами.
+  if (refineries.plantCount === 0) channels.refine.rate = 0;
+  channels.refine.sold = channels.refine.rate;
+  const bestDepth = refineries.units.reduce((best, unit) => Math.max(best, unit.depth), 0);
+  channels.refine.price = bestDepth * Math.max(productPriceDomestic, productPriceExport);
 
   const domesticPricePerTon = channels.contract.price;
   const exportPricePerTon = channels.export.price;
@@ -175,6 +187,7 @@ export function calculateMarket(
     storageHorizonSeconds: shipmentWindowSeconds,
     modeShares: exportCapacityByMode,
     flowControl: state.flowControl,
+    refineries: refineries.units,
   });
 
   const grossPerSecond =
@@ -219,6 +232,7 @@ export function calculateMarket(
     exportCapacityByMode,
     hasPipeline,
     productStorage,
+    refineries,
     flows,
     flowLimits,
     grossPerSecond,

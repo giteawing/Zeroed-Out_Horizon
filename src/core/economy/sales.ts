@@ -11,7 +11,9 @@ import type {
   FlowControls,
   OilFlows,
   Product,
+  RefineryUnit,
 } from '../types';
+import { MAX_REFINERY_DEPTH } from './refineries';
 
 export interface Market<Key extends string> {
   key: Key;
@@ -67,38 +69,60 @@ const ROUTE_CHANNELS: ReadonlyArray<{ key: CrudeRoute; channel: Channel }> = [
 interface CrudeDemand {
   exportCrude: number;
   domesticCrude: number;
-  /**
-   * Сколько сырья может взять НПЗ: его мощность, ограниченная приёмкой
-   * продуктов (рынки и свободное место на нефтебазах).
-   */
+  /** НПЗ с учётом физической мощности и приёмки продуктов. */
   refine: number;
-  /** Сколько нефтепродуктов рынки примут сверх складского запаса. */
+  refineries: readonly RefineryUnit[];
+  /** Рынки продуктов уже освобождены от конкурирующего запаса. */
   productRoom: { export: number; domestic: number };
+  productStorage: number;
 }
 
 /**
- * Распределяет сырьё между экспортом, НПЗ и внутренним рынком.
- *
- * Сначала исполняются фиксированные заявки игрока. Остаток каналы в режиме
- * «Авто» делят по выручке с тонны сырья:
- *
- * - экспорт и внутренний рынок — цена сырья;
- * - НПЗ — выход продуктов × цена рынка, который эти продукты примет.
- *   Рынков продуктов два, поэтому у переработки две ступени со своей ценой
- *   и своим объёмом: тесный дорогой рынок не тянет на НПЗ всю нефть;
- * - переработка на склад выручки сейчас не даёт и идёт последней: только
- *   тем сырьём, которое больше некуда продать.
- *
- * При равной выручке порядок: экспорт, НПЗ, внутренний рынок.
+ * Переводит мощности заводов в объём за окно и ставит наиболее глубокий
+ * первым. В старых вызовах с одной общей мощностью отсутствие списка означает
+ * один условный НПЗ базовой глубины; игра передаёт именно свой парк (в том
+ * числе пустой), поэтому оборудование не создаёт фиктивных заводов.
+ */
+function prepareRefineries(
+  config: GameConfig,
+  capacity: number,
+  units: readonly RefineryUnit[] | undefined,
+  span = 1,
+): RefineryUnit[] {
+  const source = units ?? [{ capacity, depth: config.oil.refineryYield }];
+  return source.map((unit) => ({
+    capacity: Number.isFinite(unit.capacity) ? Math.max(0, unit.capacity) * span : 0,
+    depth: Number.isFinite(unit.depth) ? Math.min(MAX_REFINERY_DEPTH, Math.max(1e-9, unit.depth)) : config.oil.refineryYield,
+  })).filter((unit) => unit.capacity > 0).sort((a, b) => b.depth - a.depth);
+}
+
+/** Максимум сырья по очереди заводов и общему месту для продуктов. */
+function refineryCapacityFor(units: readonly RefineryUnit[], maxCrude: number, outlet: number): number {
+  let crude = 0;
+  let room = Math.max(0, outlet);
+  for (const unit of units) {
+    const accepted = Math.min(unit.capacity, Math.max(0, maxCrude - crude), room / unit.depth);
+    crude += accepted;
+    room = Math.max(0, room - accepted * unit.depth);
+    if (room <= 0 || crude >= maxCrude) break;
+  }
+  return crude;
+}
+
+/**
+ * Сначала исполняет фиксированные заявки. Автоматические каналы сравниваются
+ * по предельной выручке: для следующего НПЗ это его собственная глубина ×
+ * цена лучшего ещё свободного рынка продуктов. После заполнения завода или
+ * рынка сравнение повторяется; работа на склад всегда последняя.
+ * При равной цене порядок: экспорт, НПЗ, внутренний рынок.
  */
 function routeCrude(
-  config: GameConfig,
   volume: number,
   demand: CrudeDemand,
   prices: MarketPrices,
   controls?: FlowControls,
   scale = 1,
-): { byMarket: Record<CrudeRoute, number>; remaining: number } {
+): { byMarket: Record<CrudeRoute, number>; remaining: number; productsProduced: number } {
   const room = (value: number): number =>
     value === Number.POSITIVE_INFINITY
       ? Number.MAX_SAFE_INTEGER
@@ -109,18 +133,46 @@ function routeCrude(
     refine: room(demand.refine),
     domestic: room(demand.domesticCrude),
   };
+  const plants = demand.refineries.map((unit) => ({ ...unit }));
+  const productLeft = { export: room(demand.productRoom.export), domestic: room(demand.productRoom.domestic) };
+  let storageLeft = room(demand.productStorage);
   let remaining = Number.isFinite(volume) ? Math.max(0, volume) : 0;
+  let productsProduced = 0;
+  const markets: Array<'export' | 'domestic'> = prices.productExport >= prices.productDomestic
+    ? ['export', 'domestic'] : ['domestic', 'export'];
+  const productPrice = (market: 'export' | 'domestic'): number =>
+    market === 'export' ? prices.productExport : prices.productDomestic;
 
-  const take = (key: CrudeRoute, limit: number): void => {
+  const takeCrude = (key: Exclude<CrudeRoute, 'refine'>, limit: number): void => {
     const taken = Math.min(remaining, left[key], limit);
     if (!(taken > 0)) return;
     byMarket[key] += taken;
     left[key] -= taken;
     remaining -= taken;
   };
+  const takeRefinery = (limit: number): void => {
+    let allowed = limit;
+    for (const plant of plants) {
+      if (!(allowed > 0 && remaining > 0 && left.refine > 0)) break;
+      const outlets = productLeft.export + productLeft.domestic + storageLeft;
+      const taken = Math.min(allowed, remaining, left.refine, plant.capacity, outlets / plant.depth);
+      if (!(taken > 0)) continue;
+      plant.capacity -= taken;
+      byMarket.refine += taken;
+      left.refine -= taken;
+      remaining -= taken;
+      allowed -= taken;
+      let products = taken * plant.depth;
+      productsProduced += products;
+      for (const market of markets) {
+        const sold = Math.min(products, productLeft[market]);
+        productLeft[market] = Math.max(0, productLeft[market] - sold);
+        products -= sold;
+      }
+      storageLeft = Math.max(0, storageLeft - products);
+    }
+  };
 
-  // Фиксированные заявки выполняются первыми; при нехватке добычи ничего не
-  // отправляем сверх доступного объёма. Лимит мощности применяется отдельно.
   const automatic: CrudeRoute[] = [];
   for (const { key, channel } of ROUTE_CHANNELS) {
     const setting = controls?.[channel];
@@ -128,36 +180,44 @@ function routeCrude(
       automatic.push(key);
       continue;
     }
-    take(key, Math.max(0, Number.isFinite(setting.value) ? setting.value * scale : 0));
+    const limit = Math.max(0, Number.isFinite(setting.value) ? setting.value * scale : 0);
+    if (key === 'refine') takeRefinery(limit);
+    else takeCrude(key, limit);
   }
 
-  const refineryYield = Math.max(1e-9, config.oil.refineryYield);
-  const steps: Array<{ key: CrudeRoute; price: number; limit: number }> = [];
-  for (const key of automatic) {
-    if (key === 'export') {
-      steps.push({ key, price: prices.crudeExport, limit: Number.POSITIVE_INFINITY });
-    } else if (key === 'domestic') {
-      steps.push({ key, price: prices.crudeDomestic, limit: Number.POSITIVE_INFINITY });
-    } else {
-      steps.push({
-        key,
-        price: refineryYield * prices.productExport,
-        limit: room(demand.productRoom.export) / refineryYield,
-      });
-      steps.push({
-        key,
-        price: refineryYield * prices.productDomestic,
-        limit: room(demand.productRoom.domestic) / refineryYield,
-      });
+  while (remaining > 0) {
+    const steps: Array<{ key: CrudeRoute; price: number; limit: number; priority: number }> = [];
+    if (automatic.includes('export') && left.export > 0) {
+      steps.push({ key: 'export', price: prices.crudeExport, limit: left.export, priority: 0 });
     }
+    if (automatic.includes('domestic') && left.domestic > 0) {
+      steps.push({ key: 'domestic', price: prices.crudeDomestic, limit: left.domestic, priority: 2 });
+    }
+    if (automatic.includes('refine') && left.refine > 0) {
+      const plant = plants.find((unit) => unit.capacity > 0);
+      if (plant) {
+        const market = markets.find((key) => productLeft[key] > 1e-9);
+        if (market) {
+          steps.push({
+            key: 'refine', price: plant.depth * productPrice(market),
+            limit: Math.min(plant.capacity, productLeft[market] / plant.depth), priority: 1,
+          });
+        } else if (storageLeft > 1e-9) {
+          // Склад не приносит выручки сейчас, даже при нулевой цене сырья.
+          steps.push({ key: 'refine', price: Number.NEGATIVE_INFINITY, limit: plant.capacity, priority: 3 });
+        }
+      }
+    }
+    if (steps.length === 0) break;
+    steps.sort((a, b) => b.price - a.price || a.priority - b.priority);
+    const step = steps[0]!;
+    const before = remaining;
+    if (step.key === 'refine') takeRefinery(step.limit);
+    else takeCrude(step.key, step.limit);
+    // Защита от накопленной погрешности числа с плавающей точкой.
+    if (!(remaining < before)) break;
   }
-  // Сортировка устойчива: при равной выручке сохраняется порядок каналов.
-  steps.sort((a, b) => b.price - a.price);
-  for (const step of steps) take(step.key, step.limit);
-  // Оставшаяся мощность НПЗ — это работа на склад.
-  if (automatic.includes('refine')) take('refine', Number.POSITIVE_INFINITY);
-
-  return { byMarket, remaining };
+  return { byMarket, remaining, productsProduced };
 }
 
 /**
@@ -187,6 +247,8 @@ export function oilFlowsOf(
     modeShares?: Record<ExportMode, number>;
     /** Настройки маршрутизации сырой нефти из состояния игры. */
     flowControl?: FlowControls;
+    /** Каждый НПЗ со своей мощностью и глубиной; пустой список означает отсутствие НПЗ. */
+    refineries?: readonly RefineryUnit[];
     prices?: MarketPrices;
   } = {},
 ): OilFlows {
@@ -240,21 +302,25 @@ export function oilFlowsOf(
       inventoryPlan.byMarket.domestic / storageHorizonSeconds,
   );
   const productMarketRate = exportProductMarketRate + domesticProductMarketRate;
-  // Не перерабатываем сырьё, если продукты нельзя продать или разместить.
-  const refineryCapacity = Math.min(
+  // Отдельные мощности и глубины дают кусочно-линейный, а не средний выход.
+  const units = prepareRefineries(config, safe(capacities.refine), options.refineries);
+  const refineryCapacity = refineryCapacityFor(
+    units,
     config.oil.channels.refine.unlimited ? Number.MAX_SAFE_INTEGER : safe(capacities.refine),
-    (productMarketRate + productStorageRate) / Math.max(1e-9, config.oil.refineryYield),
+    productMarketRate + productStorageRate,
   );
 
-  const crude = routeCrude(config, total, {
+  const crude = routeCrude(total, {
     exportCrude: config.oil.channels.export.unlimited
       ? Number.MAX_SAFE_INTEGER
       : safe(capacities.export.crude),
     domesticCrude: config.oil.channels.contract.unlimited
       ? Number.MAX_SAFE_INTEGER
       : safe(capacities.domestic.crude),
-    refine: config.oil.channels.refine.unlimited ? Number.MAX_SAFE_INTEGER : refineryCapacity,
+    refine: refineryCapacity,
+    refineries: units,
     productRoom: { export: exportProductMarketRate, domestic: domesticProductMarketRate },
+    productStorage: productStorageRate,
   }, prices, options.flowControl);
 
   const exportTonnes = crude.byMarket.export;
@@ -263,7 +329,7 @@ export function oilFlowsOf(
   const domestic = crude.byMarket.domestic;
   const stored = crude.remaining;
 
-  const productsProduced = refined * config.oil.refineryYield;
+  const productsProduced = crude.productsProduced;
   const products = allocateByPrice(productsProduced, [
     { key: 'export', price: prices.productExport, capacity: exportProductMarketRate },
     { key: 'domestic', price: prices.productDomestic, capacity: domesticProductMarketRate },
@@ -332,6 +398,7 @@ export function allocateBatch(
   productStorageFree = config.product.baseStorage,
   productStock = 0,
   flowControl?: FlowControls,
+  refineries?: readonly RefineryUnit[],
 ): {
   domestic: number;
   export: number;
@@ -367,15 +434,14 @@ export function allocateBatch(
     domestic: Math.max(0, limit(capacities.domestic.products) - productStockPlan.byMarket.domestic),
   };
   const productMarketCapacity = productRoom.export + productRoom.domestic;
-  const refineBatchCapacity = Math.min(
-    config.oil.channels.refine.unlimited
-      ? Number.MAX_SAFE_INTEGER
-      : limit(capacities.refine),
-    (productMarketCapacity + Math.max(0, productStorageFree)) /
-      Math.max(1e-9, config.oil.refineryYield),
+  const units = prepareRefineries(config, capacities.refine, refineries, span);
+  const refineBatchCapacity = refineryCapacityFor(
+    units,
+    config.oil.channels.refine.unlimited ? Number.MAX_SAFE_INTEGER : limit(capacities.refine),
+    productMarketCapacity + Math.max(0, productStorageFree),
   );
 
-  const crude = routeCrude(config, batch, {
+  const crude = routeCrude(batch, {
     exportCrude: config.oil.channels.export.unlimited
       ? Number.MAX_SAFE_INTEGER
       : limit(capacities.export.crude),
@@ -383,13 +449,15 @@ export function allocateBatch(
       ? Number.MAX_SAFE_INTEGER
       : limit(capacities.domestic.crude),
     refine: refineBatchCapacity,
+    refineries: units,
     productRoom,
+    productStorage: Math.max(0, productStorageFree),
   }, prices, flowControl, span);
 
-  const products = crude.byMarket.refine * config.oil.refineryYield;
+  const products = crude.productsProduced;
   const productSale = allocateByPrice(products, [
-    { key: 'export', price: prices.productExport, capacity: limit(capacities.export.products) },
-    { key: 'domestic', price: prices.productDomestic, capacity: limit(capacities.domestic.products) },
+    { key: 'export', price: prices.productExport, capacity: productRoom.export },
+    { key: 'domestic', price: prices.productDomestic, capacity: productRoom.domestic },
   ]);
 
   return {

@@ -125,6 +125,26 @@ describe('правила: переработка и режим «Авто» (REV
     expect(changed).not.toContain(formatPercent(content.config.oil.refineryYield, 0));
   });
 
+  it('называет все ступени с глубиной из карточек и объясняет предел по заводам', () => {
+    const content = structuredClone(loadContent());
+    const stages = content.upgrades.filter((def) => def.type === 'refineryDepth');
+    expect(stages).toHaveLength(4);
+    const text = rulesOf(content).section('rules.productsTitle');
+    expect(text).toContain(formatPercent(content.config.oil.refineryYield, 0));
+    for (const stage of stages) {
+      expect(text).toContain(stage.name);
+      expect(text).toContain(formatPercent(stage.effect.refineryDepth!, 0));
+    }
+    expect(text).toMatch(/один НПЗ/i);
+    expect(text).toMatch(/предыдущ/i);
+    expect(text).toMatch(/сумм/i);
+    // Данные, а не жёстко вписанные в правила числа.
+    stages[0]!.effect.refineryDepth = 0.63;
+    const changed = rulesOf(content).section('rules.productsTitle');
+    expect(changed).toContain(formatPercent(0.63, 0));
+    expect(changed).not.toContain(formatPercent(0.65, 0));
+  });
+
   it('правила говорят то же, что делает распределитель', () => {
     // Текст обещает: при дорогом экспорте сырья нефть идёт за границу, а на
     // склад НПЗ работает в последнюю очередь. Проверяем это на движке.
@@ -555,6 +575,9 @@ describe('правила: числа приходят из данных (REVIEW 
     // «…на 1 + больший из двух итогов»: итогов два — внутренний рынок и экспорт.
     expect(textOf('salesBoostText')).toMatch(/больший из двух итогов/);
     expect(CHANNELS.filter((channel) => channel !== 'refine')).toHaveLength(2);
+    // Один уровень модернизации относится к одному НПЗ, а не ко всему парку.
+    expect(textOf('refineryStages')).toMatch(/Каждый уровень оснащает один НПЗ/);
+    // Покупку и фактическое назначение проверяет tests/refineries.test.ts.
     // Других числительных в правилах нет: новое нужно сверить с данными здесь.
     const numerals = /(?<!\p{L})(один|одна|одно|одну|одного|одной|два|две|двух|три|трёх|четыре|четырёх|пять|пяти|шесть|шести|семь|семи|восемь|восьми|девять|девяти|десять|десяти|вдвое|втрое|вчетверо|половин\p{L}*|трет[ьи]\p{L}*|четверт\p{L}*|дважды|трижды|удв\p{L}+|утр[ао]\p{L}+)(?!\p{L})/giu;
     const found = Object.keys(templates).flatMap((key) =>
@@ -564,6 +587,7 @@ describe('правила: числа приходят из данных (REVIEW 
       'bankText: один',
       'ebtText: одной',
       'marketsRedirect: трёх',
+      'refineryStages: один',
       'salesBoostText: двух',
       'wellsText: один',
     ]);

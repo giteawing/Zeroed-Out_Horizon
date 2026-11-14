@@ -116,6 +116,14 @@ export class Hud {
       ]),
     ]);
 
+    const productProduction = row('productsOut', texts.get('hud.production'), 'hud__row-value--oil');
+    const refineryButton = el('button', {
+      class: 'hud__details', type: 'button', 'data-open-refinery': 'true',
+      'aria-haspopup': 'dialog', 'aria-controls': 'refinery-stats',
+      'aria-label': texts.get('panel.refineriesTitle'),
+    }, texts.get('hud.refineriesButton'));
+    productProduction.root.querySelector('.hud__row-label')!.append(' ', refineryButton);
+
     this.root = el('section', { class: 'hud', 'data-testid': 'hud' }, [
       // --- товарная статистика: цены, сырая нефть, нефтепродукты ---
       group('goods', texts.get('hud.groupGoods'), [
@@ -170,7 +178,7 @@ export class Hud {
         el('div', { class: 'hud__section', 'data-section': 'products' }, [
           el('span', { class: 'hud__section-title' }, texts.get('hud.products')),
           el('div', { class: 'hud__rows hud__rows--single' }, [
-            row('productsOut', texts.get('hud.production'), 'hud__row-value--oil').root,
+            productProduction.root,
             row('productsDomestic', texts.get('hud.saleDomestic')).root,
             // Излишек сверх рынка и склада — подпункт внутренней продажи:
             // он уходит по внутренней цене, но уже без мощности рынка.

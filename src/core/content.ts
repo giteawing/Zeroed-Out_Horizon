@@ -6,6 +6,7 @@ import configJson from '../content/config.json';
 import textsJson from '../content/texts.json';
 import upgradesJson from '../content/upgrades.json';
 import achievementsJson from '../content/achievements.json';
+import { MAX_REFINERY_DEPTH, refineryStagesOf } from './economy/refineries';
 import type {
   AchievementDef,
   AchievementsFile,
@@ -23,7 +24,7 @@ import type {
 const TABS = new Set(['political', 'technical', 'production', 'sales', 'luxury', 'goals']);
 const TYPES = new Set([
   'production', 'well', 'passive', 'multiplier', 'taxCut', 'costCut', 'periodic',
-  'oneShot', 'gamble', 'priceBoost', 'luxury', 'sell', 'storage', 'field', 'win',
+  'oneShot', 'gamble', 'priceBoost', 'luxury', 'sell', 'storage', 'refineryDepth', 'field', 'win',
 ]);
 /**
  * Поля `effect`, которые ядро применяет для каждого типа покупки.
@@ -55,6 +56,7 @@ export const EFFECT_FIELDS: Record<UpgradeType, ReadonlyArray<keyof UpgradeEffec
   luxury: [],
   sell: ['channel', 'value', 'channelSplit', 'exportMode', 'percent', 'costCut'],
   storage: ['value'],
+  refineryDepth: ['refineryDepth'],
   win: [],
 };
 const CHANNELS = new Set(['contract', 'export', 'refine']);
@@ -282,6 +284,24 @@ export function validateUpgrades(upgrades: UpgradeDef[], texts?: TextsFile): voi
       validateRequirement(`upgrades.json: ${u.id}: unlockAt`, u.unlockAt, byId);
     }
   }
+  // Ступени перечислены в технологическом порядке: иначе счётчики нельзя
+  // однозначно вложить друг в друга и назначить на отдельные заводы.
+  const stages = refineryStagesOf(upgrades);
+  let previousDepth = 0;
+  for (let i = 0; i < stages.length; i++) {
+    const stage = stages[i]!;
+    const depth = stage.effect.refineryDepth;
+    if (!isNumber(depth) || depth <= previousDepth || depth > MAX_REFINERY_DEPTH) {
+      throw new Error(`upgrades.json: ${stage.id}: effect.refineryDepth должен возрастать и не превышать ${MAX_REFINERY_DEPTH}`);
+    }
+    if (i > 0 && (stage.unlockAt?.upgrade !== stages[i - 1]!.id || (stage.unlockAt.level ?? 1) !== 1)) {
+      throw new Error(`upgrades.json: ${stage.id}: предыдущая ступень НПЗ должна быть unlockAt.upgrade`);
+    }
+    if (stage.repeatable || stage.cooldownSeconds) {
+      throw new Error(`upgrades.json: ${stage.id}: модернизация НПЗ не может быть действием с перезарядкой`);
+    }
+    previousDepth = depth;
+  }
   const wins = upgrades.filter((u) => u.win);
   if (wins.length === 0) {
     throw new Error('upgrades.json: нет финальной покупки (win: true)');
@@ -461,8 +481,12 @@ export function validateConfig(config: GameConfig, upgrades: UpgradeDef[]): void
   if (!positive(oil.basePricePerTon)) fail('oil.basePricePerTon должен быть больше 0');
   if (!positive(oil.shipDays)) fail('oil.shipDays должен быть больше 0');
   if (!positive(oil.exportBurstSeconds)) fail('oil.exportBurstSeconds должен быть больше 0');
-  if (!(isNumber(oil.refineryYield) && oil.refineryYield > 0 && oil.refineryYield <= 1)) {
-    fail('oil.refineryYield должен быть в (0, 1]');
+  if (!(isNumber(oil.refineryYield) && oil.refineryYield > 0 && oil.refineryYield <= MAX_REFINERY_DEPTH)) {
+    fail(`oil.refineryYield должен быть в (0, ${MAX_REFINERY_DEPTH}]`);
+  }
+  const firstRefineryStage = refineryStagesOf(upgrades)[0];
+  if (firstRefineryStage && oil.refineryYield >= (firstRefineryStage.effect.refineryDepth ?? 0)) {
+    fail('oil.refineryYield должен быть ниже первой ступени переработки');
   }
   const conquest = oil.conquestWells;
   if (!conquest || !Number.isInteger(conquest.min) || !Number.isInteger(conquest.max) ||
