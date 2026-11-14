@@ -619,7 +619,6 @@ test('панель империи видна всегда и держит все
     'Фонд оплаты труда',
     'Чиновники',
     'EBT',
-    'Не облагается налогом',
     'Обратный акциз',
     'Вычеты НДПИ',
     'Резервуары',
@@ -630,6 +629,8 @@ test('панель империи видна всегда и держит все
       hud.locator('.hud__row-label').filter({ hasText: label }).first(),
     ).toBeVisible();
   }
+  // Заголовок группы необлагаемых поступлений — не строка таблицы.
+  await expect(hud.locator('.hud__untaxed-title')).toHaveText('Не облагается налогом');
   // Три смысловые группы панели; влияние переехало в шапку.
   for (const group of ['goods', 'money', 'property']) {
     await expect(hud.locator(`[data-group="${group}"]`)).toBeVisible();
