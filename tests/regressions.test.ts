@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { loadContent } from '../src/core/content';
 import { Game } from '../src/core/game';
 import {
+  INVESTMENT_RATE_MAX_PERCENT,
+  INVESTMENT_RATE_MIN_PERCENT,
   assetsValueOf,
   computeDerived,
   totalCostFor,
@@ -596,11 +598,17 @@ describe('устойчивость времени и состояния движ
     const expected = Math.max(0, derived.productPriceExport - derived.productPriceDomestic) * derived.flows.productsDomestic;
     expect(derived.flows.productsDomestic).toBeGreaterThan(0);
     expect(derived.damperIncomePerSecond).toBeCloseTo(expected, 8);
+    // Демпфер больше не входит в облагаемый доход: он стоит ниже налога.
     expect(derived.grossPerSecond).toBeCloseTo(
       derived.flows.domestic * derived.domesticPricePerTon +
         derived.flows.export * derived.exportPricePerTon +
         derived.flows.productsDomestic * derived.productPriceDomestic +
-        derived.flows.productsExport * derived.productPriceExport + expected + derived.investmentIncomePerSecond,
+        derived.flows.productsExport * derived.productPriceExport + derived.investmentIncomePerSecond,
+      6,
+    );
+    expect(derived.untaxedIncomePerSecond).toBeGreaterThanOrEqual(expected - 1e-9);
+    expect(derived.netPerSecond).toBeCloseTo(
+      derived.ebtPerSecond - derived.taxPaidPerSecond + derived.untaxedIncomePerSecond,
       6,
     );
   });
@@ -611,8 +619,8 @@ describe('устойчивость времени и состояния движ
     const game = new Game(content, state);
     const before = state.coins;
     const derived = game.derived();
-    expect(derived.investmentRatePercent).toBeGreaterThanOrEqual(1);
-    expect(derived.investmentRatePercent).toBeLessThanOrEqual(20);
+    expect(derived.investmentRatePercent).toBeGreaterThanOrEqual(INVESTMENT_RATE_MIN_PERCENT);
+    expect(derived.investmentRatePercent).toBeLessThanOrEqual(INVESTMENT_RATE_MAX_PERCENT);
     expect(derived.investmentIncomePerSecond).toBeGreaterThan(0);
     game.update(1000);
     expect(state.coins).toBeGreaterThan(before);

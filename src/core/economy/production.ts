@@ -150,3 +150,22 @@ export function taxRateOf(
   return Math.min(config.tax.baseRate, Math.max(config.tax.minRate, rate));
 }
 
+
+/**
+ * Сколько скважин сейчас даёт меньше порога НДПИ, штук.
+ *
+ * Считается по ТЕКУЩЕМУ дебиту: суточный дебит скважины после естественного
+ * падения. Порог и коэффициент падения берутся из данных, поэтому вычет
+ * сам перестаёт полагаться, когда скважина «оживает» после ремонта или
+ * наоборот истощается.
+ */
+export function lowRateWellCount(config: GameConfig, state: GameState): number {
+  const threshold = Math.max(0, config.deductions?.ndpi?.dailyTonnesThreshold ?? 0);
+  if (!(threshold > 0)) return 0;
+  const decline = wellDeclineFactor(config, state);
+  let count = 0;
+  for (const well of state.wells ?? []) {
+    if (Math.max(0, well.dailyTonnes) * decline < threshold) count += 1;
+  }
+  return count;
+}

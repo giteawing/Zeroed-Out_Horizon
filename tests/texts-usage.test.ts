@@ -275,8 +275,8 @@ const DYNAMIC: Record<string, { kind: LeafKind; values: () => readonly string[] 
   'wells.': { kind: 'string', values: () => content.config.oil.wells.classes.map((cls) => cls.key) },
   // Вкладки магазина: вкладка есть, пока в ней есть хоть одна покупка.
   'tabs.': { kind: 'string', values: () => [...new Set(content.upgrades.map((upgrade) => upgrade.tab))] },
-  // Рынки сбыта: поля потоков и подпись рынка на карточке.
-  'flows.': { kind: 'string', values: () => CHANNELS },
+  // Направления «Логистики»: три потока сырья и два рынка нефтепродуктов.
+  'flows.': { kind: 'string', values: () => [...CHANNELS, 'productExport', 'productDomestic'] },
   'sales.': { kind: 'string', values: () => CHANNELS },
   // Место разлива выбирает ядро из своего списка.
   'spill.places.': { kind: 'string', values: () => SPILL_PLACES },

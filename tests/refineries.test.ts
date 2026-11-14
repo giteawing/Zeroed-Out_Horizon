@@ -11,6 +11,8 @@ const AUTO: FlowControls = {
   contract: { mode: 'auto', value: 0 },
   export: { mode: 'auto', value: 0 },
   refine: { mode: 'auto', value: 0 },
+  productDomestic: { mode: 'auto', value: 0 },
+  productExport: { mode: 'auto', value: 0 },
 };
 
 function setup(levels: Record<string, number> = {}, input = 2700) {

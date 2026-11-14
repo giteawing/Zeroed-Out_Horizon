@@ -102,13 +102,19 @@ describe('слой эффектов и маршрутизация', () => {
     expect(overlay?.querySelector('.badge')).not.toBeNull();
   });
 
-  it('показывает три числовых маршрута и режим авто', () => {
+  it('«Логистика» показывает пять направлений в режиме авто', () => {
     const panel = document.querySelector('[data-testid="flow-controls"]');
     expect(panel).not.toBeNull();
-    for (const channel of ['export', 'refine', 'contract']) {
+    for (const channel of ['export', 'refine', 'contract', 'productExport', 'productDomestic']) {
       expect(panel!.querySelector(`[data-flow-input="${channel}"]`)).not.toBeNull();
       expect(panel!.querySelector(`[data-flow-auto="${channel}"]`)).not.toBeNull();
     }
+    // Заголовок переименован, рынки нефтепродуктов — отдельной группой.
+    expect(panel!.querySelector('.flow-controls__heading')?.textContent).toBe('Логистика');
+    const labels = [...panel!.querySelectorAll('.flow-controls__label span')]
+      .map((node) => node.textContent);
+    expect(labels).toContain('Экспорт нефтепродуктов');
+    expect(labels).toContain('Продать нефтепродукты на внутреннем рынке');
   });
 
   it('изменение значения в панели переключает направление в фиксированный режим', async () => {
@@ -149,14 +155,24 @@ describe('HUD', () => {
     expect(order[2]).toBe('Экспорт нефтепродуктов');
     expect(order[3]).toBe('Внутренняя продажа нефти');
     expect(order[4]).toBe('Внутренняя продажа нефтепродуктов');
-    expect(order[5]).toBe('Доход от топливного демпфера');
-    expect(order[6]).toBe('Доход от вывоза капитала');
-    expect(order[7]).toContain('Инвестиционный доход');
-    expect(order[8]).toBe('Расходы');
+    expect(order[5]).toContain('Инвестиционный доход');
+    expect(order[6]).toBe('Расходы');
     expect(order).toContain('EBT');
     // Итог «Расходы» стоит перед своими статьями, статьи — перед EBT.
-    expect(order.indexOf('Расходы')).toBeLessThan(order.indexOf('Зарплаты'));
+    expect(order.indexOf('Расходы')).toBeLessThan(order.indexOf('Фонд оплаты труда'));
     expect(order.indexOf('Чиновники')).toBeLessThan(order.indexOf('EBT'));
+    // Демпфер, вывоз капитала и налоговые вычеты — ниже налога: они не входят
+    // в EBT и прибавляются к чистой прибыли.
+    const taxIndex = order.findIndex((line) => line.startsWith('Налог на прибыль'));
+    for (const label of [
+      'Доход от топливного демпфера',
+      'Доход от вывоза капитала',
+      'Обратный акциз на нефть (НПЗ)',
+      'Вычеты НДПИ (истощённые скважины)',
+    ]) {
+      expect(order.indexOf(label)).toBeGreaterThan(taxIndex);
+      expect(order.indexOf(label)).toBeLessThan(order.length - 1);
+    }
     expect(order.some((line) => line.startsWith('Налог на прибыль'))).toBe(true);
     // «Норматив штрафа» — статья расходов: стоит после найма, до EBT, и
     // подписан текущей скидкой за влияние.
@@ -189,11 +205,24 @@ describe('HUD', () => {
     expect(side!.firstElementChild?.classList.contains('hud')).toBe(true);
   });
 
-  it('журнал операций расположен под панелью маршрутизации', () => {
+  it('журнал операций открывается из меню, а не стоит на главном экране', () => {
     const side = document.querySelector('.stage__side');
     expect(side).not.toBeNull();
-    const log = side!.querySelector('[data-testid="oplog"]');
+    expect(side!.querySelector('[data-testid="oplog"]')).toBeNull();
+
+    const menuButton = document.querySelector<HTMLButtonElement>('.iconbtn--menu');
+    expect(menuButton).not.toBeNull();
+    menuButton!.click();
+    const item = document.querySelector<HTMLButtonElement>('[data-menu="log"]');
+    expect(item).not.toBeNull();
+    item!.click();
+
+    const log = document.querySelector<HTMLElement>('[data-testid="oplog"]');
     expect(log).not.toBeNull();
+    expect(log!.hidden).toBe(false);
+    // Escape закрывает шторку, как и остальные окна.
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(log!.hidden).toBe(true);
   });
 
   it('обновляет отображаемые лимиты после переключения маршрута', async () => {
@@ -630,9 +659,9 @@ describe('этап 5: банк, реприватизация, активы и к
     }
     expect(document.querySelector('.hud__profit-label')?.textContent).toBe('Чистая прибыль');
     // Товарная статистика переехала в блоки «сырая нефть» и «нефтепродукты».
-    expect(labels).toContain('производство');
-    expect(labels).toContain('продажа вн. рынок');
-    expect(labels).toContain('экспорт');
+    expect(labels).toContain('Производство');
+    expect(labels).toContain('Продажа вн. рынок');
+    expect(labels).toContain('Экспорт');
   });
 
   it('цены внутренняя и экспортная различаются, экспортная выше', () => {

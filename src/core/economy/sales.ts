@@ -8,6 +8,7 @@ import type {
   Channel,
   ExportMode,
   GameConfig,
+  FlowControl,
   FlowControls,
   OilFlows,
   Product,
@@ -47,6 +48,75 @@ export function allocateByPrice<Key extends string>(
     remaining -= taken;
   }
   return { byMarket, remaining };
+}
+
+/**
+ * Два рынка нефтепродуктов, которыми игрок управляет в «Логистике».
+ * Сырьё идёт по трём каналам, а готовое топливо — только сюда.
+ */
+export type ProductMarket = 'domestic' | 'export';
+
+/**
+ * Предел направления с учётом ручного режима: «фиксировано» ограничивает
+ * поток заданной величиной, «Авто» отдаёт всю физическую мощность рынка.
+ *
+ * `capacity` задана в тех же единицах, что и результат (т/с либо тонны за
+ * окно). `scale` переводит заявку из т/с в единицы результата: за окно
+ * фиксированный поток равен `value × scale`.
+ */
+export function controlledLimit(
+  setting: FlowControl | undefined,
+  capacity: number,
+  scale = 1,
+): number {
+  const cap = Number.isFinite(capacity) ? Math.max(0, capacity) : Number.POSITIVE_INFINITY;
+  if (!setting || setting.mode !== 'fixed') return cap;
+  const fixed = (Number.isFinite(setting.value) ? Math.max(0, setting.value) : 0) * Math.max(0, scale);
+  return Math.min(cap, fixed);
+}
+
+/**
+ * Раздача нефтепродуктов по рынкам с учётом «Логистики».
+ *
+ * Сначала исполняются фиксированные заявки: игрок сам решил, сколько тонн
+ * уйдёт внутри страны и сколько на экспорт. Остаток «Авто» распределяет по
+ * цене, как и раньше. Так ручная настройка не ломает автоматический режим
+ * соседнего направления.
+ */
+export function allocateProducts(
+  volume: number,
+  markets: readonly Market<ProductMarket>[],
+  controls?: FlowControls,
+  scale = 1,
+): { byMarket: Record<ProductMarket, number>; remaining: number } {
+  const byMarket: Record<ProductMarket, number> = { export: 0, domestic: 0 };
+  let remaining = Number.isFinite(volume) ? Math.max(0, volume) : 0;
+  for (const market of markets) byMarket[market.key] = 0;
+
+  const outlet = (market: Market<ProductMarket>): number =>
+    controlledLimit(
+      market.key === 'export' ? controls?.productExport : controls?.productDomestic,
+      market.capacity,
+      scale,
+    );
+
+  // Фиксированные направления забирают ровно свою заявку (не больше мощности).
+  for (const market of markets) {
+    const setting = market.key === 'export' ? controls?.productExport : controls?.productDomestic;
+    if (!setting || setting.mode !== 'fixed') continue;
+    const taken = Math.min(remaining, outlet(market));
+    byMarket[market.key] = taken;
+    remaining -= taken;
+  }
+  // «Авто» — по цене, в пределах физической мощности рынка. Раздачу остатка
+  // делает общий allocateByPrice(), чтобы прогноз и отгрузка не расходились.
+  const autoMarkets = markets.filter((market) => {
+    const setting = market.key === 'export' ? controls?.productExport : controls?.productDomestic;
+    return !setting || setting.mode !== 'fixed';
+  });
+  const auto = allocateByPrice(remaining, autoMarkets);
+  for (const market of autoMarkets) byMarket[market.key] += auto.byMarket[market.key];
+  return { byMarket, remaining: auto.remaining };
 }
 
 /** Цены четырёх товарных рынков, ₦ за тонну. */
@@ -277,30 +347,53 @@ export function oilFlowsOf(
     options.storageHorizonSeconds ?? config.oil.shipDays * config.oil.wells.secondsPerDay,
   );
   const productStorageRate = productStorageFree / storageHorizonSeconds;
-  // Старый складской запас занимает часть рыночной мощности раньше свежего
-  // выхода НПЗ: повторно продавать его объём нельзя.
-  const inventoryPlan = allocateByPrice(Math.max(0, options.productInventory ?? 0), [
+  const productMarketList = (scale: number): Array<Market<ProductMarket>> => [
     {
       key: 'export',
       price: prices.productExport,
-      capacity: safe(capacities.export.products) * storageHorizonSeconds,
+      capacity: safe(capacities.export.products) * scale,
     },
     {
       key: 'domestic',
       price: prices.productDomestic,
-      capacity: safe(capacities.domestic.products) * storageHorizonSeconds,
+      capacity: safe(capacities.domestic.products) * scale,
     },
-  ]);
-  const exportProductMarketRate = Math.max(
-    0,
-    safe(capacities.export.products) -
-      inventoryPlan.byMarket.export / storageHorizonSeconds,
+  ];
+  // Куда вообще можно деть продукты при текущих ручных заявках: фиксированное
+  // направление принимает не больше заданного, «Авто» — всю мощность рынка.
+  const exportProductOutlet = controlledLimit(
+    options.flowControl?.productExport, safe(capacities.export.products), 1,
   );
-  const domesticProductMarketRate = Math.max(
-    0,
-    safe(capacities.domestic.products) -
-      inventoryPlan.byMarket.domestic / storageHorizonSeconds,
+  const domesticProductOutlet = controlledLimit(
+    options.flowControl?.productDomestic, safe(capacities.domestic.products), 1,
   );
+  // Старый складской запас занимает часть рыночной мощности раньше свежего
+  // выхода НПЗ: повторно продавать его объём нельзя.
+  const inventoryPlan = allocateProducts(
+    Math.max(0, options.productInventory ?? 0),
+    productMarketList(storageHorizonSeconds),
+    options.flowControl,
+    storageHorizonSeconds,
+  );
+  const stockExportRate = inventoryPlan.byMarket.export / storageHorizonSeconds;
+  const stockDomesticRate = inventoryPlan.byMarket.domestic / storageHorizonSeconds;
+  const exportProductMarketRate = Math.max(0, exportProductOutlet - stockExportRate);
+  const domesticProductMarketRate = Math.max(0, domesticProductOutlet - stockDomesticRate);
+  // Фиксированная заявка — квота на окно, а не на каждый поток отдельно:
+  // склад уже израсходовал её часть, свежему выходу НПЗ достаётся остаток.
+  const residualControl = (
+    setting: FlowControl | undefined,
+    takenPerSecond: number,
+  ): FlowControl | undefined => setting?.mode === 'fixed'
+    ? { mode: 'fixed', value: Math.max(0, setting.value - takenPerSecond) }
+    : setting;
+  const freshProductControl = options.flowControl
+    ? {
+      ...options.flowControl,
+      productExport: residualControl(options.flowControl.productExport, stockExportRate) as FlowControl,
+      productDomestic: residualControl(options.flowControl.productDomestic, stockDomesticRate) as FlowControl,
+    }
+    : undefined;
   const productMarketRate = exportProductMarketRate + domesticProductMarketRate;
   // Отдельные мощности и глубины дают кусочно-линейный, а не средний выход.
   const units = prepareRefineries(config, safe(capacities.refine), options.refineries);
@@ -330,10 +423,13 @@ export function oilFlowsOf(
   const stored = crude.remaining;
 
   const productsProduced = crude.productsProduced;
-  const products = allocateByPrice(productsProduced, [
+  // Свежий выход НПЗ раскладывается по ОСТАТКУ рынков: старый склад уже занял
+  // часть мощности. Фиксированная заявка делится между складом и свежим
+  // выходом, поэтому её остаток снова получает приоритет.
+  const products = allocateProducts(productsProduced, [
     { key: 'export', price: prices.productExport, capacity: exportProductMarketRate },
     { key: 'domestic', price: prices.productDomestic, capacity: domesticProductMarketRate },
-  ]);
+  ], freshProductControl);
   const productsDomestic = products.byMarket.domestic;
   const productsExport = products.byMarket.export;
 
@@ -416,7 +512,7 @@ export function allocateBatch(
         ? Math.max(0, value) * span
         : 0;
 
-  const productStockPlan = allocateByPrice(Math.max(0, productStock), [
+  const productMarkets: Array<Market<ProductMarket>> = [
     {
       key: 'export',
       price: prices.productExport,
@@ -427,11 +523,19 @@ export function allocateBatch(
       price: prices.productDomestic,
       capacity: limit(capacities.domestic.products),
     },
-  ]);
+  ];
+  const productStockPlan = allocateProducts(
+    Math.max(0, productStock), productMarkets, flowControl, span,
+  );
   // Складской запас продаётся раньше свежего выхода НПЗ и занимает рынок.
+  // Фиксированная заявка «Логистики» ограничивает рынок и для свежего выхода.
+  const productOutlet = {
+    export: controlledLimit(flowControl?.productExport, limit(capacities.export.products), span),
+    domestic: controlledLimit(flowControl?.productDomestic, limit(capacities.domestic.products), span),
+  };
   const productRoom = {
-    export: Math.max(0, limit(capacities.export.products) - productStockPlan.byMarket.export),
-    domestic: Math.max(0, limit(capacities.domestic.products) - productStockPlan.byMarket.domestic),
+    export: Math.max(0, productOutlet.export - productStockPlan.byMarket.export),
+    domestic: Math.max(0, productOutlet.domestic - productStockPlan.byMarket.domestic),
   };
   const productMarketCapacity = productRoom.export + productRoom.domestic;
   const units = prepareRefineries(config, capacities.refine, refineries, span);
@@ -455,10 +559,12 @@ export function allocateBatch(
   }, prices, flowControl, span);
 
   const products = crude.productsProduced;
-  const productSale = allocateByPrice(products, [
+  // Свежий выход НПЗ видит только остаток рынка после складского запаса;
+  // полные мощности здесь продали бы одни и те же тонны дважды.
+  const productSale = allocateProducts(products, [
     { key: 'export', price: prices.productExport, capacity: productRoom.export },
     { key: 'domestic', price: prices.productDomestic, capacity: productRoom.domestic },
-  ]);
+  ], flowControl, span);
 
   return {
     domestic: crude.byMarket.domestic,

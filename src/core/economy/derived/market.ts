@@ -7,6 +7,7 @@ import type {
   ChannelRate,
   Content,
   ExportMode,
+  FlowKey,
   GameConfig,
   GameState,
   Product,
@@ -38,8 +39,8 @@ export interface MarketStats {
     export: Record<Product, number>;
     refine: number;
   };
-  /** Физический максимум каждого потока с учётом остальных фиксированных заявок. */
-  flowLimits: Record<Channel, number>;
+  /** Физический максимум каждого направления с учётом остальных фиксированных заявок. */
+  flowLimits: Record<FlowKey, number>;
   exportCapacityByMode: Record<ExportMode, number>;
   hasPipeline: boolean;
   productStorage: number;
@@ -201,7 +202,7 @@ export function calculateMarket(
     (['contract', 'export', 'refine'] as Channel[])
       .filter((channel) => channel !== exclude && fixed[channel].mode === 'fixed')
       .reduce((sum, channel) => sum + fixed[channel].value, 0);
-  const flowLimits: Record<Channel, number> = {
+  const flowLimits: Record<FlowKey, number> = {
     contract: Math.min(
       config.oil.channels.contract.unlimited ? Number.POSITIVE_INFINITY : capacities.domestic.crude,
       Math.max(0, producedPerSecond - fixedOther('contract')),
@@ -214,6 +215,9 @@ export function calculateMarket(
       flows.refineCapacity,
       Math.max(0, producedPerSecond - fixedOther('refine')),
     ),
+    // «Логистика»: рынки нефтепродуктов настраиваются так же, как сырьё.
+    productDomestic: capacities.domestic.products,
+    productExport: capacities.export.products,
   };
 
   return {

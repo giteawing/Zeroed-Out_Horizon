@@ -311,6 +311,25 @@ export class Rules {
           growth: formatPercent(capitalFlight.effect.capitalFlightGrowthPerMinute ?? 0, 0),
         })] : []),
         t('rules.externalIncomeText', {}),
+        // Налоговые вычеты: не покупки, а правила для НПЗ и истощённых скважин.
+        ...(config.deductions ? [
+          t('rules.reverseExciseText', {
+            share: formatPercent(config.deductions.reverseExcise.domesticShare, 0),
+            gain: formatPercent(config.deductions.reverseExcise.influenceGain, 0),
+            cap: formatNumber(config.influence.cap),
+          }),
+          t('rules.ndpiText', {
+            perWell: t('units.moneyRate', {
+              value: formatMoney(config.deductions.ndpi.perWellPerSecond, this.currency),
+              s: perSecond.replace('/', ''),
+            }),
+            threshold: formatNumber(config.deductions.ndpi.dailyTonnesThreshold),
+            unit: tonnes,
+            gain: formatPercent(config.deductions.ndpi.influenceGain, 0),
+            cap: formatNumber(config.influence.cap),
+          }),
+        ] : []),
+        t('rules.untaxedIncomeText', {}),
         t('rules.untaxedText', {}),
       ]),
 
@@ -334,6 +353,7 @@ export class Rules {
         ...(devaluation.length > 0 ? [t('rules.devaluationText', {
           name: devaluation.map((def) => def.name).join('», «'),
           step: formatPercent(devaluation[0]?.effect.exchangeRateDevaluation ?? 0, 0),
+          levels: devaluation[0]?.maxLevel ?? 0,
           rate: t('units.times', { value: formatNumber(maxRate / initial.exchangeRate) }),
           capex: formatPercent(capexGrowth, 0),
         })] : []),

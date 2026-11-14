@@ -55,7 +55,7 @@ for (const profile of profiles) {
     console.log(
       `winCost=${winCost.toExponential(0).padEnd(6)} (игрок платит ${paid.toExponential(2)}) -> ` +
         `${result.won ? 'ПОБЕДА' : 'провал'} за ${minutes} мин, ` +
-        `покупок ${result.purchases}, добыча ${result.samples.at(-1)?.productionRate.toFixed(1) ?? '—'} т/с, ` +
+        `покупок ${result.purchases}, добыча ${result.samples[result.samples.length - 1]?.productionRate.toFixed(1) ?? '—'} т/с, ` +
         `заработано ${result.totalEarned.toExponential(3)} (${Date.now() - started} мс)`,
     );
     // Откуда деньги: периодика, банк и ставки идут мимо налога и расходов (REVIEW D1, D2).

@@ -34,6 +34,8 @@ export function createInitialState(config: GameConfig, seed = randomSeed()): Gam
       contract: { mode: 'auto', value: 0 },
       export: { mode: 'auto', value: 0 },
       refine: { mode: 'auto', value: 0 },
+      productDomestic: { mode: 'auto', value: 0 },
+      productExport: { mode: 'auto', value: 0 },
     },
     log: [],
     totalPurchases: 0,
@@ -92,7 +94,9 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
   const rawFlowControl = (src as { flowControl?: unknown }).flowControl;
   if (rawFlowControl && typeof rawFlowControl === 'object') {
     const controls = rawFlowControl as Partial<GameState['flowControl']>;
-    for (const channel of ['contract', 'export', 'refine'] as const) {
+    for (const channel of [
+      'contract', 'export', 'refine', 'productDomestic', 'productExport',
+    ] as const) {
       const setting = controls[channel];
       if (!setting || typeof setting !== 'object') continue;
       const value = num(setting.value, 0);

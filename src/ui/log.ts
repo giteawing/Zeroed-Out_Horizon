@@ -1,8 +1,12 @@
 /**
- * Журнал операций под долотом.
+ * Журнал операций — окно из меню шапки.
  *
  * Показывает последние сделки человеческим языком:
  *   «Экспорт: продано 5,2 млн т по ₦1,3 тыс./т — итого ₦6,8 млрд»
+ *
+ * Раньше журнал висел на главном экране под панелью маршрутов и отнимал
+ * место у статистики. Теперь это отдельная шторка: открывается из меню,
+ * закрывается кнопкой, кликом по фону или Escape (Escape — в main.ts).
  *
  * Строки не пересобираются каждый кадр: сравнивается сигнатура журнала,
  * и перерисовка происходит только когда добавилась новая запись.
@@ -24,10 +28,38 @@ export class OperationLog {
     private readonly currency: string,
   ) {
     this.list = el('ol', { class: 'oplog__list', 'aria-live': 'polite' });
-    this.root = el('section', { class: 'oplog', 'data-testid': 'oplog' }, [
-      el('h2', { class: 'oplog__title' }, this.texts.get('log.title')),
-      this.list,
+    const close = el('button', { class: 'btn btn--gold', type: 'button' }, this.texts.get('panel.close'));
+    close.addEventListener('click', () => this.hide());
+    this.root = el('div', {
+      class: 'sheet',
+      hidden: true,
+      role: 'dialog',
+      'aria-modal': 'true',
+      'aria-label': this.texts.get('log.title'),
+      'data-testid': 'oplog',
+    }, [
+      el('div', { class: 'sheet__inner oplog' }, [
+        el('h2', { class: 'sheet__title oplog__title' }, this.texts.get('log.title')),
+        this.list,
+        close,
+      ]),
     ]);
+    // Клик по затемнению вокруг листа закрывает журнал — как остальные шторки.
+    this.root.addEventListener('pointerdown', (event) => {
+      if (event.target === this.root) this.hide();
+    });
+  }
+
+  get visible(): boolean {
+    return !this.root.hidden;
+  }
+
+  open(): void {
+    this.root.hidden = false;
+  }
+
+  hide(): void {
+    this.root.hidden = true;
   }
 
   private channelName(entry: LogEntry): string {

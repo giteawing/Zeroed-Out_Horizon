@@ -7,7 +7,7 @@
 import { el } from './dom';
 import type { Texts } from './texts';
 import { formatNumber } from '../core/format';
-import type { Channel, DerivedStats, FlowControl, GameState } from '../core/types';
+import type { DerivedStats, FlowControl, FlowKey, GameState } from '../core/types';
 import type { Game } from '../core/game';
 
 interface FlowRow {
@@ -17,18 +17,23 @@ interface FlowRow {
   max: HTMLButtonElement;
 }
 
-const CHANNELS: Channel[] = ['export', 'refine', 'contract'];
+/**
+ * Порядок направлений в «Логистике»: сначала три пути сырья, затем два рынка
+ * нефтепродуктов. Сырьё и топливо не смешиваются, поэтому подписи разные.
+ */
+const CRUDE_FLOWS: FlowKey[] = ['export', 'refine', 'contract'];
+const PRODUCT_FLOWS: FlowKey[] = ['productExport', 'productDomestic'];
 
 export class FlowControlsPanel {
   readonly root: HTMLElement;
-  private readonly rows = new Map<Channel, FlowRow>();
+  private readonly rows = new Map<FlowKey, FlowRow>();
 
   constructor(
     private readonly game: Game,
     private readonly texts: Texts,
     private readonly onChange: () => void,
   ) {
-    const body = CHANNELS.map((channel) => {
+    const rowOf = (channel: FlowKey): HTMLElement => {
       const input = el('input', {
         type: 'number',
         min: '0',
@@ -74,7 +79,12 @@ export class FlowControlsPanel {
         }
       });
       return row;
-    });
+    };
+    const body = [
+      ...CRUDE_FLOWS.map((channel) => rowOf(channel)),
+      el('div', { class: 'flow-controls__subheading' }, texts.get('flows.productsTitle')),
+      ...PRODUCT_FLOWS.map((channel) => rowOf(channel)),
+    ];
     this.root = el('section', {
       class: 'flow-controls',
       'data-testid': 'flow-controls',
@@ -93,7 +103,7 @@ export class FlowControlsPanel {
    * и отключал маршрут. Нечисловой ввод браузер тоже отдаёт пустой строкой,
    * но с `validity.badInput` — это ошибка, а не просьба включить «Авто».
    */
-  private setFixed(channel: Channel, input: HTMLInputElement): void {
+  private setFixed(channel: FlowKey, input: HTMLInputElement): void {
     const raw = input.value.trim();
     const badInput = input.validity?.badInput === true;
     const setting: FlowControl | null = badInput
@@ -113,12 +123,14 @@ export class FlowControlsPanel {
   }
 
   update(state: GameState, derived: DerivedStats): void {
-    const actual: Record<Channel, number> = {
+    const actual: Record<FlowKey, number> = {
       contract: derived.flows.domestic,
       export: derived.flows.export,
       refine: derived.flows.refined,
+      productDomestic: derived.flows.productsDomestic,
+      productExport: derived.flows.productsExport,
     };
-    for (const channel of CHANNELS) {
+    for (const channel of [...CRUDE_FLOWS, ...PRODUCT_FLOWS]) {
       const row = this.rows.get(channel);
       if (!row) continue;
       const setting = state.flowControl[channel];

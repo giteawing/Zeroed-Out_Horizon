@@ -639,35 +639,34 @@ test('панель империи видна всегда и держит все
   await expect(hud.locator('.hud__profit-label')).toHaveText('Чистая прибыль');
   // Автодобыча — отдельной строкой на всю ширину колонки.
   const autoDrill = hud.locator('.hud__row-value--wide');
-  await expect(autoDrill).toHaveText(/^буровая бригада (в сборе|не укомплектована)$/);
+  await expect(autoDrill).toHaveText(/^БУРОВАЯ БРИГАДА (В СБОРЕ|НЕ УКОМПЛЕКТОВАНА)$/);
   expect((await autoDrill.boundingBox())?.width ?? 0).toBeGreaterThan(250);
   // Рыночные цены находятся в шапке рядом с балансом и влиянием.
   const marketPrices = page.locator('.topbar__market .hud__prices');
   await expect(marketPrices).toBeVisible();
   for (const label of [
     'мировая цена',
-    'внутренняя цена',
-    'экспортная цена',
-    'продукты, внутр. цена',
-    'продукты, экспорт',
+    'нефть, внутренняя цена',
+    'нефть, экспортная цена',
+    'нефтепродукты, внутренняя цена',
+    'нефтепродукты, экспортная цена',
     'Нефтефаников за $1',
   ]) {
     await expect(marketPrices).toContainText(label);
   }
   await expect(hud.locator('.hud__prices')).toHaveCount(0);
 
-  // Правая колонка: статистика, маршруты и журнал операций.
+  // Правая колонка: статистика и «Логистика». Журнал операций убран с
+  // главного экрана — он открывается из меню и по умолчанию скрыт.
   const side = page.locator('.stage__side');
   const shopBox = await page.locator('.shop').boundingBox();
   const hudBox = await hud.boundingBox();
   const flowPanel = page.locator('[data-testid="flow-controls"]');
   const flowBox = await flowPanel.boundingBox();
-  const oplogBox = await page.locator('[data-testid="oplog"]').boundingBox();
+  await expect(page.locator('[data-testid="oplog"]')).toBeHidden();
   expect(hudBox?.width ?? 0).toBeGreaterThan(200);
   expect(flowBox?.width ?? 0).toBeGreaterThan(200);
   expect(flowBox?.height ?? 0).toBeGreaterThan(80);
-  expect(oplogBox?.width ?? 0).toBeGreaterThan(200);
-  expect(oplogBox!.y).toBeGreaterThan(flowBox!.y + flowBox!.height - 1);
 
   const flowOverflow = await flowPanel.evaluate((node) => ({
     overflowY: getComputedStyle(node).overflowY,

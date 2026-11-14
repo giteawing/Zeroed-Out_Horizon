@@ -30,9 +30,9 @@ export const CHANNELS: Channel[] = ['contract', 'export', 'refine'];
  * влиянии `config.influence.cap` и выше. Те же числа печатают «Правила».
  */
 export const INVESTMENT_RATE_MIN_PERCENT = 1;
-export const INVESTMENT_RATE_MAX_PERCENT = 20;
+export const INVESTMENT_RATE_MAX_PERCENT = 6;
 /** Банковский год в игровых сутках: проценты начисляются ежедневно. */
-export const INVESTMENT_YEAR_DAYS = 360;
+export const INVESTMENT_YEAR_DAYS = 365;
 export const PRODUCTS: Product[] = ['crude', 'products'];
 
 export function stagedNameOf(def: UpgradeDef, level: number): string {

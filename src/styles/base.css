@@ -475,28 +475,27 @@ img {
 .hud__row-value--price { color: var(--cream); }
 .hud__row-value--assets { color: var(--gold-light); font-weight: 800; }
 
+/* Заголовок группы «Не облагается налогом»: строки ниже налога. */
+.hud__untaxed-title {
+  margin-top: 6px;
+  color: var(--steel);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 /* ------------------------------------------------------- журнал операций */
+/* Журнал операций — шторка из меню: заголовок, прокручиваемый список, кнопка. */
 .oplog {
-  display: grid;
-  /* Заголовок держит свой минимум, список забирает остаток и прокручивается. */
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 4px;
-  width: 100%;
-  min-height: 0;
-  max-height: 100%;
-  padding: 8px 10px;
-  border: var(--stroke-w) solid var(--ink);
-  border-radius: var(--radius);
-  background: rgba(10, 8, 6, 0.78);
-  box-shadow: var(--shadow);
+  width: min(100%, 560px);
+  max-height: min(80vh, 640px);
 }
 
 .oplog__title {
   margin: 0;
-  font-size: clamp(10px, 2.4vw, 12px);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--steel);
+  font-size: clamp(16px, 4vw, 22px);
+  letter-spacing: 0.04em;
+  color: var(--gold-light);
 }
 
 .oplog__list {
@@ -505,11 +504,10 @@ img {
   padding: 0;
   list-style: none;
   display: grid;
-  gap: 2px;
+  gap: 6px;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  /* Журнал растёт по свободному месту в правой колонке, список прокручивается. */
   align-content: start;
 }
 
@@ -582,12 +580,6 @@ img {
   scrollbar-width: thin;
 }
 
-/* Журнал операций растёт в оставшемся пространстве и прокручивается внутри. */
-.stage__side > .oplog {
-  flex: 1 1 0;
-  min-height: 64px;
-}
-
 /* Маршруты компактны и всегда видны: отдельной вертикальной прокрутки нет. */
 .stage__side > .flow-controls {
   flex: 0 0 auto;
@@ -604,6 +596,17 @@ img {
   border-radius: var(--radius);
   background: linear-gradient(180deg, rgba(34, 26, 19, 0.96), rgba(15, 12, 10, 0.94));
   box-shadow: var(--shadow);
+}
+
+.flow-controls__subheading {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--steel);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .flow-controls__heading {

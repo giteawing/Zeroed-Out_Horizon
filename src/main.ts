@@ -200,6 +200,7 @@ function boot(): void {
 
   const menu = new Menu(texts, [
     { id: 'rules', icon: '📖', label: texts.get('menu.rules'), onSelect: () => rules.open() },
+    { id: 'log', icon: '🧾', label: texts.get('log.title'), onSelect: () => oplog.open() },
     { id: 'finale', icon: '📜', label: texts.get('menu.finale'), onSelect: () => finale.show(game.state), isVisible: () => game.state.won },
     {
       id: 'sound',
@@ -254,11 +255,12 @@ function boot(): void {
   const stage = el('main', { class: 'stage' }, [
     // Левый, широкий столбец — магазин со вкладками.
     el('div', { class: 'stage__main' }, [shop.root]),
-    // Правый, узкий столбец — показатели, маршруты и журнал операций.
+    // Правый столбец — денежная и товарная статистика и «Логистика».
+    // Журнал операций живёт в меню шапки: на главном экране он отнимал
+    // место у панели империи.
     el('aside', { class: 'stage__side' }, [
       hud.root,
       flowControls.root,
-      oplog.root,
     ]),
     stageOverlay,
   ]);
@@ -274,6 +276,7 @@ function boot(): void {
     assetDetails.root,
     refineryDetails.root,
     finale.root,
+    oplog.root,
     menu.root,
   );
   settings.setSound(game.state.soundOn);
@@ -582,6 +585,7 @@ function boot(): void {
     refineryDetails,
     assetDetails,
     wealth,
+    { get visible() { return oplog.visible; }, close: () => oplog.hide() },
     dev,
     { get visible() { return rules.visible; }, close: () => rules.hide() },
     settings,

@@ -18,16 +18,15 @@ import {
   stagedNameOf,
   unlockBlocker,
   winCostOf,
-  allocateByPrice,
   worldPriceAt,
 } from './economy';
 import type {
   BurstChannel,
-  Channel,
   Content,
   DeepReadonly,
   DerivedStats,
   FlowControl,
+  FlowKey,
   GameEvent,
   Well,
   GameState,
@@ -37,6 +36,7 @@ import type {
 } from './types';
 import { Rng } from './rng';
 import { calculateSaleSettlement } from './accounting';
+import { allocateProducts } from './economy/sales';
 
 export type BuyFailure =
   | 'noMoney'
@@ -205,15 +205,18 @@ export class Game {
     return this.derivedCache;
   }
 
-  /** Изменить маршрут сырой нефти. Фиксированный поток нельзя задать выше физического максимума. */
-  setFlowControl(channel: Channel, setting: FlowControl): boolean {
+  /**
+   * Изменить направление «Логистики»: канал сырья или рынок нефтепродуктов.
+   * Фиксированный поток нельзя задать выше физического максимума.
+   */
+  setFlowControl(key: FlowKey, setting: FlowControl): boolean {
     if (setting.mode === 'auto') {
-      this.mutableState.flowControl[channel] = { mode: 'auto', value: 0 };
+      this.mutableState.flowControl[key] = { mode: 'auto', value: 0 };
     } else {
       if (!Number.isFinite(setting.value) || setting.value < 0) return false;
-      const max = this.derived().flowLimits[channel];
+      const max = this.derived().flowLimits[key];
       if (setting.value > max + 1e-9) return false;
-      this.mutableState.flowControl[channel] = { mode: 'fixed', value: setting.value };
+      this.mutableState.flowControl[key] = { mode: 'fixed', value: setting.value };
     }
     this.invalidate();
     this.emit({ type: 'income' });
@@ -780,13 +783,10 @@ export class Game {
     // 2. Отгрузка лишь читает накопленный таймер и добавляет валовую
     // выручку в общий финансовый расчёт.
     this.pendingSalesGross += this.tickShipping(derived, dtSeconds);
-    // Внешние выплаты входят в общую налоговую базу, но не добавляют
-    // операционных расходов сверх уже начисляемых за этот интервал.
-    this.pendingSalesGross += (
-      derived.damperIncomePerSecond +
-      derived.capitalFlightIncomePerSecond +
-      derived.investmentIncomePerSecond
-    ) * dtSeconds;
+    // Проценты на остаток — облагаемый доход: они проходят общую кассу и
+    // налог на прибыль, как и продажи. Демпфер, вывоз капитала и налоговые
+    // вычеты приходят мимо налога: их начисляем после закрытия сделки.
+    this.pendingSalesGross += derived.investmentIncomePerSecond * dtSeconds;
 
     const fineNow =
       this.spillCrudeThisStep * this.config.fines.oilPerTon +
@@ -805,6 +805,11 @@ export class Game {
       : 0;
     this.mutableState.expensesAccrued += Math.max(0, expensesWithoutFine) + fineCharge;
     this.settleSales();
+    // Необлагаемые поступления ниже налога: они просто добавляются к чистой
+    // прибыли и не уменьшаются накопленными расходами.
+    if (derived.untaxedIncomePerSecond > 0) {
+      this.grantCoins(derived.untaxedIncomePerSecond * dtSeconds);
+    }
 
     this.tickCooldowns(dtMs);
     this.tickPeriodic(dtMs, derived);
@@ -1010,10 +1015,10 @@ export class Game {
     seconds = 1,
   ): { leftover: number; money: number } {
     const span = Math.max(0, seconds);
-    const plan = allocateByPrice(Math.max(0, tonnes), [
+    const plan = allocateProducts(Math.max(0, tonnes), [
       { key: 'export', price: derived.productPriceExport, capacity: derived.capacities.export.products * span },
       { key: 'domestic', price: derived.productPriceDomestic, capacity: derived.capacities.domestic.products * span },
-    ]);
+    ], this.mutableState.flowControl, span);
     const left = plan.remaining;
     const money =
       plan.byMarket.export * derived.productPriceExport +

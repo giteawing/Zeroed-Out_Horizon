@@ -253,8 +253,7 @@ export class Hud {
       row('productsExportIncome', texts.get('hud.productsExportIncome'), 'hud__row-value--plus', 'hud__row--sub').root,
       row('crudeDomesticIncome', texts.get('hud.crudeDomesticIncome'), 'hud__row-value--plus', 'hud__row--sub').root,
       row('productsDomesticIncome', texts.get('hud.productsDomesticIncome'), 'hud__row-value--plus', 'hud__row--sub').root,
-      row('damperIncome', texts.get('hud.damperIncome'), 'hud__row-value--plus', 'hud__row--sub').root,
-      row('capitalFlightIncome', texts.get('hud.capitalFlightIncome'), 'hud__row-value--plus', 'hud__row--sub').root,
+      // Проценты на остаток облагаются налогом, поэтому стоят в доходе.
       row('investmentIncome', texts.get('hud.investmentIncome', { rate: 1 }), 'hud__row-value--plus', 'hud__row--sub').root,
       // «Расходы» — итог по статьям, чтобы арифметика читалась построчно:
       // доход − расходы = EBT.
@@ -269,6 +268,13 @@ export class Hud {
         this.ebtNode,
       ]),
       row('taxPaid', texts.get('hud.taxPaid'), 'hud__row-value--minus').root,
+      // Ниже налога — поступления, которые он не трогает. Заказчик просил
+      // показать их именно здесь: они просто прибавляются к чистой прибыли.
+      el('span', { class: 'hud__group-title hud__untaxed-title' }, texts.get('hud.untaxedTitle')),
+      row('damperIncome', texts.get('hud.damperIncome'), 'hud__row-value--plus', 'hud__row--sub').root,
+      row('capitalFlightIncome', texts.get('hud.capitalFlightIncome'), 'hud__row-value--plus', 'hud__row--sub').root,
+      row('reverseExciseIncome', texts.get('hud.reverseExciseIncome'), 'hud__row-value--plus', 'hud__row--sub').root,
+      row('ndpiDeduction', texts.get('hud.ndpiDeduction'), 'hud__row-value--plus', 'hud__row--sub').root,
       el('div', { class: 'hud__profit' }, [
         el('span', { class: 'hud__profit-label' }, texts.get('hud.profit')),
         this.profitValue,
@@ -445,6 +451,8 @@ export class Hud {
     set('productsDomesticIncome', moneyRate(derived.productsDomesticIncomePerSecond));
     set('damperIncome', moneyRate(derived.damperIncomePerSecond));
     set('capitalFlightIncome', moneyRate(derived.capitalFlightIncomePerSecond));
+    set('reverseExciseIncome', moneyRate(derived.reverseExciseIncomePerSecond));
+    set('ndpiDeduction', moneyRate(derived.ndpiDeductionIncomePerSecond));
     set('investmentIncome', moneyRate(derived.investmentIncomePerSecond));
     this.setLabel('investmentIncome', this.texts.get('hud.investmentIncome', {
       rate: formatNumber(derived.investmentRatePercent),

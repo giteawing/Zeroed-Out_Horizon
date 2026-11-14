@@ -103,11 +103,22 @@
     "maxProductionPerSecond": 10000000,
     "starterWellDailyTonnes": 8
   },
+  "deductions": {
+    "reverseExcise": {
+      "domesticShare": 0.08,
+      "influenceGain": 1.5
+    },
+    "ndpi": {
+      "dailyTonnesThreshold": 10,
+      "perWellPerSecond": 0.5,
+      "influenceGain": 2
+    }
+  },
   "influence": {
     "cap": 400
   },
   "autosaveSeconds": 10,
-  "winCost": 1e+25,
+  "winCost": 8.649e+22,
   "winRequirements": [
     {
       "upgrade": "t_pump4",

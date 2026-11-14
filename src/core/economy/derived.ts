@@ -10,7 +10,7 @@ import {
   type TaxBuff,
 } from './definitions';
 import { adjustCurrencyCost, levelOf, winRequirementBlocker } from './purchases';
-import { oilCapacityOf } from './production';
+import { lowRateWellCount, oilCapacityOf } from './production';
 import { assetCountsOf, assetsValueOf } from './assets';
 import { collectUpgradeEffects } from './derived/effects';
 import { calculateMarket } from './derived/market';
@@ -39,18 +39,45 @@ export function computeDerived(
   const capitalFlightIncomePerSecond = effects.capitalFlightPerSecond > 0 && state.capitalFlightStartedAtMs !== null
     ? effects.capitalFlightPerSecond * (1 + capitalFlightElapsedMinutes * effects.capitalFlightGrowthPerMinute)
     : 0;
+  // Влияние одинаково для ставки по счёту и для налоговых вычетов.
+  const baseFinance = calculateFinancialRates(config, state, effects, market.grossPerSecond, 0);
+  const influenceShare = Math.min(1, Math.max(0, baseFinance.influence / Math.max(1, config.influence.cap)));
   // Годовая ставка зависит от влияния (INVESTMENT_RATE_*); начисление ежедневно.
   // Игровой день занимает config.oil.wells.secondsPerDay реальных секунд.
-  const baseExternalIncome = damperIncomePerSecond + capitalFlightIncomePerSecond;
-  const baseFinance = calculateFinancialRates(config, state, effects, market.grossPerSecond, baseExternalIncome);
-  const influenceShare = Math.min(1, Math.max(0, baseFinance.influence / Math.max(1, config.influence.cap)));
   const investmentRatePercent = INVESTMENT_RATE_MIN_PERCENT +
     (INVESTMENT_RATE_MAX_PERCENT - INVESTMENT_RATE_MIN_PERCENT) * influenceShare;
   const investmentIncomePerSecond = Math.max(0, state.coins) *
     (investmentRatePercent / 100) /
     (INVESTMENT_YEAR_DAYS * Math.max(1e-6, config.oil.wells.secondsPerDay));
-  const additionalIncomePerSecond = baseExternalIncome + investmentIncomePerSecond;
-  const finance = calculateFinancialRates(config, state, effects, market.grossPerSecond, additionalIncomePerSecond);
+  // Проценты на остаток облагаются налогом, как и продажи.
+  const finance = calculateFinancialRates(
+    config, state, effects, market.grossPerSecond, investmentIncomePerSecond,
+  );
+  const assetCounts = assetCountsOf(upgrades, state);
+  /*
+   * Налоговые вычеты — не покупки, а правила: пока есть НПЗ или истощённые
+   * скважины, вычет начисляется сам. Оба растут с влиянием и приходят мимо
+   * налога на прибыль: в панели они стоят ниже налога и прибавляются к
+   * чистой прибыли.
+   */
+  const reverseExcise = config.deductions?.reverseExcise;
+  const reverseExciseIncomePerSecond = reverseExcise && assetCounts.refinery > 0
+    ? market.flows.productsDomestic * market.productPriceDomestic *
+      Math.max(0, reverseExcise.domesticShare) *
+      (1 + Math.max(0, reverseExcise.influenceGain) * influenceShare)
+    : 0;
+  const ndpi = config.deductions?.ndpi;
+  const lowRateWells = lowRateWellCount(config, state);
+  const ndpiDeductionIncomePerSecond = ndpi
+    ? lowRateWells * Math.max(0, ndpi.perWellPerSecond) *
+      (1 + Math.max(0, ndpi.influenceGain) * influenceShare)
+    : 0;
+  const untaxedIncomePerSecond =
+    damperIncomePerSecond +
+    capitalFlightIncomePerSecond +
+    reverseExciseIncomePerSecond +
+    ndpiDeductionIncomePerSecond;
+  const netPerSecond = finance.netPerSecond + untaxedIncomePerSecond;
   const assetThroughputByKind: Partial<Record<AssetKind, number>> = {};
   for (const def of upgrades) {
     if (!def.assetKind || def.type !== 'sell') continue;
@@ -97,13 +124,17 @@ export function computeDerived(
     oilPricePerTon: market.oilPricePerTon,
     domesticPricePerTon: market.domesticPricePerTon,
     exportPricePerTon: market.exportPricePerTon,
-    profitPerSecond: finance.netPerSecond,
+    profitPerSecond: netPerSecond,
     assetsValue: assetsValueOf(config, upgrades, state, market.exchangeRate),
-    assetCounts: assetCountsOf(upgrades, state),
+    assetCounts,
     assetThroughputByKind,
-    grossPerSecond: market.grossPerSecond + additionalIncomePerSecond,
+    grossPerSecond: market.grossPerSecond + investmentIncomePerSecond,
     damperIncomePerSecond,
     capitalFlightIncomePerSecond,
+    reverseExciseIncomePerSecond,
+    ndpiDeductionIncomePerSecond,
+    lowRateWellCount: lowRateWells,
+    untaxedIncomePerSecond,
     investmentRatePercent,
     investmentIncomePerSecond,
     crudeExportIncomePerSecond: market.flows.export * market.channels.export.price,
@@ -114,7 +145,7 @@ export function computeDerived(
     domesticThroughputCapacity: market.channels.contract.rate,
     exportThroughputCapacity: market.exportCapacityByMode.pipeline + market.exportCapacityByMode.rail + market.exportCapacityByMode.tanker,
     refineryThroughputCapacity: market.channels.refine.rate,
-    netPerSecond: finance.netPerSecond,
+    netPerSecond,
     expensesPerSecond: finance.expensesPerSecond,
     finePerSecond: finance.finePerSecond,
     fineFactor: finance.fineFactor,

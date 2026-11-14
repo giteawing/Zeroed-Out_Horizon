@@ -10,6 +10,9 @@ import {
   oilFlowsOf,
   affordableLevels,
   computeDerived,
+  INVESTMENT_RATE_MAX_PERCENT,
+  INVESTMENT_RATE_MIN_PERCENT,
+  INVESTMENT_YEAR_DAYS,
   constructionCostMultiplier,
   costFor,
   eventPayout,
@@ -421,7 +424,7 @@ describe('регрессии экономики: выручка по факти�
     expect(d.netPerSecond).toBeGreaterThan(0);
   });
 
-  it('чистая прибыль = EBT − налог на прибыль, как показано в панели', () => {
+  it('чистая прибыль = EBT − налог + необлагаемые поступления, как показано в панели', () => {
     const state = createInitialState(config, 42);
     state.wells = [{ kind: 'good', dailyTonnes: 60 }];
     state.levels = { t_azs: 20, s_brigade: 1, s_engineer: 1 };
@@ -431,7 +434,12 @@ describe('регрессии экономики: выручка по факти�
     // EBT — прибыль до налога; налог берётся именно с неё.
     expect(d.ebtPerSecond).toBeCloseTo(d.grossPerSecond - d.expensesPerSecond, 6);
     expect(d.taxPaidPerSecond).toBeCloseTo(d.ebtPerSecond * d.taxRate, 6);
-    expect(d.netPerSecond).toBeCloseTo(d.ebtPerSecond - d.taxPaidPerSecond, 6);
+    // Ниже налога идут демпфер, вывоз капитала и налоговые вычеты: они не
+    // входят в EBT и просто прибавляются к чистой прибыли.
+    expect(d.netPerSecond).toBeCloseTo(
+      d.ebtPerSecond - d.taxPaidPerSecond + d.untaxedIncomePerSecond,
+      6,
+    );
   });
 
   it('раскладка сбыта по каналам совпадает с суммой продаж', () => {
@@ -835,12 +843,19 @@ describe('товарная модель: сырая нефть → нефтеп�
     expect(d.grossPerSecond).toBeCloseTo(marketGross + d.investmentIncomePerSecond, 6);
   });
 
-  it('инвестиционная ставка зависит от влияния: от 1% до 20% годовых', () => {
+  it('инвестиционная ставка зависит от влияния: от 1% до 6% годовых', () => {
     const state = createInitialState(config, 64);
     state.coins = 36_000;
+    // Год — 365 игровых суток, максимум ставки — 6 % (пункты 4 и 7 плана).
+    expect(INVESTMENT_YEAR_DAYS).toBe(365);
+    expect(INVESTMENT_RATE_MAX_PERCENT).toBe(6);
     const low = computeDerived(config, content.upgrades, state, [], content);
-    expect(low.investmentRatePercent).toBeCloseTo(1, 9);
-    expect(low.investmentIncomePerSecond).toBeCloseTo(36_000 * 0.01 / (360 * config.oil.wells.secondsPerDay), 9);
+    expect(low.investmentRatePercent).toBeCloseTo(INVESTMENT_RATE_MIN_PERCENT, 9);
+    expect(low.investmentIncomePerSecond).toBeCloseTo(
+      36_000 * (INVESTMENT_RATE_MIN_PERCENT / 100) /
+        (INVESTMENT_YEAR_DAYS * config.oil.wells.secondsPerDay),
+      9,
+    );
 
     const maxInfluence = {
       ...content.upgrades.find((u) => u.id === 'p_secretary')!,
@@ -850,8 +865,12 @@ describe('товарная модель: сырая нефть → нефтеп�
     };
     state.levels[maxInfluence.id] = 1;
     const high = computeDerived(config, [...content.upgrades, maxInfluence], state, [], content);
-    expect(high.investmentRatePercent).toBeCloseTo(20, 9);
-    expect(high.investmentIncomePerSecond).toBeCloseTo(36_000 * 0.2 / (360 * config.oil.wells.secondsPerDay), 9);
+    expect(high.investmentRatePercent).toBeCloseTo(INVESTMENT_RATE_MAX_PERCENT, 9);
+    expect(high.investmentIncomePerSecond).toBeCloseTo(
+      36_000 * (INVESTMENT_RATE_MAX_PERCENT / 100) /
+        (INVESTMENT_YEAR_DAYS * config.oil.wells.secondsPerDay),
+      9,
+    );
   });
 
   it('мировая цена двигается во времени и тянет за собой внутреннюю', () => {
@@ -999,9 +1018,11 @@ describe('точность денег (REVIEW F11)', () => {
         }
       }
     }
-    // Худшая цена — финальный насос: 1e25 номинала сжаты до 1e15.
-    expect(worstId.startsWith('win_pump')).toBe(true);
+    // Максимум — последний из 200 уровней девальвации: кривая сжимает его
+    // номинал, но он всё равно дороже финального насоса (9,3e13).
+    expect(worstId).toBe('p_devalue_currency@199');
     expect(worst).toBeLessThan(Number.MAX_SAFE_INTEGER);
+    expect(costFor(config, content.byId.get('win_pump')!, 0)).toBe(9.3e13);
   });
 
   it('кривая цен никогда не выдаёт значение выше безопасного предела', () => {
@@ -1015,10 +1036,10 @@ describe('точность денег (REVIEW F11)', () => {
     expect(adjustCurrencyCost(config, 1e40)).toBe(Number.MAX_SAFE_INTEGER);
   });
 
-  it('цена финала, которую платит игрок, — это сжатый номинал, а не 1e25', () => {
+  it('цена финала, которую платит игрок, — это сжатый номинал, а не 8.649e22', () => {
     const paid = winCostOf(config, content.upgrades);
     expect(paid).toBe(adjustCurrencyCost(config, config.winCost));
-    expect(paid).toBe(1e15);
+    expect(paid).toBe(9.3e13);
     expect(paid).toBeLessThan(config.winCost);
   });
 });

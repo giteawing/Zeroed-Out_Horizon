@@ -63,6 +63,18 @@ describe('новые политические и финансовые механ
     expect(damper.maxLevel).toBe(1);
   });
 
+  it('девальвация — 200 уровней по 5 %', () => {
+    const devalue = byId.get('p_devalue_currency')!;
+    expect(devalue.maxLevel).toBe(200);
+    expect(devalue.effect.exchangeRateDevaluation).toBe(0.05);
+  });
+
+  it('налоговые вычеты заданы конфигом, а не зашиты в формулу', () => {
+    expect(content.config.deductions.reverseExcise.domesticShare).toBeGreaterThan(0);
+    expect(content.config.deductions.ndpi.dailyTonnesThreshold).toBe(10);
+    expect(content.config.deductions.ndpi.perWellPerSecond).toBeGreaterThan(0);
+  });
+
   it('вывоз капитала находится во вкладке цели и стоит ровно триллион', () => {
     const capital = byId.get('g_capital_flight')!;
     expect(capital.tab).toBe('goals');

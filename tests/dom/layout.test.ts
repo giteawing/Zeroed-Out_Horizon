@@ -60,7 +60,7 @@ describe('раскладка', () => {
     expect(tabs).toEqual(['Техника', 'Добыча', 'Сбыт', 'Политика', 'Роскошь', 'Цель']);
   });
 
-  it('в правом столбце статистика, маршруты и журнал операций', () => {
+  it('в правом столбце статистика и «Логистика», журнал — в меню', () => {
     const side = document.querySelector('.stage__side');
     expect(side).not.toBeNull();
     const blocks = [...(side?.children ?? [])].map((n) => n.classList.contains('hud')
@@ -70,16 +70,22 @@ describe('раскладка', () => {
         : n.classList.contains('oplog')
           ? 'oplog'
           : n.className);
-    expect(blocks).toEqual(['hud', 'flow-controls', 'oplog']);
+    expect(blocks).toEqual(['hud', 'flow-controls']);
     expect(side?.querySelector('[data-testid="flow-controls"]')).not.toBeNull();
-    expect(side?.querySelectorAll('[data-flow-max]')).toHaveLength(3);
-    expect(side?.querySelectorAll('[data-flow-auto]')).toHaveLength(3);
+    // «Логистика»: три потока сырья и два рынка нефтепродуктов.
+    expect(side?.querySelectorAll('[data-flow-max]')).toHaveLength(5);
+    expect(side?.querySelectorAll('[data-flow-auto]')).toHaveLength(5);
+    expect(side?.querySelectorAll('[data-flow-input]')).toHaveLength(5);
     expect(side?.querySelector('[data-testid="production-stage"]')).toBeNull();
     expect(side?.querySelector('.stage__production')).toBeNull();
     expect(side?.querySelector('[data-testid="drill"]')).toBeNull();
     expect(side?.querySelector('.drill')).toBeNull();
     expect(side?.querySelector('.shop')).toBeNull();
-    expect(side?.querySelector('[data-testid="oplog"]')).not.toBeNull();
+    // Журнал операций убран с главного экрана: его открывают из меню.
+    expect(side?.querySelector('[data-testid="oplog"]')).toBeNull();
+    const menuLog = document.querySelector('[data-menu="log"]');
+    expect(menuLog).not.toBeNull();
+    expect(menuLog?.textContent).toContain('Журнал операций');
   });
 
   it('промышленная карточка удалена, частицы и уведомления вынесены в overlay', () => {
@@ -110,7 +116,7 @@ describe('раскладка', () => {
       'Внутренняя пропускная способность',
       'Экспортная пропускная способность',
       'Переработка на НПЗ',
-      'Зарплаты',
+      'Фонд оплаты труда',
       'Чиновники',
       'Скважины',
     ]) {
@@ -120,10 +126,10 @@ describe('раскладка', () => {
       .map((n) => n.textContent);
     expect(marketLabels).toEqual([
       'мировая цена',
-      'внутренняя цена',
-      'экспортная цена',
-      'продукты, внутр. цена',
-      'продукты, экспорт',
+      'нефть, внутренняя цена',
+      'нефть, экспортная цена',
+      'нефтепродукты, внутренняя цена',
+      'нефтепродукты, экспортная цена',
       'Нефтефаников за $1',
     ]);
     expect(hud?.querySelector('.hud__prices')).toBeNull();
@@ -141,15 +147,15 @@ describe('раскладка', () => {
     expect(invoiceLabels[invoiceLabels.length - 1]).toBe('Чистая прибыль');
     // Автодобыча — отдельная строка на всю ширину, без подписи в левой колонке.
     const autoDrill = hud?.querySelector('.hud__row-value--wide');
-    expect(autoDrill?.textContent).toMatch(/^буровая бригада (в сборе|не укомплектована)$/);
+    expect(autoDrill?.textContent).toMatch(/^БУРОВАЯ БРИГАДА (В СБОРЕ|НЕ УКОМПЛЕКТОВАНА)$/);
     expect(autoDrill?.closest('.hud__row')?.querySelector('.hud__row-label')?.textContent).toBe('');
     // Кошелёк переехал в шапку к иконкам меню.
     expect(document.querySelector('.topbar__coins')).not.toBeNull();
     expect(hud?.querySelector('.topbar__coins')).toBeNull();
     // Товарная статистика: сырая нефть и нефтепродукты отдельными блоками.
-    expect(labels).toContain('производство');
-    expect(labels).toContain('продажа вн. рынок');
-    expect(labels).toContain('экспорт');
+    expect(labels).toContain('Производство');
+    expect(labels).toContain('Продажа вн. рынок');
+    expect(labels).toContain('Экспорт');
     // Влияние переехало в шапку — в панели его больше нет.
     expect(document.querySelector('.topbar__influence')).not.toBeNull();
     // Магазин не вложен в панель.
