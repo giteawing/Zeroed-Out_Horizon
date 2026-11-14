@@ -284,7 +284,7 @@ test('прогресс сохраняется после перезагрузк�
   const written = await saveNow(page);
   expect(written.totalSold).toBeGreaterThan(0);
   await page.reload();
-  await expect(page.locator('.start .btn--gold')).toHaveText('Продолжить империю');
+  await expect(page.locator('.start .btn--gold')).toHaveText('Продолжить игру');
   // Уходящая страница сохраняется ещё раз сама — сейв от этого только новее.
   const stored = JSON.parse((await storedSave(page))!) as Snapshot;
   expect(stored.playtimeMs).toBeGreaterThanOrEqual(written.playtimeMs);
@@ -306,7 +306,7 @@ test('на стартовом экране игра стоит и не трог�
   await start(page);
   await saveNow(page);
   await page.reload();
-  await expect(page.locator('.start .btn--gold')).toHaveText('Продолжить империю');
+  await expect(page.locator('.start .btn--gold')).toHaveText('Продолжить игру');
   const saved = await storedSave(page);
   const before = await gameState(page);
   // Секунда кадров: запущенная игра сделала бы десяток тиков.
@@ -332,7 +332,7 @@ test('продолжение партии начисляет доход за о�
     Date.now = () => realNow() + shiftMs;
   }, AWAY_SECONDS * 1000);
   await page.reload();
-  await expect(page.locator('.start .btn--gold')).toHaveText('Продолжить империю');
+  await expect(page.locator('.start .btn--gold')).toHaveText('Продолжить игру');
   const { coins, netPerSecond } = await page.evaluate(() => {
     const game = (window as unknown as {
       __game: { state: { coins: number }; derived(): { netPerSecond: number } };
@@ -616,9 +616,12 @@ test('панель империи видна всегда и держит все
     'сверх склада · разлив и штраф',
     'Доход',
     'Расходы',
-    'Зарплаты',
+    'Фонд оплаты труда',
     'Чиновники',
     'EBT',
+    'Не облагается налогом',
+    'Обратный акциз',
+    'Вычеты НДПИ',
     'Резервуары',
     'Скважины',
     'Активы',
