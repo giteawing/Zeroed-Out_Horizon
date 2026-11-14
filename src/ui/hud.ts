@@ -25,6 +25,8 @@ export class Hud {
   private readonly rows = new Map<string, Row>();
   private readonly oilBar: HTMLElement;
   private readonly oilFill: HTMLElement;
+  private readonly productBar: HTMLElement;
+  private readonly productFill: HTMLElement;
   /**
    * Денежная таблица: одна колонка сверху вниз по порядку применения —
    * доход, расходы, EBT, налог на прибыль, чистая прибыль.
@@ -51,7 +53,15 @@ export class Hud {
     this.influenceFill = el('i', { class: 'topbar__influence-fill' });
 
     this.oilFill = el('i', { class: 'hud__oil-fill' });
-    this.oilBar = el('div', { class: 'hud__oilbar' }, [this.oilFill]);
+    this.oilBar = el('div', {
+      class: 'hud__oilbar', role: 'progressbar', 'data-storage': 'crude',
+      'aria-label': texts.get('hud.oil'), 'aria-valuemin': '0',
+    }, [this.oilFill]);
+    this.productFill = el('i', { class: 'hud__oil-fill' });
+    this.productBar = el('div', {
+      class: 'hud__oilbar', role: 'progressbar', 'data-storage': 'products',
+      'aria-label': texts.get('hud.productStorageBar'), 'aria-valuemin': '0',
+    }, [this.productFill]);
 
     const row = (key: string, label: string, cls = '', rowCls = ''): Row => {
       const value = el('span', { class: `hud__row-value ${cls}` }, '');
@@ -175,6 +185,7 @@ export class Hud {
             // Нефтебазы хранят нефтепродукты: показываем, сколько их лежит
             // и сколько всего влезает.
             row('productsOnHand', texts.get('hud.productStorage')).root,
+            el('div', { class: 'hud__oil' }, [this.productBar]),
             row('productsStorageEta', texts.get('hud.productStorageEtaLabel')).root,
             // Те же «доступные объёмы» рынков, но для нефтепродуктов.
             row('productsMarketDomestic', texts.get('hud.marketDomestic'),
@@ -321,6 +332,12 @@ export class Hud {
       capacity: formatNumber(derived.oilCapacity),
       tonnes,
     }));
+    this.oilFill.style.width = `${(Math.min(1, derived.oilCapacity > 0 ? state.oil / derived.oilCapacity : 0) * 100).toFixed(1)}%`;
+    this.oilBar.setAttribute('aria-valuemax', String(Math.max(1, derived.oilCapacity)));
+    this.oilBar.setAttribute('aria-valuenow', String(Math.min(state.oil, derived.oilCapacity)));
+    this.oilBar.setAttribute('aria-valuetext', this.rowOf('oil').value.textContent ?? '');
+    this.oilFill.dataset.level = derived.oilCapacity > 0 && state.oil / derived.oilCapacity > 0.97
+      ? 'full' : derived.oilCapacity > 0 && state.oil / derived.oilCapacity > 0.75 ? 'high' : 'ok';
     // --- сырая нефть и нефтепродукты: всё в тоннах в секунду ---
     const flows = derived.flows;
     const rate = (value: number) => units('tonnesRate', {
@@ -394,6 +411,14 @@ export class Hud {
       capacity: formatNumber(derived.productCapacity),
       tonnes,
     }));
+    const productShare = derived.productCapacity > 0
+      ? Math.min(1, Math.max(0, state.products / derived.productCapacity))
+      : 0;
+    this.productFill.style.width = `${(productShare * 100).toFixed(1)}%`;
+    this.productBar.setAttribute('aria-valuemax', String(Math.max(1, derived.productCapacity)));
+    this.productBar.setAttribute('aria-valuenow', String(Math.min(state.products, derived.productCapacity)));
+    this.productBar.setAttribute('aria-valuetext', this.rowOf('productsOnHand').value.textContent ?? '');
+    this.productFill.dataset.level = productShare > 0.97 ? 'full' : productShare > 0.75 ? 'high' : 'ok';
     const storageEta = derived.productStorageSecondsToFull;
     const storageEtaText = storageEta <= 0
       ? this.texts.get('hud.productStorageFull')
@@ -540,10 +565,6 @@ export class Hud {
     set('domesticThroughput', rate(derived.domesticThroughputCapacity));
     set('exportThroughput', rate(derived.exportThroughputCapacity));
     set('refineryThroughput', rate(derived.refineryThroughputCapacity));
-
-    const fill = Math.max(0, Math.min(1, derived.oilCapacity > 0 ? state.oil / derived.oilCapacity : 0));
-    this.oilFill.style.width = `${(fill * 100).toFixed(1)}%`;
-    this.oilFill.dataset.level = fill > 0.97 ? 'full' : fill > 0.75 ? 'high' : 'ok';
 
     // Мировая цена в нефтефаниках за тонну — рядом с внутренней.
     set('worldPrice', units('pricePerTon', {

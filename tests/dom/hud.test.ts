@@ -141,3 +141,62 @@ describe('панель империи: строки и записи в них (R
     }
   });
 });
+
+describe('нефтепродукты: шкала заполнения нефтебаз', () => {
+  function storageAt(stock: number, capacity: number) {
+    const state = createInitialState(content.config, 7);
+    state.levels = capacity > 0 ? { t_depot: 1 } : {};
+    state.products = stock;
+    const derived = computeDerived(content.config, content.upgrades, state, [], content);
+    derived.productCapacity = capacity;
+    const hud = new Hud(texts, content.config.currency, content.config);
+    hud.update(state, derived);
+    const bar = hud.root.querySelector<HTMLElement>('[data-storage="products"]');
+    expect(bar).not.toBeNull();
+    const fill = bar!.querySelector<HTMLElement>('.hud__oil-fill');
+    expect(fill).not.toBeNull();
+    return { hud, bar: bar!, fill: fill! };
+  }
+
+  it('пустые нефтебазы и отсутствие ёмкости не заполняют шкалу', () => {
+    for (const capacity of [0, 25_000]) {
+      const { bar, fill } = storageAt(0, capacity);
+      expect(fill.style.width).toBe('0.0%');
+      expect(fill.dataset.level).toBe('ok');
+      expect(bar.getAttribute('aria-valuenow')).toBe('0');
+      expect(bar.getAttribute('aria-valuemax')).toBe(String(Math.max(1, capacity)));
+    }
+  });
+
+  it('половина запаса заполняет половину той же шкалы, что использует нефть', () => {
+    const { hud, bar, fill } = storageAt(12_500, 25_000);
+    const oilFill = hud.root.querySelector<HTMLElement>('[data-storage="crude"] .hud__oil-fill');
+    expect(oilFill).not.toBeNull();
+    expect(fill.className).toBe(oilFill!.className);
+    expect(bar.parentElement!.className).toBe(oilFill!.parentElement!.parentElement!.className);
+    expect(fill.style.width).toBe('50.0%');
+    expect(bar.getAttribute('aria-valuenow')).toBe('12500');
+    expect(bar.getAttribute('aria-valuetext')).toContain('12');
+    expect(bar.getAttribute('aria-label')).toBe(texts.get('hud.productStorageBar'));
+  });
+
+  it('шкала обновляется при накоплении и продаже, насыщается без переполнения', () => {
+    const state = createInitialState(content.config, 7);
+    state.levels = { t_depot: 1 };
+    const derived = computeDerived(content.config, content.upgrades, state, [], content);
+    const hud = new Hud(texts, content.config.currency, content.config);
+    const fill = hud.root.querySelector<HTMLElement>('[data-storage="products"] .hud__oil-fill');
+    expect(fill).not.toBeNull();
+    for (const [stock, width, level] of [
+      [20_000, '80.0%', 'high'],
+      [25_000, '100.0%', 'full'],
+      [30_000, '100.0%', 'full'],
+      [5_000, '20.0%', 'ok'],
+    ] as const) {
+      state.products = stock;
+      hud.update(state, derived);
+      expect(fill!.style.width).toBe(width);
+      expect(fill!.dataset.level).toBe(level);
+    }
+  });
+});

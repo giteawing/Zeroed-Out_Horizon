@@ -49,6 +49,7 @@
     "exportTanker": "танкерами",
     "stored": "в резервуарах (ждёт отправки)",
     "productStorage": "на нефтебазах",
+    "productStorageBar": "Заполнение нефтебаз",
     "marketDomestic": "доступный объём вн. рынка",
     "marketExport": "доступный объём экспорта",
     "productsUnsold": "в накопление на нефтебазах",
