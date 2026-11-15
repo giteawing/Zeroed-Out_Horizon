@@ -645,7 +645,7 @@ test('панель империи видна всегда и держит все
   const autoDrill = hud.locator('.hud__row-value--wide');
   await expect(autoDrill).toHaveText(/^БУРОВАЯ БРИГАДА (В СБОРЕ|НЕ УКОМПЛЕКТОВАНА)$/);
   expect((await autoDrill.boundingBox())?.width ?? 0).toBeGreaterThan(250);
-  // Рыночные цены находятся в шапке рядом с балансом и влиянием.
+  // Рыночные цены находятся в шапке компактным блоком, рядом справа — новости.
   const marketPrices = page.locator('.topbar__market .hud__prices');
   await expect(marketPrices).toBeVisible();
   for (const label of [
@@ -659,6 +659,13 @@ test('панель империи видна всегда и держит все
     await expect(marketPrices).toContainText(label);
   }
   await expect(hud.locator('.hud__prices')).toHaveCount(0);
+  const topNews = page.locator('.topbar .newspane .news');
+  await expect(topNews).toBeVisible();
+  const marketBox = await marketPrices.boundingBox();
+  const newsBox = await topNews.boundingBox();
+  expect(marketBox?.width ?? 0).toBeLessThan(560);
+  expect(newsBox?.width ?? 0).toBeGreaterThan(200);
+  expect((newsBox?.x ?? 0)).toBeGreaterThan((marketBox?.x ?? 0) + (marketBox?.width ?? 0) - 2);
 
   // Правая колонка: статистика и «Логистика». Журнал операций убран с
   // главного экрана — он открывается из меню и по умолчанию скрыт.

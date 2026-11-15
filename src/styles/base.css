@@ -76,7 +76,7 @@ img {
 .screen {
   position: relative;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto 1fr;
   height: 100%;
   padding: 6px 8px;
   gap: 6px;
@@ -105,12 +105,12 @@ img {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   min-height: 46px;
 }
 
 .topbar__brand img {
-  width: clamp(88px, 22vw, 150px);
+  width: clamp(84px, 9vw, 128px);
   height: auto;
   filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.4));
 }
@@ -122,18 +122,17 @@ img {
 }
 
 /*
- * Кошелёк в шапке: пустое пространство между логотипом и иконками меню
- * теперь занято суммой нефтефаников, поэтому правый столбец разгружен.
+ * Кошелёк, влияние и компактные цены в шапке.
+ * Освободившееся место справа от цен занимает лента новостей.
  */
 .topbar__wallet {
   display: grid;
   grid-template-columns: auto auto auto;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex: 0 1 auto;
   min-width: 0;
-  margin-right: auto;
-  margin-left: 12px;
+  margin-left: 8px;
 }
 
 .topbar__market {
@@ -172,6 +171,10 @@ img {
 }
 
 @media (max-width: 1100px) {
+  .topbar {
+    flex-wrap: wrap;
+  }
+
   .topbar__wallet {
     gap: 7px;
     margin-left: 8px;
@@ -188,6 +191,11 @@ img {
 
   .topbar__market .hud__price {
     padding: 2px 4px;
+  }
+
+  .newspane {
+    order: 4;
+    flex: 1 1 100%;
   }
 }
 
@@ -1060,13 +1068,18 @@ img {
 /* -------------------------------------------------------------------- новости */
 
 .newspane {
-  min-height: 34px;
+  flex: 1 1 240px;
+  min-width: 0;
+  display: flex;
+  align-self: stretch;
 }
 
 .news {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 2px;
-  padding: 6px 10px;
+  width: 100%;
+  padding: 4px 8px;
   border: var(--stroke-w) solid var(--ink);
   border-radius: var(--radius);
   background: linear-gradient(180deg, rgba(179, 36, 59, 0.92), rgba(96, 20, 33, 0.95));
@@ -1088,15 +1101,17 @@ img {
   padding: 0;
   display: grid;
   gap: 1px;
-  max-height: 84px;
-  overflow: hidden;
+  max-height: 68px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .news__item {
   display: flex;
   gap: 6px;
   align-items: baseline;
-  font-size: clamp(11px, 2.5vw, 13px);
+  font-size: clamp(10px, 0.95vw, 12px);
+  line-height: 1.25;
   opacity: 0;
   transform: translateX(-8px);
   transition: opacity 0.35s ease, transform 0.35s ease;
@@ -1586,11 +1601,11 @@ img {
 }
 
 .news__list {
-  max-height: 84px;
+  max-height: 68px;
 }
 
 .newspane {
-  min-height: 74px;
+  min-height: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

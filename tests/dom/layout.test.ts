@@ -37,6 +37,19 @@ beforeAll(async () => {
 });
 
 describe('раскладка', () => {
+  it('в шапке справа от компактных цен стоит виджет новостей, экран из двух строк', () => {
+    const screen = document.querySelector('.screen');
+    expect(screen).not.toBeNull();
+    const screenParts = [...(screen?.children ?? [])].map((n) => n.className);
+    expect(screenParts).toEqual(['topbar', 'stage']);
+
+    const topbar = document.querySelector('.topbar');
+    expect(topbar).not.toBeNull();
+    const topParts = [...(topbar?.children ?? [])].map((n) => n.className);
+    expect(topParts).toEqual(['topbar__brand', 'topbar__wallet', 'newspane', 'topbar__actions']);
+    expect(topbar?.querySelector('.newspane .news')).not.toBeNull();
+  });
+
   it('в сцене ровно два столбца: большой левый и узкий правый', () => {
     const stage = document.querySelector('.stage');
     expect(stage).not.toBeNull();
