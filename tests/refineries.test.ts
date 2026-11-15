@@ -41,7 +41,7 @@ describe('глубина переработки отдельных заводо�
   });
 
   it('без НПЗ даже ранее купленное вспомогательное оборудование не производит продукты', () => {
-    const { game } = setup({ t_gasplant: 2, t_power: 1, r_uzine: 2 });
+    const { game } = setup({ t_gasplant: 2, t_power: 1, r_alkyl: 2 });
     const derived = game.derived();
     expect(derived.refineries.plantCount).toBe(0);
     expect(derived.capacities.refine).toBe(0);
@@ -123,7 +123,7 @@ describe('глубина переработки отдельных заводо�
 
   it('дополнительная мощность распределяется между конкретными НПЗ, не увеличивая глубину', () => {
     const base = setup({ t_refinery: 2, [ids[0]!]: 1 }, 1_000_000).game.derived();
-    const boosted = setup({ t_refinery: 2, [ids[0]!]: 1, r_uzine: 1 }, 1_000_000).game.derived();
+    const boosted = setup({ t_refinery: 2, [ids[0]!]: 1, r_alkyl: 1 }, 1_000_000).game.derived();
     expect(boosted.capacities.refine).toBeGreaterThan(base.capacities.refine);
     expect(boosted.refineries.units.map((unit) => unit.depth)).toEqual([0.65, 0.55]);
     expect(boosted.refineries.units.reduce((sum, unit) => sum + unit.capacity, 0))
