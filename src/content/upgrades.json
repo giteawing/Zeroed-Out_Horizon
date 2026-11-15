@@ -2547,27 +2547,6 @@
       }
     },
     {
-      "id": "r_uzine",
-      "tab": "production",
-      "group": "refine",
-      "name": "Добавить на НПЗ установку каталитического крекинга",
-      "description": "Повышает пропускную способность переработки на 18,5% за уровень. Цена за тонну не меняется.",
-      "icon": "refinery",
-      "type": "sell",
-      "baseCost": 210000000,
-      "maxLevel": 16,
-      "effect": {
-        "channel": "refine",
-        "value": 3360,
-        "percent": 18.5
-      },
-      "unlockAt": {
-        "balance": 3000000000
-      },
-      "costGrowth": 1.15,
-      "assetKind": "equipment"
-    },
-    {
       "id": "r_alkyl",
       "tab": "production",
       "group": "refine",
