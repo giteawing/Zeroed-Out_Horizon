@@ -220,6 +220,9 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
         .slice(0, 40)
         .map((e) => ({
           at: Math.max(0, num(e.at, 0)),
+          wallAt: typeof e.wallAt === 'number' && Number.isFinite(e.wallAt) && e.wallAt > 0
+            ? e.wallAt
+            : undefined,
           kind: (typeof e.kind === 'string' ? e.kind : 'event') as GameState['log'][number]['kind'],
           upgradeId: typeof e.upgradeId === 'string' ? e.upgradeId : undefined,
           channel:

@@ -64,6 +64,21 @@ export function formatDuration(ms: number): string {
   return `${s} с`;
 }
 
+/** Метка реального времени -> «15.11.2026 13:45:02». */
+export function formatDateTime(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return '';
+  const date = new Date(ms);
+  if (!Number.isFinite(date.getTime())) return '';
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  const day = pad(date.getDate());
+  const month = pad(date.getMonth() + 1);
+  const year = date.getFullYear();
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  const seconds = pad(date.getSeconds());
+  return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
+}
+
 export function formatPercent(ratio: number, digits = 0): string {
   return `${(ratio * 100).toFixed(digits).replace('.', ',')}%`;
 }

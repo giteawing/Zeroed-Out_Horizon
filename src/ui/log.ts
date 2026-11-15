@@ -13,7 +13,7 @@
  */
 import { clear, el } from './dom';
 import type { Texts } from './texts';
-import { formatMoney, formatNumber } from '../core/format';
+import { formatDateTime, formatDuration, formatMoney, formatNumber } from '../core/format';
 import type { LogEntry } from '../core/types';
 
 export class OperationLog {
@@ -132,8 +132,17 @@ export class OperationLog {
     }
   }
 
+  private formatTime(entry: LogEntry): string {
+    if (entry.wallAt !== undefined && Number.isFinite(entry.wallAt) && entry.wallAt > 0) {
+      return formatDateTime(entry.wallAt);
+    }
+    return formatDuration(entry.at);
+  }
+
   update(entries: readonly LogEntry[]): void {
-    const signature = entries.map((e) => `${e.at}:${e.kind}:${e.upgradeId ?? ''}:${e.money ?? 0}:${e.tonnes ?? 0}`).join('|');
+    const signature = entries
+      .map((e) => `${e.at}:${e.wallAt ?? 0}:${e.kind}:${e.upgradeId ?? ''}:${e.money ?? 0}:${e.tonnes ?? 0}`)
+      .join('|');
     if (signature === this.signature) return;
     this.signature = signature;
 
@@ -144,7 +153,10 @@ export class OperationLog {
     }
     for (const entry of entries) {
       this.list.append(
-        el('li', { class: 'oplog__item', 'data-kind': entry.kind }, this.describe(entry)),
+        el('li', { class: 'oplog__item', 'data-kind': entry.kind }, [
+          el('span', { class: 'oplog__time' }, this.formatTime(entry)),
+          el('span', { class: 'oplog__text' }, this.describe(entry)),
+        ]),
       );
     }
   }

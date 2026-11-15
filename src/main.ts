@@ -238,11 +238,13 @@ function boot(): void {
   ]);
   menuButton.addEventListener('click', () => menu.toggle(menuButton));
 
+  const newsBar = el('div', { class: 'newspane' }, [news.root]);
+
   const topBar = el('div', { class: 'topbar' }, [
     el('div', { class: 'topbar__brand' }, [
       el('img', { src: image('logo.svg'), alt: texts.data.meta.title, width: 132, height: 66 }),
     ]),
-    // Кошелёк, влияние и все рыночные цены собраны в верхней панели.
+    // Кошелёк, влияние и компактные рыночные цены.
     el('div', { class: 'topbar__wallet' }, [
       el('div', { class: 'topbar__stat' }, [
         el('span', { class: 'topbar__wallet-label' }, texts.get('hud.balance')),
@@ -257,6 +259,8 @@ function boot(): void {
       ]),
       el('div', { class: 'topbar__market' }, [hud.marketPrices]),
     ]),
+    // Лента новостей занимает освободившееся место в шапке справа от цен.
+    newsBar,
     el('div', { class: 'topbar__actions' }, [menuButton]),
   ]);
 
@@ -273,10 +277,8 @@ function boot(): void {
     stageOverlay,
   ]);
 
-  const newsBar = el('div', { class: 'newspane' }, [news.root]);
-
   app.append(
-    el('div', { class: 'screen' }, [topBar, stage, newsBar]),
+    el('div', { class: 'screen' }, [topBar, stage]),
     settings.root,
     rules.root,
     dev.root,

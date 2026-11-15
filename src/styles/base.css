@@ -76,7 +76,7 @@ img {
 .screen {
   position: relative;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto 1fr;
   height: 100%;
   padding: 6px 8px;
   gap: 6px;
@@ -105,12 +105,12 @@ img {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   min-height: 46px;
 }
 
 .topbar__brand img {
-  width: clamp(88px, 22vw, 150px);
+  width: clamp(84px, 9vw, 128px);
   height: auto;
   filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.4));
 }
@@ -122,49 +122,59 @@ img {
 }
 
 /*
- * Кошелёк в шапке: пустое пространство между логотипом и иконками меню
- * теперь занято суммой нефтефаников, поэтому правый столбец разгружен.
+ * Кошелёк, влияние и компактные цены в шапке.
+ * Освободившееся место справа от цен занимает лента новостей.
  */
 .topbar__wallet {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-columns: auto auto auto;
   align-items: center;
-  gap: 12px;
-  flex: 1;
+  gap: 10px;
+  flex: 0 1 auto;
   min-width: 0;
-  margin-right: auto;
-  margin-left: 14px;
+  margin-left: 8px;
 }
 
 .topbar__market {
+  flex: 0 0 auto;
+  width: fit-content;
+  max-width: 100%;
   min-width: 0;
 }
 
 .topbar__market .hud__prices {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
+  grid-template-columns: repeat(3, minmax(92px, 118px));
+  gap: 3px;
 }
 
 .topbar__market .hud__price {
   min-width: 0;
-  padding: 3px 5px;
+  padding: 2px 5px;
 }
 
 .topbar__market .hud__price-label {
-  font-size: clamp(8px, 0.85vw, 10px);
+  font-size: clamp(8px, 0.75vw, 9px);
   line-height: 1.1;
+  white-space: normal;
 }
 
 .topbar__market .hud__price .hud__row-value {
-  font-size: clamp(11px, 1vw, 14px);
+  font-size: clamp(11px, 0.95vw, 13px);
+  line-height: 1.15;
+  white-space: nowrap;
 }
 
 .topbar__market .hud__price-note {
   font-size: 8px;
   line-height: 1.1;
+  white-space: nowrap;
 }
 
 @media (max-width: 1100px) {
+  .topbar {
+    flex-wrap: wrap;
+  }
+
   .topbar__wallet {
     gap: 7px;
     margin-left: 8px;
@@ -175,11 +185,17 @@ img {
   }
 
   .topbar__market .hud__prices {
+    grid-template-columns: repeat(3, minmax(0, auto));
     gap: 3px;
   }
 
   .topbar__market .hud__price {
-    padding: 3px 4px;
+    padding: 2px 4px;
+  }
+
+  .newspane {
+    order: 4;
+    flex: 1 1 100%;
   }
 }
 
@@ -489,26 +505,21 @@ img {
 }
 
 /* ------------------------------------------------------- журнал операций */
-/* Журнал операций — полноэкранная шторка из меню в два столбца. */
+/* Журнал операций — модальное окно из меню в один столбец с прокруткой. */
 .sheet--oplog {
-  padding: 0;
   overflow: hidden;
 }
 
 .oplog {
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  max-height: none;
-  border-radius: 0;
+  width: min(860px, 100%);
+  max-height: 85dvh;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 14px;
-  padding: 20px clamp(16px, 3vw, 32px);
+  gap: 10px;
 }
 
 .oplog__title {
   margin: 0;
-  font-size: clamp(16px, 4vw, 22px);
+  font-size: clamp(16px, 4vw, 20px);
   letter-spacing: 0.04em;
   color: var(--gold-light);
 }
@@ -516,23 +527,23 @@ img {
 .oplog__list {
   position: relative;
   margin: 0;
-  padding: 0;
+  padding: 2px 6px 2px 0;
   list-style: none;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  align-content: start;
 }
 
 .oplog__item {
-  padding: 10px 12px;
-  border: 1px solid rgba(242, 180, 48, 0.16);
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.24);
-  font-size: clamp(11px, 2.6vw, 13px);
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 4px 6px;
+  border-bottom: 1px solid rgba(242, 180, 48, 0.14);
+  font-size: clamp(11px, 2.5vw, 13px);
   line-height: 1.35;
   color: var(--cream);
   font-variant-numeric: tabular-nums;
@@ -545,12 +556,23 @@ img {
 .oplog__item[data-kind='launder'] { color: var(--green-light); }
 .oplog__item[data-kind='achievement'] { color: var(--gold-light); }
 
+.oplog__time {
+  flex: none;
+  font-size: 11px;
+  color: var(--steel);
+  white-space: nowrap;
+}
+
+.oplog__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 @keyframes oplog-in {
   from { opacity: 0; transform: translateY(-4px); }
 }
 
 .oplog__empty {
-  grid-column: 1 / -1;
   font-size: clamp(11px, 2.6vw, 13px);
   color: var(--steel);
   list-style: none;
@@ -1046,13 +1068,18 @@ img {
 /* -------------------------------------------------------------------- новости */
 
 .newspane {
-  min-height: 34px;
+  flex: 1 1 240px;
+  min-width: 0;
+  display: flex;
+  align-self: stretch;
 }
 
 .news {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 2px;
-  padding: 6px 10px;
+  width: 100%;
+  padding: 4px 8px;
   border: var(--stroke-w) solid var(--ink);
   border-radius: var(--radius);
   background: linear-gradient(180deg, rgba(179, 36, 59, 0.92), rgba(96, 20, 33, 0.95));
@@ -1074,15 +1101,17 @@ img {
   padding: 0;
   display: grid;
   gap: 1px;
-  max-height: 84px;
-  overflow: hidden;
+  max-height: 62px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .news__item {
   display: flex;
   gap: 6px;
   align-items: baseline;
-  font-size: clamp(11px, 2.5vw, 13px);
+  font-size: clamp(10px, 0.95vw, 12px);
+  line-height: 1.25;
   opacity: 0;
   transform: translateX(-8px);
   transition: opacity 0.35s ease, transform 0.35s ease;
@@ -1572,11 +1601,11 @@ img {
 }
 
 .news__list {
-  max-height: 84px;
+  max-height: 62px;
 }
 
 .newspane {
-  min-height: 74px;
+  min-height: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -88,13 +88,23 @@ describe('нормализация сохранения', () => {
 
   it('не теряет достижения и флаг победы', () => {
     const restored = normalizeState(
-      { achievements: ['a_first', 'a_win'], won: true, wonAtMs: 1000 },
+      {
+        achievements: ['a_first', 'a_win'],
+        won: true,
+        wonAtMs: 1000,
+        log: [
+          { at: 5000, wallAt: 1763210000000, kind: 'drill', tonnes: 2 },
+          { at: 3000, wallAt: 'bad', kind: 'bought', upgradeId: 't_pump1', money: 100 },
+        ],
+      },
       config,
       content,
     );
     expect(restored.won).toBe(true);
     expect(restored.wonAtMs).toBe(1000);
     expect(restored.achievements).toHaveLength(2);
+    expect(restored.log[0]?.wallAt).toBe(1763210000000);
+    expect(restored.log[1]?.wallAt).toBeUndefined();
   });
 });
 
