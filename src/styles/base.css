@@ -127,41 +127,48 @@ img {
  */
 .topbar__wallet {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-columns: auto auto auto;
   align-items: center;
   gap: 12px;
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   margin-right: auto;
-  margin-left: 14px;
+  margin-left: 12px;
 }
 
 .topbar__market {
+  flex: 0 0 auto;
+  width: fit-content;
+  max-width: 100%;
   min-width: 0;
 }
 
 .topbar__market .hud__prices {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
+  grid-template-columns: repeat(3, max-content);
+  gap: 3px;
 }
 
 .topbar__market .hud__price {
   min-width: 0;
-  padding: 3px 5px;
+  padding: 2px 6px;
 }
 
 .topbar__market .hud__price-label {
-  font-size: clamp(8px, 0.85vw, 10px);
+  font-size: clamp(8px, 0.78vw, 9.5px);
   line-height: 1.1;
+  white-space: nowrap;
 }
 
 .topbar__market .hud__price .hud__row-value {
-  font-size: clamp(11px, 1vw, 14px);
+  font-size: clamp(11px, 0.95vw, 13px);
+  line-height: 1.15;
+  white-space: nowrap;
 }
 
 .topbar__market .hud__price-note {
   font-size: 8px;
   line-height: 1.1;
+  white-space: nowrap;
 }
 
 @media (max-width: 1100px) {
@@ -175,11 +182,12 @@ img {
   }
 
   .topbar__market .hud__prices {
+    grid-template-columns: repeat(3, minmax(0, auto));
     gap: 3px;
   }
 
   .topbar__market .hud__price {
-    padding: 3px 4px;
+    padding: 2px 4px;
   }
 }
 
