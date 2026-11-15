@@ -48,6 +48,7 @@ import { DevMenu } from './ui/dev';
 import { Wealth } from './ui/wealth';
 import { AssetDetails } from './ui/asset-details';
 import { RefineryDetails } from './ui/refinery-details';
+import { CrudeDetails, type CrudeSection } from './ui/crude-details';
 import { OperationLog } from './ui/log';
 import { OtherTabNotice } from './ui/other-tab';
 import creditsRaw from './content/credits.txt?raw';
@@ -147,6 +148,13 @@ function boot(): void {
   const refineryDetails = new RefineryDetails(game, texts);
   hud.root.querySelector<HTMLButtonElement>('[data-open-refinery]')
     ?.addEventListener('click', () => refineryDetails.open());
+  const crudeDetails = new CrudeDetails(game, texts);
+  hud.root.querySelectorAll<HTMLButtonElement>('[data-open-crude]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const section = btn.dataset.openCrude as CrudeSection | undefined;
+      crudeDetails.open(section);
+    });
+  });
   const assetsRow = hud.root.querySelector<HTMLElement>('[data-row="assets"]');
   assetsRow?.addEventListener('click', () => assetDetails.open());
   assetsRow?.addEventListener('keydown', (event) => {
@@ -275,6 +283,7 @@ function boot(): void {
     wealth.root,
     assetDetails.root,
     refineryDetails.root,
+    crudeDetails.root,
     finale.root,
     oplog.root,
     menu.root,
@@ -331,11 +340,13 @@ function boot(): void {
     clearSave();
     state = createInitialState(config);
     restartWith(state);
+    clock.reset(performance.now());
     finale.hide();
     settings.close();
     wealth.close();
     assetDetails.close();
     refineryDetails.close();
+    crudeDetails.close();
     scheduleUi();
   }
 
@@ -550,6 +561,7 @@ function boot(): void {
     const derived = game.derived();
     hud.update(game.state, derived);
     if (refineryDetails.visible) refineryDetails.render();
+    if (crudeDetails.visible) crudeDetails.render();
     flowControls.update(game.state, derived);
     oplog.update(game.state.log);
     shop.update();
@@ -582,6 +594,7 @@ function boot(): void {
   const sheets: Array<{ visible: boolean; close: () => void }> = [
     // Финал закрывается как остальные окна; вернуться к титрам можно из меню.
     { get visible() { return finale.visible; }, close: () => finale.hide() },
+    crudeDetails,
     refineryDetails,
     assetDetails,
     wealth,

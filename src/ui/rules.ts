@@ -157,16 +157,6 @@ export class Rules {
           crew: crew.join(', '),
           bonus: formatPercent(oil.autoDrill.bonus, 0),
         }),
-        // Потолок добычи: число из конфига и пометка, которую покажет панель.
-        t('rules.productionCapText', {
-          cap: t('units.tonnesRate', {
-            value: formatMoney(oil.maxProductionPerSecond, '').trim(),
-            tonnes,
-            s: perSecond.replace('/', ''),
-          }),
-          label: this.texts.get('hud.production'),
-          mark: this.texts.get('hud.productionCap'),
-        }),
         // Договоры о сбыте умножают саму добычу (REVIEW A5).
         ...(maxSalesBoost > 1 ? [t('rules.salesBoostText', {
           tab: this.texts.get('tabs.sales'),
@@ -196,6 +186,11 @@ export class Rules {
               }),
             )
             .join('; '),
+        }),
+        t('rules.wellsQuotas', {
+          drill: formatNumber(oil.wells.maxDrillPerYear),
+          days: formatNumber(INVESTMENT_YEAR_DAYS),
+          conquest: formatNumber(oil.wells.maxConquestTotal),
         }),
       ]),
 

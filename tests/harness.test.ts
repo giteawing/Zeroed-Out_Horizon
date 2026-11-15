@@ -16,7 +16,7 @@ import {
   computeDerived,
   winCostOf,
 } from '../src/core/economy';
-import { formatMoney, formatNumber } from '../src/core/format';
+import { formatNumber } from '../src/core/format';
 import { BALANCE_PROFILES } from '../src/core/simulator';
 import { createInitialState } from '../src/core/state';
 import { balanceProfiles } from './helpers/balance-profiles';
@@ -299,12 +299,9 @@ describe('инструкции совпадают с настройками пр
     expect(section).toContain(`×${comma(1 + total('export'), 2)}`);
     expect(readme).toContain(`×${formatNumber(maxBoost)}`);
 
-    // Потолок добычи.
-    const cap = `${formatMoney(config.oil.maxProductionPerSecond, '').trim()} т/с`;
-    expect(economy).toContain('## Потолок добычи');
-    expect(economy).toContain(cap);
-    expect(economy).toContain('oil.maxProductionPerSecond');
-    expect(readme).toContain(cap);
+    // Потолок добычи снят.
+    expect(economy).not.toContain('oil.maxProductionPerSecond');
+    expect(readme).not.toContain('config.oil.maxProductionPerSecond');
 
     // Проценты на остаток: шкала из ядра и то, до чего хватает влияния в магазине.
     const givers = createInitialState(config, 1);

@@ -82,6 +82,7 @@ describe('validateConfig (REVIEW C6)', () => {
     expect(broken((config) => {
       config.oil.wells.classes[0].chance = 0.1 + 0.2;
       config.oil.wells.classes[1].chance = 0.65;
+      config.oil.wells.classes[2].chance = 0.05;
     })).not.toThrow();
   });
 
@@ -144,7 +145,6 @@ describe('validateConfig (REVIEW C6)', () => {
     type Path = [section: string, field: string, bad: unknown[]];
     const negative = -1;
     const cases: Path[] = [
-      ['oil', 'maxProductionPerSecond', [undefined, 0, negative, Number.NaN, '10']],
       ['oil', 'startOil', [undefined, negative, Number.NaN]],
       ['oil', 'baseCapacity', [undefined, 0, negative, Number.NaN]],
       ['oil', 'starterWellDailyTonnes', [undefined, negative, Number.NaN]],

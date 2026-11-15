@@ -467,6 +467,10 @@ img {
   font-variant-numeric: tabular-nums;
 }
 
+.hud__row .hud__row-value {
+  margin-left: auto;
+}
+
 .hud__row-value--plus { color: var(--green-light); }
 .hud__row-value--minus { color: var(--crimson-light); }
 .hud__row-value--oil { color: var(--gold-light); }
@@ -485,10 +489,21 @@ img {
 }
 
 /* ------------------------------------------------------- журнал операций */
-/* Журнал операций — шторка из меню: заголовок, прокручиваемый список, кнопка. */
+/* Журнал операций — полноэкранная шторка из меню в два столбца. */
+.sheet--oplog {
+  padding: 0;
+  overflow: hidden;
+}
+
 .oplog {
-  width: min(100%, 560px);
-  max-height: min(80vh, 640px);
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: 20px clamp(16px, 3vw, 32px);
 }
 
 .oplog__title {
@@ -504,7 +519,8 @@ img {
   padding: 0;
   list-style: none;
   display: grid;
-  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 18px;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
@@ -512,6 +528,10 @@ img {
 }
 
 .oplog__item {
+  padding: 10px 12px;
+  border: 1px solid rgba(242, 180, 48, 0.16);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.24);
   font-size: clamp(11px, 2.6vw, 13px);
   line-height: 1.35;
   color: var(--cream);
@@ -530,6 +550,7 @@ img {
 }
 
 .oplog__empty {
+  grid-column: 1 / -1;
   font-size: clamp(11px, 2.6vw, 13px);
   color: var(--steel);
   list-style: none;
@@ -1861,3 +1882,30 @@ img {
 .refinery__stage-name { min-width: 0; color: var(--cream); }
 .refinery__stage-value { flex: none; color: var(--gold-light); font-variant-numeric: tabular-nums; }
 .refinery__hint { margin: 2px 0; color: var(--steel); font-size: 12px; line-height: 1.4; }
+
+/* Окно подробной статистики сырой нефти, рынков и договоров. */
+.crude__inner { width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; }
+.crude__body { display: grid; gap: 16px; }
+.crude__section { display: grid; gap: 8px; }
+.crude__filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.crude__filter,
+.crude__page-btn {
+  padding: 4px 10px;
+  border: 1px solid rgba(242, 180, 48, 0.3);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--cream);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.crude__filter--active {
+  border-color: var(--gold);
+  background: rgba(242, 180, 48, 0.2);
+  color: var(--gold-light);
+  font-weight: 700;
+}
+.crude__page-btn:disabled { opacity: 0.45; cursor: default; }
+.crude__wells { display: grid; gap: 4px; max-height: 260px; overflow: auto; }
+.crude__pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.crude__page-info { color: var(--steel); font-size: 12px; font-variant-numeric: tabular-nums; }

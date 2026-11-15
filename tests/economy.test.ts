@@ -918,39 +918,20 @@ describe('потолок добычи и состав собственности
     }
   });
 
-  it('все скважины и месторождения на максимуме не превышают 10 млн т/с даже со всеми множителями', () => {
-    const wellUpgrade = content.byId.get('t_well');
-    const fieldUpgrade = content.byId.get('p_field');
-    const reprivatization = content.byId.get('p_reprivatize');
-    expect(wellUpgrade && fieldUpgrade && reprivatization).toBeTruthy();
-
-    const fieldPurchaseCost =
-      totalCostFor(config, fieldUpgrade!, 0, fieldUpgrade!.maxLevel) +
-      totalCostFor(config, reprivatization!, 0, reprivatization!.maxLevel);
-    const uniqueMax = config.oil.wells.classes.find(well => well.key === 'unique')!.maxDailyTonnes;
-    const dailyTonnesAtAllMax =
-      wellUpgrade!.maxLevel * uniqueMax +
-      fieldPurchaseCost * 10 / (config.oil.basePricePerTon * config.oil.wells.priceSeconds);
-
+  it('добыча не ограничена прежним потолком 10 млн т/с и масштабируется с дебитом', () => {
     const state = createInitialState(config, 72);
     state.levels = Object.fromEntries(content.upgrades.map(def => [def.id, def.maxLevel]));
-    state.wells = [{ kind: 'unique', dailyTonnes: dailyTonnesAtAllMax }];
-    const uncappedConfig = structuredClone(config);
-    uncappedConfig.oil.maxProductionPerSecond = Number.MAX_SAFE_INTEGER;
-    const uncapped = computeDerived(uncappedConfig, content.upgrades, state, [], content);
+    state.wells = [{ kind: 'unique', dailyTonnes: 100_000_000 }];
     const derived = computeDerived(config, content.upgrades, state, [], content);
-
-    expect(uncapped.oilPerSecond).toBeGreaterThan(10_000_000);
-    expect(derived.oilPerSecond).toBe(config.oil.maxProductionPerSecond);
-    expect(derived.oilPerSecond).toBeLessThanOrEqual(10_000_000);
+    expect(derived.oilPerSecond).toBeGreaterThan(10_000_000);
   });
 
-  it('жёсткий предел сохраняется для старых сохранений с аномальным дебитом', () => {
+  it('высокий дебит из старых сохранений также не обрезается искусственным пределом', () => {
     const state = createInitialState(config, 73);
     state.levels = Object.fromEntries(content.upgrades.map(def => [def.id, def.maxLevel]));
     state.wells = [{ kind: 'unique', dailyTonnes: 1_000_000_000_000 }];
     const derived = computeDerived(config, content.upgrades, state, [], content);
-    expect(derived.oilPerSecond).toBe(config.oil.maxProductionPerSecond);
+    expect(derived.oilPerSecond).toBeGreaterThan(1_000_000_000_000);
   });
 });
 
@@ -1019,27 +1000,34 @@ describe('точность денег (REVIEW F11)', () => {
       }
     }
     // Максимум — последний из 200 уровней девальвации: кривая сжимает его
-    // номинал, но он всё равно дороже финального насоса (9,3e13).
+    // номинал, но он всё равно дороже финального насоса (4e12).
     expect(worstId).toBe('p_devalue_currency@199');
     expect(worst).toBeLessThan(Number.MAX_SAFE_INTEGER);
-    expect(costFor(config, content.byId.get('win_pump')!, 0)).toBe(9.3e13);
+    expect(costFor(config, content.byId.get('win_pump')!, 0)).toBe(4e12);
   });
 
   it('кривая цен никогда не выдаёт значение выше безопасного предела', () => {
-    for (const nominal of [1e5, 1e9, 1e15, 2.5e24, 1e25, 1e26, 1e30, 1e40]) {
+    for (const nominal of [1e5, 1e9, 1e15, 2.5e24, 1e25, 1e26, 1e30, 1e40, Number.POSITIVE_INFINITY]) {
       const value = adjustCurrencyCost(config, nominal);
       expect(Number.isSafeInteger(value), `${nominal}: ${value}`).toBe(true);
       // До предела значение — округление кривой, а не «потолок».
       if (nominal <= 1e26) expect(value).toBeLessThan(Number.MAX_SAFE_INTEGER);
     }
-    // Выше предела кривая не отдаёт нецелое: цена упирается в потолок.
+    // Выше предела и при Infinity кривая не отдаёт нецелое: цена упирается в потолок.
     expect(adjustCurrencyCost(config, 1e40)).toBe(Number.MAX_SAFE_INTEGER);
+    expect(adjustCurrencyCost(config, Number.POSITIVE_INFINITY)).toBe(Number.MAX_SAFE_INTEGER);
+    expect(adjustCurrencyCost(config, Number.NaN)).toBe(0);
+    // Даже на огромном уровне безлимитного бурения costFor остаётся точным безопасным целым.
+    const wellDef = content.byId.get('t_well')!;
+    const hugeCost = costFor(config, wellDef, 200_000);
+    expect(Number.isSafeInteger(hugeCost)).toBe(true);
+    expect(hugeCost).toBeLessThanOrEqual(Number.MAX_SAFE_INTEGER);
   });
 
-  it('цена финала, которую платит игрок, — это сжатый номинал, а не 8.649e22', () => {
+  it('цена финала, которую платит игрок, — это сжатый номинал, а не 1.6e20', () => {
     const paid = winCostOf(config, content.upgrades);
     expect(paid).toBe(adjustCurrencyCost(config, config.winCost));
-    expect(paid).toBe(9.3e13);
+    expect(paid).toBe(4e12);
     expect(paid).toBeLessThan(config.winCost);
   });
 });

@@ -6,6 +6,7 @@ import type {
   Channel,
   ChannelRate,
   Content,
+  DerivedStats,
   ExportMode,
   FlowKey,
   GameConfig,
@@ -13,19 +14,19 @@ import type {
   Product,
   RefineryStats,
   UpgradeDef,
+  Well,
 } from '../../types';
 import { CHANNELS } from '../definitions';
 import { refineryStatsOf } from '../refineries';
-import { hasFullCrew, productCapacityOf, wellsTonnesPerSecond } from '../production';
+import { hasFullCrew, productCapacityOf, wellDeclineFactor, wellsDailyTonnes, wellsTonnesPerSecond } from '../production';
+import { levelOf } from '../purchases';
 import { oilFlowsOf } from '../sales';
-import type { UpgradeEffects } from './effects';
+import { collectUpgradeEffects, type UpgradeEffects } from './effects';
 
 export interface MarketStats {
   crew: boolean;
   /** Множитель добычи от договоров о сбыте (REVIEW A5). */
   salesVolumeMultiplier: number;
-  /** Добыча срезана потолком `oil.maxProductionPerSecond`. */
-  productionCapped: boolean;
   oilPerSecond: number;
   oilPricePerTon: number;
   exchangeRate: number;
@@ -68,19 +69,13 @@ export function calculateMarket(
     effects.throughputBonus.contract,
     effects.throughputBonus.export,
   );
-  const rawOilPerSecond =
+  const oilPerSecond =
     (
       wellsTonnesPerSecond(config, state) * effects.multPassive * crewMultiplier +
       effects.productionFlat * effects.multProduction
     ) *
     config.balance.passiveScale *
     salesVolumeMultiplier;
-  // Потолок добычи. Задуман как защита от экстремальных комбинаций и старых
-  // сейвов, но в обычной партии достигается к середине (см. docs/ECONOMY.md,
-  // «Потолок добычи»), поэтому панель и «Правила» сообщают о нём игроку.
-  const productionLimit = Math.max(0, config.oil.maxProductionPerSecond);
-  const oilPerSecond = Math.min(productionLimit, rawOilPerSecond);
-  const productionCapped = rawOilPerSecond > productionLimit;
 
   // Мировая котировка остаётся базовой. Внутренний рынок получает только
   // внутреннюю надбавку; экспорт пересчитывается в нефтефаники по курсу.
@@ -223,7 +218,6 @@ export function calculateMarket(
   return {
     crew,
     salesVolumeMultiplier,
-    productionCapped,
     oilPerSecond,
     oilPricePerTon,
     exchangeRate,
@@ -240,5 +234,217 @@ export function calculateMarket(
     flows,
     flowLimits,
     grossPerSecond,
+  };
+}
+
+export interface MarketUpgradeContribution {
+  id: string;
+  level: number;
+  rate: number;
+}
+
+export interface ContractUpgradeContribution {
+  id: string;
+  level: number;
+  percent: number;
+}
+
+export interface CrudeStatsBreakdown {
+  production: {
+    oilPerSecond: number;
+    wellsCount: number;
+    wellsCurrentDaily: number;
+    wellsLaunchDaily: number;
+    declineFactor: number;
+    crewMultiplier: number;
+    equipmentMultiplier: number;
+    equipmentFlat: number;
+    salesVolumeMultiplier: number;
+    countsByKind: Record<Well['kind'], number>;
+  };
+  domesticMarket: {
+    crude: {
+      used: number;
+      total: number;
+      free: number;
+      unlimited: boolean;
+      base: number;
+      upgrades: number;
+      multiplier: number;
+      items: MarketUpgradeContribution[];
+    };
+    products: {
+      used: number;
+      total: number;
+      free: number;
+      base: number;
+      upgrades: number;
+      multiplier: number;
+      items: MarketUpgradeContribution[];
+    };
+  };
+  exportMarket: {
+    crude: {
+      used: number;
+      total: number;
+      free: number;
+      base: number;
+      upgrades: number;
+      contractMultiplier: number;
+      extraMultiplier: number;
+      items: MarketUpgradeContribution[];
+      modes: Record<ExportMode, { used: number; total: number }>;
+    };
+    products: {
+      used: number;
+      total: number;
+      free: number;
+      base: number;
+      upgrades: number;
+      contractMultiplier: number;
+      extraMultiplier: number;
+      items: MarketUpgradeContribution[];
+    };
+  };
+  contracts: {
+    multiplier: number;
+    domesticBonus: number;
+    exportBonus: number;
+    leading: 'contract' | 'export' | 'tie' | 'none';
+    domesticItems: ContractUpgradeContribution[];
+    exportItems: ContractUpgradeContribution[];
+  };
+}
+
+/** Сводка добычи, скважин, рынков сбыта и договоров для окна подробной статистики. */
+export function crudeStatsBreakdown(
+  config: GameConfig,
+  upgrades: UpgradeDef[],
+  state: GameState,
+  derived: DerivedStats,
+): CrudeStatsBreakdown {
+  const effects = collectUpgradeEffects(upgrades, state);
+  const declineFactor = wellDeclineFactor(config, state);
+  const countsByKind: Record<Well['kind'], number> = { ordinary: 0, good: 0, unique: 0 };
+  for (const well of state.wells) countsByKind[well.kind] += 1;
+
+  const domesticBase = Math.max(0, config.oil.channels.contract.baseRate);
+  const exportBase = Math.max(0, config.oil.channels.export.baseRate);
+  const split = config.product.transportSplit;
+  const domesticScale = 1 + effects.throughputBonus.contract;
+  const exportContractScale = 1 + effects.throughputBonus.export;
+  const exportExtraScale = effects.exportMultiplier;
+
+  const domesticCrudeItems: MarketUpgradeContribution[] = [];
+  const domesticProductsItems: MarketUpgradeContribution[] = [];
+  const exportCrudeItems: MarketUpgradeContribution[] = [];
+  const exportProductsItems: MarketUpgradeContribution[] = [];
+  const domesticContractItems: ContractUpgradeContribution[] = [];
+  const exportContractItems: ContractUpgradeContribution[] = [];
+
+  for (const def of upgrades) {
+    const level = levelOf(state, def.id);
+    if (level <= 0 || def.type !== 'sell') continue;
+    const channel = def.effect.channel ?? 'contract';
+    const e = def.effect;
+    if (e.value) {
+      const crudeShare = e.channelSplit ? (e.channelSplit.crude ?? 0) : 1;
+      const productsShare = e.channelSplit ? (e.channelSplit.products ?? 0) : 1;
+      if (channel === 'contract') {
+        if (crudeShare > 0) domesticCrudeItems.push({ id: def.id, level, rate: e.value * level * crudeShare });
+        if (productsShare > 0) domesticProductsItems.push({ id: def.id, level, rate: e.value * level * productsShare });
+      } else if (channel === 'export') {
+        if (crudeShare > 0) exportCrudeItems.push({ id: def.id, level, rate: e.value * level * crudeShare });
+        if (productsShare > 0) exportProductsItems.push({ id: def.id, level, rate: e.value * level * productsShare });
+      }
+    }
+    if (e.percent) {
+      const percent = e.percent * level;
+      if (channel === 'contract') domesticContractItems.push({ id: def.id, level, percent });
+      else if (channel === 'export') exportContractItems.push({ id: def.id, level, percent });
+    }
+  }
+
+  const domesticBonus = effects.throughputBonus.contract;
+  const exportBonus = effects.throughputBonus.export;
+  const leading: CrudeStatsBreakdown['contracts']['leading'] =
+    domesticBonus <= 0 && exportBonus <= 0 ? 'none' :
+    Math.abs(domesticBonus - exportBonus) < 1e-9 ? 'tie' :
+    domesticBonus > exportBonus ? 'contract' : 'export';
+
+  const domCrudeTotal = derived.capacities.domestic.crude;
+  const domProdTotal = derived.capacities.domestic.products;
+  const expCrudeTotal = derived.capacities.export.crude;
+  const expProdTotal = derived.capacities.export.products;
+
+  return {
+    production: {
+      oilPerSecond: derived.oilPerSecond,
+      wellsCount: state.wells.length,
+      wellsCurrentDaily: wellsDailyTonnes(state, config),
+      wellsLaunchDaily: wellsDailyTonnes(state),
+      declineFactor,
+      crewMultiplier: derived.autoDrill ? 1 + config.oil.autoDrill.bonus : 1,
+      equipmentMultiplier: effects.multPassive,
+      equipmentFlat: effects.productionFlat,
+      salesVolumeMultiplier: derived.salesVolumeMultiplier,
+      countsByKind,
+    },
+    domesticMarket: {
+      crude: {
+        used: derived.flows.domestic,
+        total: domCrudeTotal,
+        free: Number.isFinite(domCrudeTotal) ? Math.max(0, domCrudeTotal - derived.flows.domestic) : Number.POSITIVE_INFINITY,
+        unlimited: Boolean(config.oil.channels.contract.unlimited),
+        base: domesticBase * split.crude,
+        upgrades: effects.rateByProduct.contract.crude,
+        multiplier: domesticScale,
+        items: domesticCrudeItems,
+      },
+      products: {
+        used: derived.flows.productsDomestic,
+        total: domProdTotal,
+        free: Math.max(0, domProdTotal - derived.flows.productsDomestic),
+        base: domesticBase * split.productDomestic,
+        upgrades: effects.rateByProduct.contract.products,
+        multiplier: domesticScale,
+        items: domesticProductsItems,
+      },
+    },
+    exportMarket: {
+      crude: {
+        used: derived.flows.export,
+        total: expCrudeTotal,
+        free: Math.max(0, expCrudeTotal - derived.flows.export),
+        base: exportBase * split.crude,
+        upgrades: effects.rateByProduct.export.crude,
+        contractMultiplier: exportContractScale,
+        extraMultiplier: exportExtraScale,
+        items: exportCrudeItems,
+        modes: {
+          pipeline: { used: derived.flows.exportByMode.pipeline, total: derived.exportCapacityByMode.pipeline },
+          rail: { used: derived.flows.exportByMode.rail, total: derived.exportCapacityByMode.rail },
+          tanker: { used: derived.flows.exportByMode.tanker, total: derived.exportCapacityByMode.tanker },
+        },
+      },
+      products: {
+        used: derived.flows.productsExport,
+        total: expProdTotal,
+        free: Math.max(0, expProdTotal - derived.flows.productsExport),
+        base: exportBase * split.productExport,
+        upgrades: effects.rateByProduct.export.products,
+        contractMultiplier: exportContractScale,
+        extraMultiplier: exportExtraScale,
+        items: exportProductsItems,
+      },
+    },
+    contracts: {
+      multiplier: derived.salesVolumeMultiplier,
+      domesticBonus,
+      exportBonus,
+      leading,
+      domesticItems: domesticContractItems,
+      exportItems: exportContractItems,
+    },
   };
 }

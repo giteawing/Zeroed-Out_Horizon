@@ -9,7 +9,7 @@ import { clear, el, setClass, setHidden, setText } from './dom';
 import { describeEffect } from './effect-line';
 import { describeRequirementTerm } from './requirements';
 import type { Texts } from './texts';
-import { formatMoney } from '../core/format';
+import { formatMoney, formatNumber } from '../core/format';
 import { icon as iconPath } from '../core/assets';
 import { isRepeatable, type BuyCheck, type Game } from '../core/game';
 import { winRequirementBlocker, winRequirementTerms, type RequirementTerm } from '../core/economy';
@@ -175,10 +175,12 @@ export class Shop {
     // «прокачивается»: у него нет максимума, иначе кнопка мигала бы между
     // «Купить» и «Максимум» после первой покупки.
     const repeatable = isRepeatable(def);
+    const unlimited = Boolean(def.unlimited) && !repeatable && !def.win;
 
     // У покупок-действий уровень не растёт — показываем уровень коротко,
-    // иначе бейдж «1/1» выглядел бы как ошибка.
-    setText(refs.level, repeatable ? '×' : `${level}/${check.maxLevel}`);
+    // иначе бейдж «1/1» выглядел бы как ошибка. Для безлимитных карточек
+    // показываем число купленных уровней без потолка.
+    setText(refs.level, repeatable ? '×' : unlimited ? `${level}` : `${level}/${check.maxLevel}`);
     setHidden(refs.level, level <= 0 && !repeatable);
     setText(refs.name, this.cardName(def));
     setText(refs.effect, this.effectOf(def, level));
@@ -186,7 +188,7 @@ export class Shop {
     setText(refs.lock, lockText);
     setHidden(refs.lock, lockText.length === 0);
 
-    const maxed = !repeatable && !def.win && level >= check.maxLevel;
+    const maxed = !repeatable && !unlimited && !def.win && level >= check.maxLevel;
     const onCooldown = check.cooldownMs > 0;
     // Подпись, цена и обработчик используют одно и то же количество.
     // Для repeatable и финальной покупки пачек не существует.
@@ -264,6 +266,16 @@ export class Shop {
       if (check.reason === 'noOil') return this.texts.get('shop.buyFailOil');
       if (check.reason === 'noCapacity') return this.texts.get('shop.buyFailCapacity');
       if (check.reason === 'noRefinerySlot') return this.texts.get('shop.buyFailRefinerySlot');
+      if (check.reason === 'yearWellLimit') {
+        return this.texts.get('shop.buyFailYearLimit', {
+          limit: formatNumber(this.game.config.oil.wells.maxDrillPerYear),
+        });
+      }
+      if (check.reason === 'conquestWellLimit') {
+        return this.texts.get('shop.buyFailConquestLimit', {
+          limit: formatNumber(this.game.config.oil.wells.maxConquestTotal),
+        });
+      }
       return '';
     }
     return check.blocker ? this.describeTerm(check.blocker) : this.texts.get('shop.locked');

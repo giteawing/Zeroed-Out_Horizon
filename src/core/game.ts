@@ -48,7 +48,11 @@ export type BuyFailure =
   /** Нефть есть, но ни один канал разовой акции не может её принять. */
   | 'noCapacity'
   /** Все подходящие НПЗ уже оснащены этой ступенью либо их нет. */
-  | 'noRefinerySlot';
+  | 'noRefinerySlot'
+  /** Исчерпан годовой лимит бурения одиночных скважин. */
+  | 'yearWellLimit'
+  /** Исчерпан общий лимит скважин, полученных отжатием и реприватизацией. */
+  | 'conquestWellLimit';
 
 const MAX_LOG = 24;
 
@@ -373,6 +377,19 @@ export class Game {
 
   // -------------------------------------------------------------- покупки
 
+  private gameYearIndex(): number {
+    const yearSeconds = Math.max(1, 365 * (this.config.oil.wells?.secondsPerDay || 1));
+    return Math.floor((this.mutableState.clockMs / 1000) / yearSeconds);
+  }
+
+  private syncDrillYear(): void {
+    const year = this.gameYearIndex();
+    if (year !== this.mutableState.wellsDrilledYear) {
+      this.mutableState.wellsDrilledYear = year;
+      this.mutableState.wellsDrilledThisYear = 0;
+    }
+  }
+
   private priceOfLevels(def: UpgradeDef, level: number, count: number, exchangeRate: number): number {
     if (def.baseCost <= 0) return 0;
     let sum = 0;
@@ -404,11 +421,37 @@ export class Game {
       : stageIndex === 0
         ? derived.refineries.plantCount
         : derived.refineries.stages[stageIndex - 1]!.count;
-    const available = Math.max(0, Math.min(def.maxLevel, stageLimit) - level);
+    const unlimited = Boolean(def.unlimited) && !repeatable && !def.win;
+    const isDrillWell = def.type === 'well' && !repeatable && !grantsField(def);
+    const isConquestField = grantsField(def);
+    const currentYear = this.gameYearIndex();
+    const drilledThisYear = currentYear === this.mutableState.wellsDrilledYear
+      ? this.mutableState.wellsDrilledThisYear
+      : 0;
+    const drillRemaining = isDrillWell
+      ? Math.max(0, this.config.oil.wells.maxDrillPerYear - drilledThisYear)
+      : Number.POSITIVE_INFINITY;
+    const conquestRemaining = isConquestField
+      ? Math.max(0, this.config.oil.wells.maxConquestTotal - this.mutableState.conquestWellsTotal)
+      : Number.POSITIVE_INFINITY;
+    const conquestBatchMax = isConquestField
+      ? conquestRemaining <= 0
+        ? 0
+        : Math.max(1, Math.floor(conquestRemaining / Math.max(1, this.config.oil.conquestWells.max)))
+      : Number.POSITIVE_INFINITY;
+
+    let available = unlimited
+      ? this.config.maxBuyLevels
+      : Math.max(0, Math.min(def.maxLevel, stageLimit) - level);
+    if (isDrillWell) available = Math.min(available, drillRemaining);
+    if (isConquestField) available = Math.min(available, conquestBatchMax);
+
     const buyCount = repeatable ? 1 : Math.min(wanted, available);
-    // Даже при отсутствии подходящего НПЗ карточка показывает цену следующей
-    // установки, а не вводящий в заблуждение ноль.
-    const pricedCount = stageIndex >= 0 && buyCount === 0 && level < def.maxLevel ? 1 : buyCount;
+    const showNextPrice =
+      (stageIndex >= 0 && buyCount === 0 && level < def.maxLevel) ||
+      (isDrillWell && drillRemaining === 0) ||
+      (isConquestField && conquestRemaining === 0);
+    const pricedCount = showNextPrice ? 1 : buyCount;
     const rawCost = def.win
       ? winCostOf(this.config, this.content.upgrades)
       : this.priceOfLevels(def, repeatable ? 0 : level, pricedCount, derived.exchangeRate);
@@ -420,7 +463,9 @@ export class Game {
     let reason: BuyFailure | undefined;
     if (this.mutableState.won) reason = 'won';
     else if (!unlocked) reason = 'locked';
-    else if (!repeatable && level >= def.maxLevel) reason = 'maxLevel';
+    else if (!repeatable && !unlimited && level >= def.maxLevel) reason = 'maxLevel';
+    else if (isDrillWell && drillRemaining === 0) reason = 'yearWellLimit';
+    else if (isConquestField && conquestRemaining === 0) reason = 'conquestWellLimit';
     else if (stageIndex >= 0 && available === 0) reason = 'noRefinerySlot';
     else if (cooldownMs > 0) reason = 'cooldown';
     else if (def.win) {
@@ -441,6 +486,12 @@ export class Game {
       reason = 'noCapacity';
     }
 
+    const maxBuyCap = Math.min(
+      this.config.maxBuyLevels,
+      isDrillWell ? drillRemaining : this.config.maxBuyLevels,
+      isConquestField ? conquestBatchMax : this.config.maxBuyLevels,
+    );
+
     return {
       ok: reason === undefined,
       reason,
@@ -457,6 +508,7 @@ export class Game {
               ? this.mutableState.coins / Math.max(1e-9, 1 - derived.conquestCut)
               : this.mutableState.coins,
             derived.exchangeRate,
+            maxBuyCap,
           )),
       count: buyCount,
       unlocked,
@@ -540,20 +592,26 @@ export class Game {
    * панель и сохранения работают без спецкода.
    */
   applyReprivatization(paid: number, upgradeId = 'p_reprivatize'): ReprivatizationPrize {
+    const remaining = Math.max(
+      1,
+      this.config.oil.wells.maxConquestTotal - this.mutableState.conquestWellsTotal,
+    );
     const prize = reprivatizationPrize(
       this.config,
       paid,
       this.config.oil.basePricePerTon,
       () => this.rng.next(),
       this.derived().exchangeRate,
+      remaining,
     );
     // Разбиваем суммарный дебит на скважины разных классов — «месторождение».
     // Массив скважин неизменяемый: добавляем заменой, а не push (см. GameState.wells).
-    const field = prize.shares.map((share): Well => ({
+    const field = prize.shares.map((share): Well => Object.freeze({
       kind: share >= 500 ? 'unique' : share >= 50 ? 'good' : 'ordinary',
       dailyTonnes: share,
     }));
     this.mutableState.wells = [...this.mutableState.wells, ...field];
+    this.mutableState.conquestWellsTotal += prize.wells;
     this.pushLog({
       kind: 'conquest',
       upgradeId,
@@ -593,7 +651,9 @@ export class Game {
       chosen.minDailyTonnes,
       chosen.minDailyTonnes + Math.round(this.rng.next() * Math.max(0, steps)) * step,
     );
-    const well: Well = { kind: chosen.key, dailyTonnes };
+    const well: Well = Object.freeze({ kind: chosen.key, dailyTonnes });
+    this.syncDrillYear();
+    this.mutableState.wellsDrilledThisYear += 1;
     this.mutableState.wells = [...this.mutableState.wells, well];
     this.pushLog({ kind: 'drill', tonnes: dailyTonnes });
     this.invalidate();
@@ -761,6 +821,7 @@ export class Game {
     if (this.mutableState.won) return;
     this.mutableState.playtimeMs += dtMs;
     this.mutableState.clockMs += dtMs;
+    this.syncDrillYear();
     // Дебит скважин зависит от playtimeMs (падение добычи). Без сброса кеша
     // непрерывная игра использовала прошлый квант, а загруженный сейв —
     // текущий, из-за чего после первого шага расходились остатки нефти.
@@ -1232,6 +1293,7 @@ export class Game {
     if (elapsedMs > 0) {
       this.mutableState.clockMs += elapsedMs;
       this.mutableState.playtimeMs += elapsedMs;
+      this.syncDrillYear();
       this.lastWorldPriceSecond = Math.floor(this.mutableState.clockMs / 1000);
       this.invalidate();
       this.tickCooldowns(elapsedMs);

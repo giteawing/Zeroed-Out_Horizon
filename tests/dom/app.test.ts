@@ -205,7 +205,7 @@ describe('HUD', () => {
     expect(side!.firstElementChild?.classList.contains('hud')).toBe(true);
   });
 
-  it('журнал операций открывается из меню, а не стоит на главном экране', () => {
+  it('журнал операций открывается из меню, а не стоит на главном экране', async () => {
     const side = document.querySelector('.stage__side');
     expect(side).not.toBeNull();
     expect(side!.querySelector('[data-testid="oplog"]')).toBeNull();
@@ -220,6 +220,12 @@ describe('HUD', () => {
     const log = document.querySelector<HTMLElement>('[data-testid="oplog"]');
     expect(log).not.toBeNull();
     expect(log!.hidden).toBe(false);
+    expect(log!.classList.contains('sheet--oplog')).toBe(true);
+    // В полноэкранном журнале выводятся все сохранённые записи, а не только три.
+    game.addCoins(10_000);
+    for (let i = 0; i < 6; i++) game.buy('t_well');
+    await waitFor(() => log!.querySelectorAll('.oplog__item').length >= 6);
+    expect(log!.querySelectorAll('.oplog__item').length).toBeGreaterThanOrEqual(6);
     // Escape закрывает шторку, как и остальные окна.
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     expect(log!.hidden).toBe(true);
@@ -683,6 +689,23 @@ describe('окно статистики переработки', () => {
     button!.click();
     expect(modal!.hidden).toBe(false);
     expect(modal!.querySelectorAll('[data-refinery-stage]')).toHaveLength(4);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(modal!.hidden).toBe(true);
+    expect(document.activeElement).toBe(button);
+  });
+});
+
+describe('окно подробной статистики сырой нефти и рынков', () => {
+  it('открывается кнопкой рядом с производством нефти и закрывается клавишей Escape', () => {
+    const button = document.querySelector<HTMLButtonElement>('[data-row="produced"] [data-open-crude="wells"]');
+    expect(button).not.toBeNull();
+    const modal = document.querySelector<HTMLElement>('#crude-stats');
+    expect(modal).not.toBeNull();
+    expect(modal!.hidden).toBe(true);
+    button!.focus();
+    button!.click();
+    expect(modal!.hidden).toBe(false);
+    expect(modal!.querySelectorAll('[data-crude-well]').length).toBeGreaterThanOrEqual(1);
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     expect(modal!.hidden).toBe(true);
     expect(document.activeElement).toBe(button);

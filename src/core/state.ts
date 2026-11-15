@@ -44,8 +44,11 @@ export function createInitialState(config: GameConfig, seed = randomSeed()): Gam
     cooldowns: {},
     timers: {},
     wells: config.oil.starterWellDailyTonnes > 0
-      ? [{ kind: 'ordinary', dailyTonnes: config.oil.starterWellDailyTonnes }]
+      ? [Object.freeze({ kind: 'ordinary' as const, dailyTonnes: config.oil.starterWellDailyTonnes })]
       : [],
+    wellsDrilledYear: 0,
+    wellsDrilledThisYear: 0,
+    conquestWellsTotal: 0,
     gambles: [],
     achievements: [],
     clockMs: 0,
@@ -101,7 +104,7 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
       if (!setting || typeof setting !== 'object') continue;
       const value = num(setting.value, 0);
       state.flowControl[channel] = setting.mode === 'fixed' && value >= 0
-        ? { mode: 'fixed', value: Math.min(config.oil.maxProductionPerSecond, value) }
+        ? { mode: 'fixed', value }
         : { mode: 'auto', value: 0 };
     }
   }
@@ -132,7 +135,7 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
       const def = content.byId.get(id);
       if (!def) continue;
       const level = Math.floor(num(value, 0));
-      if (level > 0) levels[id] = Math.min(level, def.maxLevel);
+      if (level > 0) levels[id] = def.unlimited ? level : Math.min(level, def.maxLevel);
     }
   }
   state.levels = levels;
@@ -164,15 +167,15 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
   // Скважины: дебит каждой сохраняется, потому что он выпал случайно.
   const wells: Well[] = [];
   if (Array.isArray(src.wells)) {
-    for (const w of src.wells.slice(0, 5000)) {
+    for (const w of src.wells.slice(0, 500_000)) {
       if (!w || typeof w !== 'object') continue;
       const kind = (w as { kind?: unknown }).kind;
       const daily = num((w as { dailyTonnes?: unknown }).dailyTonnes, 0);
       if (daily <= 0) continue;
-      wells.push({
+      wells.push(Object.freeze({
         kind: kind === 'good' || kind === 'unique' ? kind : 'ordinary',
         dailyTonnes: daily,
-      });
+      }));
     }
   }
   state.wells = wells;
@@ -182,8 +185,20 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
   // (Раньше сюда же переносилась добыча из уровней пассивных покупок, но у
   // пассивных покупок давно нет `effect.value`, и перенос ничего не давал.)
   if (state.wells.length === 0 && config.oil.starterWellDailyTonnes > 0) {
-    state.wells = [{ kind: 'ordinary', dailyTonnes: config.oil.starterWellDailyTonnes }];
+    state.wells = [Object.freeze({ kind: 'ordinary' as const, dailyTonnes: config.oil.starterWellDailyTonnes })];
   }
+
+  const yearSeconds = Math.max(1, 365 * (config.oil.wells?.secondsPerDay || 1));
+  const currentYear = Math.floor((state.clockMs / 1000) / yearSeconds);
+  const rawDrillYear = (src as { wellsDrilledYear?: unknown }).wellsDrilledYear;
+  state.wellsDrilledYear = typeof rawDrillYear === 'number' && Number.isFinite(rawDrillYear)
+    ? Math.max(0, Math.floor(rawDrillYear))
+    : currentYear;
+  state.wellsDrilledThisYear = state.wellsDrilledYear === currentYear
+    ? Math.max(0, Math.floor(num((src as { wellsDrilledThisYear?: unknown }).wellsDrilledThisYear, 0)))
+    : 0;
+  if (state.wellsDrilledYear !== currentYear) state.wellsDrilledYear = currentYear;
+  state.conquestWellsTotal = Math.max(0, Math.floor(num((src as { conquestWellsTotal?: unknown }).conquestWellsTotal, 0)));
 
   state.gambles = Array.isArray(src.gambles)
     ? src.gambles

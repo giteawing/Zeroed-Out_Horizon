@@ -207,3 +207,29 @@ describe('«Правила»: условия финала из того же р�
     expect(text).not.toContain(formatMoney(raw, content.config.currency));
   });
 });
+
+describe('безлимитные карточки и квоты в магазине', () => {
+  it('безлимитное бурение показывает только текущий уровень и блокируется годовой квотой', () => {
+    const content = loadContent();
+    const state = createInitialState(content.config, 88);
+    state.coins = 1e12;
+    state.totalEarned = 1e12;
+    state.levels.t_well = 5;
+    state.wellsDrilledYear = 0;
+    state.wellsDrilledThisYear = content.config.oil.wells.maxDrillPerYear;
+    const game = new Game(content, state);
+    const texts = new Texts(content.texts);
+    const shop = new Shop(game, texts, content.config.currency, { onBuy: () => undefined });
+    shop.setTab('production');
+
+    const card = shop.root.querySelector<HTMLElement>('[data-id="t_well"]')!;
+    const lvl = card.querySelector('.card__level')?.textContent ?? '';
+    expect(lvl).toBe('5');
+    expect(lvl).not.toContain('/');
+    const btn = card.querySelector<HTMLButtonElement>('.card__buy')!;
+    expect(btn.disabled).toBe(true);
+    expect(btn.dataset.reason).toBe('yearWellLimit');
+    const lock = card.querySelector('.card__lock')?.textContent ?? '';
+    expect(lock).toContain(texts.get('shop.buyFailYearLimit', { limit: '8 000' }).slice(0, 20));
+  });
+});

@@ -369,13 +369,13 @@ describe('налог зависит только от влияния и чино
 });
 
 describe('скважины со случайным дебитом', () => {
-  it('бурение даёт скважину из диапазона 8–10 т/сут для обычной', () => {
+  it('бурение даёт скважину в границах выпавшего класса из конфига', () => {
     const { game, state } = setup();
     rich(state);
     const before = state.wells.length;
     expect(game.buy('t_well').ok).toBe(true);
     expect(state.wells.length).toBe(before + 1);
-    const well = state.wells[0];
+    const well = state.wells[state.wells.length - 1]!;
     expect(['ordinary', 'good', 'unique']).toContain(well.kind);
     const cls = config.oil.wells.classes.find((c) => c.key === well.kind)!;
     expect(well.dailyTonnes).toBeGreaterThanOrEqual(cls.minDailyTonnes);
@@ -407,9 +407,10 @@ describe('скважины со случайным дебитом', () => {
   it('«Отжать месторождение» приносит целое месторождение: от 5 до 50 скважин', () => {
     const field = content.byId.get('p_field')!;
     expect(field.type).toBe('field');
-    // Цена пересчитана под новый дебит и суммарный потолок добычи.
+    // Цена пересчитана под новый дебит и безлимитный уровень с квотой захвата.
     expect(field.baseCost).toBe(260_000);
-    expect(field.costGrowth).toBe(1.025);
+    expect(field.costGrowth).toBe(1.0005);
+    expect(field.unlimited).toBe(true);
 
     const counts: number[] = [];
     for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {

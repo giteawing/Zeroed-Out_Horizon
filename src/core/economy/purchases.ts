@@ -38,7 +38,8 @@ export const SAFE_MONEY_LIMIT = Number.MAX_SAFE_INTEGER;
  * перестала бы быть ценой.
  */
 export function adjustCurrencyCost(config: GameConfig, value: number): number {
-  if (!Number.isFinite(value) || value <= 0) return 0;
+  if (Number.isNaN(value) || value <= 0) return 0;
+  if (!Number.isFinite(value)) return SAFE_MONEY_LIMIT;
   const { anchor, exponent } = currencyCostCurveOf(config);
   const curved = value <= anchor
     ? value
@@ -121,8 +122,8 @@ interface OwnedCostMemo {
  * девальвацию на копии состояния с другим курсом и сразу возвращается.
  */
 const OWNED_COST_SLOTS = 2;
-/** Выше этого уровня суммы не запоминаем: в контенте maxLevel не больше 50. */
-const OWNED_COST_MAX_LEVEL = 1024;
+/** Потолок запоминания сумм цен: покрывает даже десятки тысяч уровней без O(N) пересчёта. */
+const OWNED_COST_MAX_LEVEL = 250_000;
 const ownedCostMemos = new WeakMap<UpgradeDef, OwnedCostMemo[]>();
 
 function ownedCostMemoFits(
@@ -199,19 +200,21 @@ export function ownedLevelsCost(
   return sums[count];
 }
 
-/** Сколько уровней можно купить на coins (с учётом maxLevel и лимита за раз). */
+/** Сколько уровней можно купить на coins (с учётом maxLevel или unlimited и лимита за раз). */
 export function affordableLevels(
   config: GameConfig,
   def: UpgradeDef,
   level: number,
   coins: number,
   exchangeRate = config.exchangeRate.initial,
+  maxBuy = config.maxBuyLevels,
 ): number {
-  if (level >= def.maxLevel) return 0;
-  if (def.baseCost <= 0) return Math.min(1, config.maxBuyLevels, def.maxLevel - level);
+  const cap = def.unlimited ? maxBuy : Math.min(maxBuy, Math.max(0, def.maxLevel - level));
+  if (cap <= 0) return 0;
+  if (def.baseCost <= 0) return Math.min(1, cap);
   let count = 0;
   let spent = 0;
-  while (level + count < def.maxLevel && count < config.maxBuyLevels) {
+  while (count < cap) {
     const next = costFor(config, def, level + count, exchangeRate);
     if (spent + next > coins) break;
     spent += next;

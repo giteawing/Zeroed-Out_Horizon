@@ -343,7 +343,7 @@ export function decide(
   for (const def of content.upgrades) {
     if (def.win || (isRepeatable(def) && (!allowRepeatables || def.id === 'p_export'))) continue;
     const level = levelOf(state, def.id);
-    if (level >= def.maxLevel && !isRepeatable(def)) continue;
+    if (!def.unlimited && level >= def.maxLevel && !isRepeatable(def)) continue;
     const check = game.checkBuy(def.id);
     // Помимо денег и разблокировки учитываются физические ограничения:
     // нельзя оценивать установку на НПЗ, которому она уже поставлена.
