@@ -1174,7 +1174,7 @@ export class Game {
 
   /** Добавить запись в журнал операций (храним последние MAX_LOG). */
   pushLog(entry: Omit<LogEntry, 'at'>): void {
-    this.mutableState.log.unshift({ at: this.mutableState.clockMs, ...entry });
+    this.mutableState.log.unshift({ at: this.mutableState.clockMs, wallAt: Date.now(), ...entry });
     if (this.mutableState.log.length > MAX_LOG) this.mutableState.log.length = MAX_LOG;
   }
 

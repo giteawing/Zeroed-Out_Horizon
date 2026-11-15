@@ -540,6 +540,18 @@ img {
 .oplog__item[data-kind='launder'] { color: var(--green-light); }
 .oplog__item[data-kind='achievement'] { color: var(--gold-light); }
 
+.oplog__time {
+  flex: none;
+  font-size: 11px;
+  color: var(--steel);
+  white-space: nowrap;
+}
+
+.oplog__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 @keyframes oplog-in {
   from { opacity: 0; transform: translateY(-4px); }
 }

@@ -221,11 +221,15 @@ describe('HUD', () => {
     expect(log).not.toBeNull();
     expect(log!.hidden).toBe(false);
     expect(log!.classList.contains('sheet--oplog')).toBe(true);
-    // В полноэкранном журнале выводятся все сохранённые записи, а не только три.
+    // В журнале выводятся все сохранённые записи построчно с датой и временем.
     game.addCoins(10_000);
     for (let i = 0; i < 6; i++) game.buy('t_well');
     await waitFor(() => log!.querySelectorAll('.oplog__item').length >= 6);
-    expect(log!.querySelectorAll('.oplog__item').length).toBeGreaterThanOrEqual(6);
+    const items = log!.querySelectorAll('.oplog__item');
+    expect(items.length).toBeGreaterThanOrEqual(6);
+    const firstTime = items[0]?.querySelector('.oplog__time')?.textContent ?? '';
+    expect(firstTime).toMatch(/^\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}:\d{2}$/);
+    expect((items[0]?.querySelector('.oplog__text')?.textContent ?? '').length).toBeGreaterThan(0);
     // Escape закрывает шторку, как и остальные окна.
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     expect(log!.hidden).toBe(true);

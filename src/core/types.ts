@@ -487,10 +487,12 @@ export interface Content {
   credits: string;
 }
 
-/** Запись в журнале операций под скважиной. */
+/** Запись в журнале операций. */
 export interface LogEntry {
   /** Игровое время, мс. */
   at: number;
+  /** Реальное время события, мс (Date.now()). */
+  wallAt?: number;
   kind: 'sold' | 'bought' | 'event' | 'conquest' | 'launder' | 'drill' | 'achievement' | 'spill';
   /** id покупки, если запись про покупку. */
   upgradeId?: string;
