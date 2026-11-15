@@ -143,19 +143,19 @@ img {
 }
 
 .topbar__market .hud__prices {
-  grid-template-columns: repeat(3, max-content);
+  grid-template-columns: repeat(3, minmax(92px, 118px));
   gap: 3px;
 }
 
 .topbar__market .hud__price {
   min-width: 0;
-  padding: 2px 6px;
+  padding: 2px 5px;
 }
 
 .topbar__market .hud__price-label {
-  font-size: clamp(8px, 0.78vw, 9.5px);
+  font-size: clamp(8px, 0.75vw, 9px);
   line-height: 1.1;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .topbar__market .hud__price .hud__row-value {
@@ -1101,7 +1101,7 @@ img {
   padding: 0;
   display: grid;
   gap: 1px;
-  max-height: 68px;
+  max-height: 62px;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -1601,7 +1601,7 @@ img {
 }
 
 .news__list {
-  max-height: 68px;
+  max-height: 62px;
 }
 
 .newspane {

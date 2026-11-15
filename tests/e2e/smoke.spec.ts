@@ -663,8 +663,8 @@ test('панель империи видна всегда и держит все
   await expect(topNews).toBeVisible();
   const marketBox = await marketPrices.boundingBox();
   const newsBox = await topNews.boundingBox();
-  expect(marketBox?.width ?? 0).toBeLessThan(560);
-  expect(newsBox?.width ?? 0).toBeGreaterThan(200);
+  expect(marketBox?.width ?? 0).toBeLessThan(420);
+  expect(newsBox?.width ?? 0).toBeGreaterThan(220);
   expect((newsBox?.x ?? 0)).toBeGreaterThan((marketBox?.x ?? 0) + (marketBox?.width ?? 0) - 2);
 
   // Правая колонка: статистика и «Логистика». Журнал операций убран с
