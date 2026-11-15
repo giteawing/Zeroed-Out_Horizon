@@ -605,9 +605,12 @@ describe('финал', () => {
     const again = document.querySelector<HTMLButtonElement>('.credits__actions .btn--gold');
     expect(again).not.toBeNull();
     again!.click();
-    await flush();
     expect(game.state.won).toBe(false);
     expect(game.state.coins).toBe(0);
+    await flush();
+    expect(game.state.won).toBe(false);
+    expect(game.state.levels).toEqual({});
+    expect(game.state.coins).toBeLessThan(1);
     expect(document.querySelector('.finale')?.hasAttribute('hidden')).toBe(true);
   });
 });
