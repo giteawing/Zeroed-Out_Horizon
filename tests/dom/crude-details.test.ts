@@ -126,4 +126,36 @@ describe('подробная статистика сырой нефти, рын�
     expect(text).toContain('4');
     expect(text).toContain('500');
   });
+
+  it('не сбрасывает прокрутку таблицы скважин и диалога при живом обновлении', () => {
+    const { game, texts } = setup();
+    game.stateForTests().wells = Array.from({ length: 120 }, (_, i) => ({
+      kind: i % 2 === 0 ? 'ordinary' : 'good',
+      dailyTonnes: 10 + i,
+    }));
+    const modal = new CrudeDetails(game, texts);
+    modal.open('wells');
+
+    const inner = modal.root.querySelector<HTMLElement>('.crude__inner')!;
+    const list = modal.root.querySelector<HTMLElement>('[data-crude-wells-list]')!;
+    const firstRow = list.querySelector('[data-crude-well="0"]')!;
+    inner.scrollTop = 140;
+    list.scrollTop = 180;
+
+    // Тик игры обновляет истощение и показатели — DOM-узел списка и его scrollTop не сбрасываются.
+    game.update(1000);
+    modal.render();
+
+    expect(modal.root.querySelector('[data-crude-wells-list]')).toBe(list);
+    expect(list.querySelector('[data-crude-well="0"]')).toBe(firstRow);
+    expect(list.scrollTop).toBe(180);
+    expect(inner.scrollTop).toBe(140);
+
+    // При переключении страницы или фильтра прокрутка таблицы возвращается в начало.
+    modal.root.querySelector<HTMLButtonElement>('[data-crude-page="next"]')?.click();
+    expect(list.scrollTop).toBe(0);
+    list.scrollTop = 90;
+    modal.root.querySelector<HTMLButtonElement>('[data-crude-filter="good"]')?.click();
+    expect(list.scrollTop).toBe(0);
+  });
 });

@@ -221,6 +221,41 @@ test('шкала нефтебазы и окно отдельных НПЗ раб
   expect(errors).toEqual([]);
 });
 
+test('таблица скважин в подробной статистике сохраняет прокрутку при тиках игры', async ({ page }) => {
+  const wells = Array.from({ length: 80 }, (_, i) => ({
+    kind: i % 2 === 0 ? 'ordinary' : 'good',
+    dailyTonnes: 20 + i,
+  }));
+  await page.addInitScript((savedWells) => {
+    localStorage.setItem('zeroed-out-horizon:save:v2', JSON.stringify({
+      coins: 50_000,
+      totalEarned: 50_000,
+      wells: savedWells,
+      savedAtWallMs: Date.now(),
+    }));
+  }, wells);
+
+  await page.goto('/');
+  await page.locator('.start .btn--gold').click();
+  await expect(page.locator('.start')).toHaveCount(0, { timeout: 5000 });
+
+  await page.locator('[data-row="produced"] [data-open-crude="wells"]').click();
+  const dialog = page.locator('#crude-stats');
+  await expect(dialog).toBeVisible();
+
+  const list = dialog.locator('[data-crude-wells-list]');
+  const scrolled = await list.evaluate((node) => {
+    node.scrollTop = 220;
+    return node.scrollTop;
+  });
+  expect(scrolled).toBeGreaterThan(100);
+
+  // Ждём несколько игровых тиков (~1.2 с), чтобы render() отработал неоднократно.
+  await page.waitForTimeout(1200);
+  const afterTicks = await list.evaluate((node) => node.scrollTop);
+  expect(afterTicks).toBe(scrolled);
+});
+
 test('непрерывная добыча отправляет сырую нефть в сбыт', async ({ page }) => {
   await start(page);
   const before = await page.evaluate(
