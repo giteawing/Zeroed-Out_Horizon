@@ -356,7 +356,6 @@ const NUMBER_RULE_TEXT: Record<NumberRule, string> = {
  */
 const ECONOMY_NUMBERS: Record<string, Record<string, NumberRule>> = {
   oil: {
-    maxProductionPerSecond: 'positive',
     startOil: 'nonNegative',
     baseCapacity: 'positive',
     starterWellDailyTonnes: 'nonNegative',

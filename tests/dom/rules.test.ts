@@ -225,22 +225,15 @@ describe('правила: механики, о которых они молча�
     expect(rulesOf(other).section('rules.productionTitle')).toContain(`×${formatNumber(otherMax)}`);
   });
 
-  it('потолок добычи назван числом из конфига, и ядро его держит', () => {
-    const { section, texts } = rulesOf(content);
+  it('добыча не обрезается прежним потолком, а правила не обещают несуществующий потолок', () => {
+    const { section } = rulesOf(content);
     const production = section('rules.productionTitle');
-    const cap = config.oil.maxProductionPerSecond;
-    expect(production).toContain(formatMoney(cap, '').trim());
-    expect(production).toContain(`«${texts.get('hud.productionCap')}»`);
+    expect(production).not.toContain('упирается в потолок');
 
     const state = createInitialState(config, 3);
-    state.wells = [{ kind: 'unique', dailyTonnes: cap * 1_000 }];
-    const capped = computeDerived(config, upgrades, state, [], content);
-    expect(capped.oilPerSecond).toBe(cap);
-    expect(capped.productionCapped).toBe(true);
-
-    const other = structuredClone(content);
-    other.config.oil.maxProductionPerSecond = 2_500_000;
-    expect(rulesOf(other).section('rules.productionTitle')).toContain(formatMoney(2_500_000, '').trim());
+    state.wells = [{ kind: 'unique', dailyTonnes: 50_000_000 }];
+    const derived = computeDerived(config, upgrades, state, [], content);
+    expect(derived.oilPerSecond).toBeGreaterThanOrEqual(50_000_000 * config.oil.wells.decline.minFactor);
   });
 
   it('проценты на остаток: ставка, потолок влияния и длина года — как в ядре', () => {

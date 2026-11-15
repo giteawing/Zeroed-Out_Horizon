@@ -467,6 +467,10 @@ img {
   font-variant-numeric: tabular-nums;
 }
 
+.hud__row .hud__row-value {
+  margin-left: auto;
+}
+
 .hud__row-value--plus { color: var(--green-light); }
 .hud__row-value--minus { color: var(--crimson-light); }
 .hud__row-value--oil { color: var(--gold-light); }
@@ -1878,3 +1882,30 @@ img {
 .refinery__stage-name { min-width: 0; color: var(--cream); }
 .refinery__stage-value { flex: none; color: var(--gold-light); font-variant-numeric: tabular-nums; }
 .refinery__hint { margin: 2px 0; color: var(--steel); font-size: 12px; line-height: 1.4; }
+
+/* Окно подробной статистики сырой нефти, рынков и договоров. */
+.crude__inner { width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; }
+.crude__body { display: grid; gap: 16px; }
+.crude__section { display: grid; gap: 8px; }
+.crude__filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.crude__filter,
+.crude__page-btn {
+  padding: 4px 10px;
+  border: 1px solid rgba(242, 180, 48, 0.3);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--cream);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.crude__filter--active {
+  border-color: var(--gold);
+  background: rgba(242, 180, 48, 0.2);
+  color: var(--gold-light);
+  font-weight: 700;
+}
+.crude__page-btn:disabled { opacity: 0.45; cursor: default; }
+.crude__wells { display: grid; gap: 4px; max-height: 260px; overflow: auto; }
+.crude__pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.crude__page-info { color: var(--steel); font-size: 12px; font-variant-numeric: tabular-nums; }

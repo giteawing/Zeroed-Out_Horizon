@@ -115,9 +115,9 @@ description: Use when modifying content JSON, Russian UI copy, shop cards, HUD, 
   каналов. Товарные, денежные и имущественные показатели должны быть
   согласованы с `DerivedStats`.
 - Скрытых множителей в панели нет: под добычей стоит «множитель от договоров»
-  (`salesVolumeMultiplier`), а на потолке добычи строка «производство»
-  получает пометку «потолок» (`productionCapped`). Новый множитель или
-  ограничение показывай так же; проверки — `tests/dom/hud.test.ts`.
+  (`salesVolumeMultiplier`), а подробности добычи, скважин (`x/y`), рынков
+  и договоров открываются в `CrudeDetails` (`#crude-stats`) кнопками в
+  строках панели; проверки — `tests/dom/hud.test.ts` и `tests/dom/crude-details.test.ts`.
 - Проверяй длинные подписи, переносы, переполнение и доступность клавиатуры.
   Страница desktop-only; прокрутка и размеры проверяются DOM/E2E тестами.
 

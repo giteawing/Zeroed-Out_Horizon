@@ -100,7 +100,6 @@
       "min": 5,
       "max": 50
     },
-    "maxProductionPerSecond": 10000000,
     "starterWellDailyTonnes": 8
   },
   "deductions": {

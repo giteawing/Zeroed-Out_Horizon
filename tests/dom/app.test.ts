@@ -694,3 +694,20 @@ describe('окно статистики переработки', () => {
     expect(document.activeElement).toBe(button);
   });
 });
+
+describe('окно подробной статистики сырой нефти и рынков', () => {
+  it('открывается кнопкой рядом с производством нефти и закрывается клавишей Escape', () => {
+    const button = document.querySelector<HTMLButtonElement>('[data-row="produced"] [data-open-crude="wells"]');
+    expect(button).not.toBeNull();
+    const modal = document.querySelector<HTMLElement>('#crude-stats');
+    expect(modal).not.toBeNull();
+    expect(modal!.hidden).toBe(true);
+    button!.focus();
+    button!.click();
+    expect(modal!.hidden).toBe(false);
+    expect(modal!.querySelectorAll('[data-crude-well]').length).toBeGreaterThanOrEqual(1);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(modal!.hidden).toBe(true);
+    expect(document.activeElement).toBe(button);
+  });
+});

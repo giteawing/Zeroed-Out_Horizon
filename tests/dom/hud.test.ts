@@ -33,8 +33,7 @@ const rowOf = (hud: Hud, key: string): { label: string; value: string } => {
   };
 };
 
-describe('панель империи: потолок добычи', () => {
-  /** Одна скважина с заданным дебитом: добыча либо под потолком, либо упирается в него. */
+describe('панель империи: добыча без потолка и кнопки подробной статистики', () => {
   const hudWithWell = (dailyTonnes: number) => {
     const state = createInitialState(content.config, 7);
     state.wells = [{ kind: 'unique', dailyTonnes }];
@@ -43,36 +42,30 @@ describe('панель империи: потолок добычи', () => {
     hud.update(state, derived);
     return { hud, derived };
   };
-  const cap = content.config.oil.maxProductionPerSecond;
 
-  it('ядро сообщает, что добыча срезана потолком', () => {
-    const free = hudWithWell(100).derived;
-    expect(free.oilPerSecond).toBeLessThan(cap);
-    expect(free.productionCapped).toBe(false);
-    const capped = hudWithWell(cap * 1_000).derived;
-    expect(capped.oilPerSecond).toBe(cap);
-    expect(capped.productionCapped).toBe(true);
+  it('добыча не обрезается прежним потолком 10 млн т/с', () => {
+    const { hud, derived } = hudWithWell(25_000_000);
+    expect(derived.oilPerSecond).toBeGreaterThan(10_000_000);
+    expect(rowOf(hud, 'produced').value).toContain(formatNumber(derived.oilPerSecond));
   });
 
-  it('строка добычи помечена, только когда потолок достигнут', () => {
-    const mark = texts.get('hud.productionCap');
-    expect(mark).not.toBe('hud.productionCap');
-    expect(rowOf(hudWithWell(100).hud, 'produced').value).not.toContain(mark);
-    const capped = rowOf(hudWithWell(cap * 1_000).hud, 'produced').value;
-    expect(capped).toContain(mark);
-    expect(capped).toContain(formatNumber(cap));
-  });
-
-  it('пометка исчезает, когда добыча снова под потолком', () => {
-    const state = createInitialState(content.config, 7);
-    const hud = new Hud(texts, content.config.currency, content.config);
-    const show = (dailyTonnes: number): string => {
-      state.wells = [{ kind: 'unique', dailyTonnes }];
-      hud.update(state, computeDerived(content.config, content.upgrades, state, [], content));
-      return rowOf(hud, 'produced').value;
-    };
-    expect(show(cap * 1_000)).toContain(texts.get('hud.productionCap'));
-    expect(show(100)).not.toContain(texts.get('hud.productionCap'));
+  it('на строках добычи, рынков и множителя договоров стоят кнопки подробной статистики', () => {
+    const { hud } = hudWithWell(100);
+    const expected: Array<[string, string]> = [
+      ['produced', 'wells'],
+      ['salesBoost', 'contracts'],
+      ['crudeMarketDomestic', 'domestic'],
+      ['crudeMarketExport', 'export'],
+    ];
+    for (const [rowKey, section] of expected) {
+      const row = hud.root.querySelector(`[data-row="${rowKey}"]`);
+      expect(row, rowKey).not.toBeNull();
+      const button = row!.querySelector<HTMLButtonElement>(`[data-open-crude="${section}"]`);
+      expect(button, `${rowKey}:${section}`).not.toBeNull();
+      expect(button!.type).toBe('button');
+      expect(button!.getAttribute('aria-haspopup')).toBe('dialog');
+      expect(button!.getAttribute('aria-controls')).toBe('crude-stats');
+    }
   });
 });
 

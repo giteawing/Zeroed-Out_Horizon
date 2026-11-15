@@ -13,8 +13,10 @@ import { adjustCurrencyCost, levelOf, winRequirementBlocker } from './purchases'
 import { lowRateWellCount, oilCapacityOf } from './production';
 import { assetCountsOf, assetsValueOf } from './assets';
 import { collectUpgradeEffects } from './derived/effects';
-import { calculateMarket } from './derived/market';
+import { calculateMarket, crudeStatsBreakdown } from './derived/market';
 import { calculateFinancialRates } from './derived/financial-rates';
+
+export { crudeStatsBreakdown };
 
 /** Публичная точка входа: объединяет эффекты, рынок и финансовые показатели. */
 export function computeDerived(
@@ -154,7 +156,6 @@ export function computeDerived(
     taxRate: finance.taxRate,
     costCutPercent: finance.costCutPercent,
     salesVolumeMultiplier: market.salesVolumeMultiplier,
-    productionCapped: market.productionCapped,
     multiplier: effects.multProduction * effects.multPassive,
     productionMultiplier: effects.multProduction,
     passiveMultiplier: effects.multPassive,

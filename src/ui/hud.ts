@@ -124,6 +124,27 @@ export class Hud {
     }, texts.get('hud.refineriesButton'));
     productProduction.root.querySelector('.hud__row-label')!.append(' ', refineryButton);
 
+    const crudeProduced = row('produced', texts.get('hud.production'), 'hud__row-value--oil');
+    const salesBoostRow = row('salesBoost', texts.get('hud.salesBoost'), 'hud__row-value--factor');
+    const crudeMarketDomestic = row('crudeMarketDomestic', texts.get('hud.marketDomestic'), 'hud__row-value--market');
+    const crudeMarketExport = row('crudeMarketExport', texts.get('hud.marketExport'), 'hud__row-value--market');
+
+    const attachCrudeTrigger = (target: Row, section: string, ariaKey: string, textKey: string): void => {
+      const btn = el('button', {
+        class: 'hud__details',
+        type: 'button',
+        'data-open-crude': section,
+        'aria-haspopup': 'dialog',
+        'aria-controls': 'crude-stats',
+        'aria-label': texts.get(ariaKey),
+      }, texts.get(textKey));
+      target.root.insertBefore(btn, target.value);
+    };
+    attachCrudeTrigger(crudeProduced, 'wells', 'panel.crudeSectionWells', 'hud.crudeDetailsButton');
+    attachCrudeTrigger(salesBoostRow, 'contracts', 'panel.crudeSectionContracts', 'hud.detailsArrow');
+    attachCrudeTrigger(crudeMarketDomestic, 'domestic', 'panel.crudeSectionDomestic', 'hud.detailsArrow');
+    attachCrudeTrigger(crudeMarketExport, 'export', 'panel.crudeSectionExport', 'hud.detailsArrow');
+
     this.root = el('section', { class: 'hud', 'data-testid': 'hud' }, [
       // --- товарная статистика: цены, сырая нефть, нефтепродукты ---
       group('goods', texts.get('hud.groupGoods'), [
@@ -148,10 +169,10 @@ export class Hud {
         el('div', { class: 'hud__section', 'data-section': 'crude' }, [
           el('span', { class: 'hud__section-title' }, texts.get('hud.crudeOil')),
           el('div', { class: 'hud__rows hud__rows--single' }, [
-            row('produced', texts.get('hud.production'), 'hud__row-value--oil').root,
+            crudeProduced.root,
             // Договоры о сбыте умножают саму добычу; без этой строки игрок
             // видит рост «производства», но не видит, откуда он взялся.
-            row('salesBoost', texts.get('hud.salesBoost'), 'hud__row-value--factor').root,
+            salesBoostRow.root,
             row('crudeDomestic', texts.get('hud.saleDomestic')).root,
             row('crudeExport', texts.get('hud.saleExport')).root,
             // Три способа доставки — подпункты экспорта: отступ слева и
@@ -167,10 +188,8 @@ export class Hud {
             row('crudeStored', texts.get('hud.stored')).root,
             // «Доступный объём» рынков: сколько они ещё могут принять.
             // Занято / всего — сразу видно, где узкое место.
-            row('crudeMarketDomestic', texts.get('hud.marketDomestic'),
-              'hud__row-value--market').root,
-            row('crudeMarketExport', texts.get('hud.marketExport'),
-              'hud__row-value--market').root,
+            crudeMarketDomestic.root,
+            crudeMarketExport.root,
           ]),
         ]),
 
@@ -375,14 +394,7 @@ export class Hud {
       });
 
     set('wellsCount', assetLine(state.wells.length, derived.oilPerSecond));
-    // На потолке добычи строка говорит об этом: иначе непонятно, почему
-    // производственные покупки перестали прибавлять.
-    set('produced', derived.productionCapped
-      ? this.texts.get('hud.productionAtCap', {
-          rate: rate(flows.produced),
-          mark: this.texts.get('hud.productionCap'),
-        })
-      : rate(flows.produced));
+    set('produced', rate(flows.produced));
     set('salesBoost', units('times', { value: formatNumber(derived.salesVolumeMultiplier) }));
     set('crudeDomestic', sale(flows.domestic, derived.channels.contract.price));
     set('crudeExport', sale(flows.export, derived.channels.export.price));

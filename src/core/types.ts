@@ -87,8 +87,6 @@ export interface RefineChannelConfig {
 export interface OilConfig {
   /** Цена тонны при мировой цене 1.0, в нефтефаниках. */
   basePricePerTon: number;
-  /** Абсолютный предел автоматической добычи/подачи на рынок, тонн в секунду. */
-  maxProductionPerSecond: number;
   /** Стартовый запас нефти. */
   startOil: number;
   /** Стартовая ёмкость резервуаров, тонн. */
@@ -814,11 +812,6 @@ export interface DerivedStats {
    * Уже входит в `oilPerSecond`; отдельным полем — для панели и правил.
    */
   salesVolumeMultiplier: number;
-  /**
-   * Добыча упёрлась в `oil.maxProductionPerSecond`: покупки, которые её
-   * увеличивают, сейчас ничего не прибавляют. Панель помечает это в строке добычи.
-   */
-  productionCapped: boolean;
   multiplier: number;
   /** Множители производственной добычи. */
   productionMultiplier: number;

@@ -101,7 +101,7 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
       if (!setting || typeof setting !== 'object') continue;
       const value = num(setting.value, 0);
       state.flowControl[channel] = setting.mode === 'fixed' && value >= 0
-        ? { mode: 'fixed', value: Math.min(config.oil.maxProductionPerSecond, value) }
+        ? { mode: 'fixed', value }
         : { mode: 'auto', value: 0 };
     }
   }
