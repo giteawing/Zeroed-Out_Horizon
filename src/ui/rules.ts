@@ -187,6 +187,11 @@ export class Rules {
             )
             .join('; '),
         }),
+        t('rules.wellsQuotas', {
+          drill: formatNumber(oil.wells.maxDrillPerYear),
+          days: formatNumber(INVESTMENT_YEAR_DAYS),
+          conquest: formatNumber(oil.wells.maxConquestTotal),
+        }),
       ]),
 
       this.section('rules.storageTitle', [

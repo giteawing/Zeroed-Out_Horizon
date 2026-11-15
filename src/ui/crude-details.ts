@@ -110,9 +110,20 @@ export class CrudeDetails {
 
     // 1. Сырая нефть — производство и скважины (x/y)
     const prod = data.production;
+    const yearSeconds = Math.max(1, 365 * (this.game.config.oil.wells.secondsPerDay || 1));
+    const currentYear = Math.floor((state.clockMs / 1000) / yearSeconds);
+    const drilledThisYear = currentYear === state.wellsDrilledYear ? state.wellsDrilledThisYear : 0;
     const wellsSummary = el('div', { class: 'refinery__summary' }, [
       stat('productionRate', t('crudeProductionRate'), rate(prod.oilPerSecond)),
       stat('wellsTotal', t('crudeWellsTotal'), formatNumber(prod.wellsCount)),
+      stat('drillYearQuota', t('crudeDrillYearQuota'), t('crudeQuotaValue', {
+        used: formatNumber(drilledThisYear),
+        limit: formatNumber(this.game.config.oil.wells.maxDrillPerYear),
+      })),
+      stat('conquestQuota', t('crudeConquestQuota'), t('crudeQuotaValue', {
+        used: formatNumber(state.conquestWellsTotal),
+        limit: formatNumber(this.game.config.oil.wells.maxConquestTotal),
+      })),
       stat('wellsDebit', t('crudeWellsDebit'), t('crudeWellDebit', {
         current: formatNumber(prod.wellsCurrentDaily),
         initial: formatNumber(prod.wellsLaunchDaily),

@@ -61,38 +61,40 @@
         "s_geolog",
         "s_engineer"
       ],
-      "bonus": 1
+      "bonus": 0.3
     },
     "wells": {
       "secondsPerDay": 1,
       "classes": [
         {
           "key": "ordinary",
-          "chance": 0.7,
-          "minDailyTonnes": 8,
-          "maxDailyTonnes": 10,
+          "chance": 0.78,
+          "minDailyTonnes": 1,
+          "maxDailyTonnes": 2,
           "step": 1
         },
         {
           "key": "good",
-          "chance": 0.25,
-          "minDailyTonnes": 50,
-          "maxDailyTonnes": 70,
-          "step": 5
+          "chance": 0.18,
+          "minDailyTonnes": 3,
+          "maxDailyTonnes": 5,
+          "step": 1
         },
         {
           "key": "unique",
-          "chance": 0.05,
-          "minDailyTonnes": 200,
-          "maxDailyTonnes": 1500,
-          "step": 25
+          "chance": 0.04,
+          "minDailyTonnes": 8,
+          "maxDailyTonnes": 16,
+          "step": 1
         }
       ],
       "decline": {
         "minFactor": 0.7,
         "halfLifeSeconds": 1800
       },
-      "priceSeconds": 600
+      "priceSeconds": 18000,
+      "maxDrillPerYear": 8000,
+      "maxConquestTotal": 150000
     },
     "shipDays": 5,
     "refineryYield": 0.55,
@@ -117,7 +119,7 @@
     "cap": 400
   },
   "autosaveSeconds": 10,
-  "winCost": 8.649e+22,
+  "winCost": 1.6e+20,
   "winRequirements": [
     {
       "upgrade": "t_pump4",

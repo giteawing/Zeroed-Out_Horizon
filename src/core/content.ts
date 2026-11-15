@@ -152,7 +152,7 @@ function validateRequirement(
     const target = byId.get(req.upgrade);
     if (!target) throw new Error(`${where}: ссылка на несуществующую покупку ${req.upgrade}`);
     const need = req.level ?? 1;
-    if (need > target.maxLevel) {
+    if (!target.unlimited && need > target.maxLevel) {
       throw new Error(
         `${where}: уровень ${req.upgrade} = ${need} недостижим (maxLevel ${target.maxLevel})`,
       );
@@ -188,6 +188,9 @@ export function validateUpgrades(upgrades: UpgradeDef[], texts?: TextsFile): voi
     }
     if (u.costGrowth !== undefined && !(isNumber(u.costGrowth) && u.costGrowth >= 1)) {
       throw new Error(`upgrades.json: ${u.id}: costGrowth должен быть числом не меньше 1`);
+    }
+    if (u.unlimited !== undefined && typeof u.unlimited !== 'boolean') {
+      throw new Error(`upgrades.json: ${u.id}: unlimited должен быть булевым значением`);
     }
     if (!Number.isInteger(u.maxLevel) || u.maxLevel < 1) {
       throw new Error(`upgrades.json: некорректный maxLevel у ${u.id}`);
@@ -503,6 +506,12 @@ export function validateConfig(config: GameConfig, upgrades: UpgradeDef[]): void
   const wells = oil.wells;
   if (!positive(wells?.secondsPerDay)) fail('oil.wells.secondsPerDay должен быть больше 0');
   if (!nonNegative(wells.priceSeconds)) fail('oil.wells.priceSeconds должен быть неотрицательным числом');
+  if (!Number.isInteger(wells.maxDrillPerYear) || wells.maxDrillPerYear < 1) {
+    fail('oil.wells.maxDrillPerYear должен быть целым числом >= 1');
+  }
+  if (!Number.isInteger(wells.maxConquestTotal) || wells.maxConquestTotal < 1) {
+    fail('oil.wells.maxConquestTotal должен быть целым числом >= 1');
+  }
   if (!(isNumber(wells.decline?.minFactor) && wells.decline.minFactor > 0 && wells.decline.minFactor <= 1)) {
     fail('oil.wells.decline.minFactor должен быть в (0, 1]');
   }
@@ -580,7 +589,7 @@ export function validateAchievements(achievements: AchievementDef[], upgrades: U
         const target = byId.get(rule.upgrade);
         if (!target) throw new Error(`${where}: нет покупки ${rule.upgrade}`);
         const need = rule.value ?? 1;
-        if (!Number.isInteger(need) || need < 1 || need > target.maxLevel) {
+        if (!Number.isInteger(need) || need < 1 || (!target.unlimited && need > target.maxLevel)) {
           throw new Error(
             `${where}: уровень ${rule.upgrade} = ${need} недостижим (maxLevel ${target.maxLevel})`,
           );

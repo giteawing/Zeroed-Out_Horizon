@@ -110,4 +110,20 @@ describe('подробная статистика сырой нефти, рын�
     modal.root.dispatchEvent(new Event('pointerdown', { bubbles: true }));
     expect(modal.visible).toBe(false);
   });
+
+  it('показывает годовой лимит бурения и общий потолок захвата скважин', () => {
+    const content = loadContent();
+    const state = createInitialState(content.config, 19);
+    state.wellsDrilledYear = 0;
+    state.wellsDrilledThisYear = 120;
+    state.conquestWellsTotal = 4500;
+    const game = new Game(content, state);
+    const modal = new CrudeDetails(game, new Texts(content.texts));
+    modal.open();
+    const text = modal.root.textContent ?? '';
+    expect(text).toContain('120');
+    expect(text).toContain('8');
+    expect(text).toContain('4');
+    expect(text).toContain('500');
+  });
 });

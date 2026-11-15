@@ -155,6 +155,7 @@ export function reprivatizationPrize(
   pricePerTon: number,
   rand: () => number,
   exchangeRate = config.exchangeRate.initial,
+  maxWells?: number,
 ): ReprivatizationPrize {
   const factor = REPRIVAT_PRIZE_MIN + rand() * (REPRIVAT_PRIZE_MAX - REPRIVAT_PRIZE_MIN);
   const budget = Math.max(0, paid) * factor;
@@ -169,7 +170,8 @@ export function reprivatizationPrize(
    */
   const countMin = Math.max(1, Math.round(config.oil.conquestWells?.min ?? 5));
   const countMax = Math.max(countMin, Math.round(config.oil.conquestWells?.max ?? 50));
-  const count = countMin + Math.round(rand() * (countMax - countMin));
+  const rawCount = countMin + Math.round(rand() * (countMax - countMin));
+  const count = maxWells !== undefined && maxWells >= 1 ? Math.min(rawCount, Math.floor(maxWells)) : rawCount;
   // Сколько тонн в сутки «умещается» в бюджет: делим на всё месторождение.
   const totalTonnes = budget / perTonne;
   const dailyTonnes = Math.max(count, Math.round(totalTonnes));

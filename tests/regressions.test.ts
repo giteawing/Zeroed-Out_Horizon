@@ -56,25 +56,60 @@ describe('регрессии пакетной покупки', () => {
   it('ограничивает пакет остатком до maxLevel и не теряет уровни после сохранения', () => {
     const content = freshContent();
     const state = rich(content);
-    state.levels.t_well = 43;
+    const pumpDef = content.byId.get('t_pump1')!;
+    state.levels.t_pump1 = pumpDef.maxLevel - 2;
     const game = new Game(content, state);
-    const wellsBefore = state.wells.length;
-    const check = game.checkBuy('t_well', 5);
+    const check = game.checkBuy('t_pump1', 5);
     expect(check.count).toBe(2);
     const before = state.coins;
-    const result = game.buy('t_well', 5);
+    const result = game.buy('t_pump1', 5);
     expect(result.ok).toBe(true);
-    expect(result.level).toBe(45);
+    expect(result.level).toBe(pumpDef.maxLevel);
     expect(result.cost).toBe(check.cost);
     expect(before - state.coins).toBe(check.cost);
-    expect(state.wells.length).toBe(wellsBefore + 2);
-    expect(game.checkBuy('t_well', 5).reason).toBe('maxLevel');
+    expect(game.checkBuy('t_pump1', 5).reason).toBe('maxLevel');
 
     const restored = normalizeState(
       JSON.parse(JSON.stringify(game.snapshot())), content.config, content,
     );
-    expect(restored.levels.t_well).toBe(45);
-    expect(restored.wells).toHaveLength(wellsBefore + 2);
+    expect(restored.levels.t_pump1).toBe(pumpDef.maxLevel);
+  });
+
+  it('безлимитное бурение соблюдает годовую квоту и сбрасывает её на следующий игровой год', () => {
+    const content = freshContent();
+    const state = rich(content);
+    const limit = content.config.oil.wells.maxDrillPerYear;
+    state.wellsDrilledYear = 0;
+    state.wellsDrilledThisYear = limit - 2;
+    const game = new Game(content, state);
+    const check = game.checkBuy('t_well', 10);
+    expect(check.ok).toBe(true);
+    expect(check.count).toBe(2);
+    expect(game.buy('t_well', 10).ok).toBe(true);
+    expect(game.checkBuy('t_well').reason).toBe('yearWellLimit');
+
+    // После наступления нового игрового года (365 игровых суток) квота обновляется.
+    const yearMs = 365 * content.config.oil.wells.secondsPerDay * 1000;
+    state.clockMs = yearMs;
+    game.invalidate();
+    expect(game.checkBuy('t_well').ok).toBe(true);
+    expect(game.buy('t_well').ok).toBe(true);
+    expect(state.wellsDrilledYear).toBe(1);
+    expect(state.wellsDrilledThisYear).toBe(1);
+  });
+
+  it('захват и реприватизация упираются в общий потолок maxConquestTotal', () => {
+    const content = freshContent();
+    const state = rich(content);
+    state.levels.p_senate = 10;
+    const limit = content.config.oil.wells.maxConquestTotal;
+    state.conquestWellsTotal = limit - 3;
+    const game = new Game(content, state);
+    const res = game.buy('p_field', 1);
+    expect(res.ok).toBe(true);
+    expect(state.conquestWellsTotal).toBe(limit);
+    expect(game.checkBuy('p_field').reason).toBe('conquestWellLimit');
+    expect(game.checkBuy('p_reprivatize').reason).toBe('conquestWellLimit');
   });
 
   it('affordable и фактическое списание учитывают одну и ту же conquest-скидку', () => {

@@ -340,6 +340,7 @@ function boot(): void {
     clearSave();
     state = createInitialState(config);
     restartWith(state);
+    clock.reset(performance.now());
     finale.hide();
     settings.close();
     wealth.close();

@@ -16,19 +16,37 @@ import { levelOf } from './purchases';
  * массив и его скважины замораживаются: запись на месте бросает TypeError,
  * а не оставляет устаревшую сумму (AUDIT F10).
  */
-const wellDailyTotals = new WeakMap<readonly Well[], number>();
+interface WellSummary {
+  totalDaily: number;
+  lastThreshold: number;
+  lastDecline: number;
+  lastLowCount: number;
+}
 
-function totalDailyWellTonnes(wells: readonly Well[]): number {
+const wellDailyTotals = new WeakMap<readonly Well[], WellSummary>();
+
+function summarizeWells(wells: readonly Well[]): WellSummary {
   const cached = wellDailyTotals.get(wells);
   if (cached !== undefined) return cached;
   let total = 0;
-  for (const well of wells) {
+  for (let i = 0; i < wells.length; i++) {
+    const well = wells[i]!;
     total += Math.max(0, well.dailyTonnes);
-    Object.freeze(well);
+    if (!Object.isFrozen(well)) Object.freeze(well);
   }
-  Object.freeze(wells);
-  wellDailyTotals.set(wells, total);
-  return total;
+  if (!Object.isFrozen(wells)) Object.freeze(wells);
+  const summary: WellSummary = {
+    totalDaily: total,
+    lastThreshold: -1,
+    lastDecline: -1,
+    lastLowCount: 0,
+  };
+  wellDailyTotals.set(wells, summary);
+  return summary;
+}
+
+function totalDailyWellTonnes(wells: readonly Well[]): number {
+  return summarizeWells(wells).totalDaily;
 }
 
 export function fineFactorOf(config: GameConfig, influence: number): number {
@@ -162,10 +180,20 @@ export function taxRateOf(
 export function lowRateWellCount(config: GameConfig, state: GameState): number {
   const threshold = Math.max(0, config.deductions?.ndpi?.dailyTonnesThreshold ?? 0);
   if (!(threshold > 0)) return 0;
+  const wells = state.wells ?? [];
+  if (wells.length === 0) return 0;
   const decline = wellDeclineFactor(config, state);
-  let count = 0;
-  for (const well of state.wells ?? []) {
-    if (Math.max(0, well.dailyTonnes) * decline < threshold) count += 1;
+  const summary = summarizeWells(wells);
+  if (summary.lastThreshold === threshold && summary.lastDecline === decline) {
+    return summary.lastLowCount;
   }
+  const cutoff = threshold / decline;
+  let count = 0;
+  for (let i = 0; i < wells.length; i++) {
+    if (Math.max(0, wells[i]!.dailyTonnes) < cutoff) count += 1;
+  }
+  summary.lastThreshold = threshold;
+  summary.lastDecline = decline;
+  summary.lastLowCount = count;
   return count;
 }

@@ -154,6 +154,10 @@ export interface WellConfig {
    * Нужно для оценки активов и для приза реприватизации.
    */
   priceSeconds: number;
+  /** Годовой лимит бурения одиночных скважин (`t_well`), штук за 365 игровых суток. */
+  maxDrillPerYear: number;
+  /** Общий лимит скважин, полученных отжатием и реприватизацией (`p_field`, `p_reprivatize`). */
+  maxConquestTotal: number;
 }
 
 export interface UpgradeEffect {
@@ -259,6 +263,8 @@ export interface UpgradeDef {
   type: UpgradeType;
   baseCost: number;
   maxLevel: number;
+  /** Снимает ограничение на максимальный уровень (учитываются только лимиты скважин). */
+  unlimited?: boolean;
   /** Индивидуальный рост цены (по умолчанию config.costGrowth). */
   costGrowth?: number;
   effect: UpgradeEffect;
@@ -568,6 +574,12 @@ export interface GameState {
    * кешируется сумма дебита, и после первого расчёта он заморожен.
    */
   wells: readonly Well[];
+  /** Индекс игрового года, для которого накоплен счётчик бурения `wellsDrilledThisYear`. */
+  wellsDrilledYear: number;
+  /** Сколько скважин пробурено (`t_well`) в текущем игровом году. */
+  wellsDrilledThisYear: number;
+  /** Сколько всего скважин получено через отжатие и реприватизацию (`p_field`, `p_reprivatize`). */
+  conquestWellsTotal: number;
   /** Гэмблы «в полёте». */
   gambles: Array<{ id: string; amount: number; factor: number; resolveAt: number }>;
   achievements: string[];
@@ -852,7 +864,17 @@ export type GameEvent =
   | { type: 'offline'; seconds: number; coins: number }
   | {
       type: 'error';
-      code: 'noMoney' | 'cooldown' | 'locked' | 'maxLevel' | 'won' | 'noOil' | 'noCapacity' | 'noRefinerySlot';
+      code:
+        | 'noMoney'
+        | 'cooldown'
+        | 'locked'
+        | 'maxLevel'
+        | 'won'
+        | 'noOil'
+        | 'noCapacity'
+        | 'noRefinerySlot'
+        | 'yearWellLimit'
+        | 'conquestWellLimit';
       id?: string;
     };
 

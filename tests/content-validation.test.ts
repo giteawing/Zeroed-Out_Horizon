@@ -82,6 +82,7 @@ describe('validateConfig (REVIEW C6)', () => {
     expect(broken((config) => {
       config.oil.wells.classes[0].chance = 0.1 + 0.2;
       config.oil.wells.classes[1].chance = 0.65;
+      config.oil.wells.classes[2].chance = 0.05;
     })).not.toThrow();
   });
 
