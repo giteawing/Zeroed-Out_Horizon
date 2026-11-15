@@ -205,7 +205,7 @@ describe('HUD', () => {
     expect(side!.firstElementChild?.classList.contains('hud')).toBe(true);
   });
 
-  it('журнал операций открывается из меню, а не стоит на главном экране', () => {
+  it('журнал операций открывается из меню, а не стоит на главном экране', async () => {
     const side = document.querySelector('.stage__side');
     expect(side).not.toBeNull();
     expect(side!.querySelector('[data-testid="oplog"]')).toBeNull();
@@ -220,6 +220,12 @@ describe('HUD', () => {
     const log = document.querySelector<HTMLElement>('[data-testid="oplog"]');
     expect(log).not.toBeNull();
     expect(log!.hidden).toBe(false);
+    expect(log!.classList.contains('sheet--oplog')).toBe(true);
+    // В полноэкранном журнале выводятся все сохранённые записи, а не только три.
+    game.addCoins(10_000);
+    for (let i = 0; i < 6; i++) game.buy('t_well');
+    await waitFor(() => log!.querySelectorAll('.oplog__item').length >= 6);
+    expect(log!.querySelectorAll('.oplog__item').length).toBeGreaterThanOrEqual(6);
     // Escape закрывает шторку, как и остальные окна.
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     expect(log!.hidden).toBe(true);

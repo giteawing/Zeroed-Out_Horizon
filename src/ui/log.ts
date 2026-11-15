@@ -16,11 +16,11 @@ import type { Texts } from './texts';
 import { formatMoney, formatNumber } from '../core/format';
 import type { LogEntry } from '../core/types';
 
-const VISIBLE = 3;
-
 export class OperationLog {
   readonly root: HTMLElement;
   private readonly list: HTMLElement;
+  private readonly closeButton: HTMLButtonElement;
+  private returnFocus: HTMLElement | null = null;
   private signature = '';
 
   constructor(
@@ -28,10 +28,10 @@ export class OperationLog {
     private readonly currency: string,
   ) {
     this.list = el('ol', { class: 'oplog__list', 'aria-live': 'polite' });
-    const close = el('button', { class: 'btn btn--gold', type: 'button' }, this.texts.get('panel.close'));
-    close.addEventListener('click', () => this.hide());
+    this.closeButton = el('button', { class: 'btn btn--gold', type: 'button' }, this.texts.get('panel.close'));
+    this.closeButton.addEventListener('click', () => this.hide());
     this.root = el('div', {
-      class: 'sheet',
+      class: 'sheet sheet--oplog',
       hidden: true,
       role: 'dialog',
       'aria-modal': 'true',
@@ -41,7 +41,7 @@ export class OperationLog {
       el('div', { class: 'sheet__inner oplog' }, [
         el('h2', { class: 'sheet__title oplog__title' }, this.texts.get('log.title')),
         this.list,
-        close,
+        this.closeButton,
       ]),
     ]);
     // Клик по затемнению вокруг листа закрывает журнал — как остальные шторки.
@@ -55,11 +55,16 @@ export class OperationLog {
   }
 
   open(): void {
+    this.returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     this.root.hidden = false;
+    this.closeButton.focus();
   }
 
   hide(): void {
     this.root.hidden = true;
+    const target = this.returnFocus;
+    this.returnFocus = null;
+    if (target && target.isConnected) target.focus();
   }
 
   private channelName(entry: LogEntry): string {
@@ -128,17 +133,16 @@ export class OperationLog {
   }
 
   update(entries: readonly LogEntry[]): void {
-    const head = entries.slice(0, VISIBLE);
-    const signature = head.map((e) => `${e.at}:${e.kind}:${e.upgradeId ?? ''}:${e.money ?? 0}:${e.tonnes ?? 0}`).join('|');
+    const signature = entries.map((e) => `${e.at}:${e.kind}:${e.upgradeId ?? ''}:${e.money ?? 0}:${e.tonnes ?? 0}`).join('|');
     if (signature === this.signature) return;
     this.signature = signature;
 
     clear(this.list);
-    if (head.length === 0) {
+    if (entries.length === 0) {
       this.list.append(el('li', { class: 'oplog__empty' }, this.texts.get('log.empty')));
       return;
     }
-    for (const entry of head) {
+    for (const entry of entries) {
       this.list.append(
         el('li', { class: 'oplog__item', 'data-kind': entry.kind }, this.describe(entry)),
       );
