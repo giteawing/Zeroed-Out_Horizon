@@ -581,9 +581,17 @@ describe('устойчивость времени и состояния движ
     expect(game.derived().oilPerSecond).toBeCloseTo(reference.derived().oilPerSecond, 12);
 
     // Ни один накопитель не пережил сброс: дальше партия идёт шаг в шаг с
-    // игрой, созданной заново с тем же сидом. Время сохранения — настенные
-    // часы, оно у двух снимков может отличаться на миллисекунду.
-    const comparable = (instance: Game): GameState => ({ ...instance.snapshot(), savedAtWallMs: 0 });
+    // игрой, созданной заново с тем же сидом. Время сохранения и отметки
+    // журнала — настенные часы, они у двух снимков могут отличаться на
+    // несколько миллисекунд.
+    const comparable = (instance: Game): GameState => {
+      const snap = instance.snapshot();
+      return {
+        ...snap,
+        savedAtWallMs: 0,
+        log: snap.log.map((entry) => ({ ...entry, wallAt: 0 })),
+      };
+    };
     // Первые сверки стоят внутри первого периода проверки достижений и
     // первого окна сообщений о разливе: остаток прежних таймеров сдвинул бы
     // именно их.
