@@ -250,8 +250,9 @@ test('таблица скважин в подробной статистике �
   });
   expect(scrolled).toBeGreaterThan(100);
 
-  // Ждём несколько игровых тиков (~1.2 с), чтобы render() отработал неоднократно.
-  await page.waitForTimeout(1200);
+  const beforeTime = (await gameState(page)).playtimeMs;
+  await expect.poll(async () => (await gameState(page)).playtimeMs, { timeout: 10_000 }).toBeGreaterThan(beforeTime + 1000);
+  await frames(page, 5);
   const afterTicks = await list.evaluate((node) => node.scrollTop);
   expect(afterTicks).toBe(scrolled);
 });
