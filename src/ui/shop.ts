@@ -12,8 +12,8 @@ import type { Texts } from './texts';
 import { formatMoney, formatNumber } from '../core/format';
 import { icon as iconPath } from '../core/assets';
 import { isRepeatable, type BuyCheck, type Game } from '../core/game';
-import { winRequirementBlocker, winRequirementTerms, type RequirementTerm } from '../core/economy';
-import type { Tab, UpgradeDef } from '../core/types';
+import { slotsOf, winRequirementBlocker, winRequirementTerms, type RequirementTerm } from '../core/economy';
+import type { BuySlot, Tab, UpgradeDef } from '../core/types';
 
 interface CardRefs {
   root: HTMLElement;
@@ -21,7 +21,8 @@ interface CardRefs {
   level: HTMLElement;
   effect: HTMLElement;
   cost: HTMLElement;
-  button: HTMLButtonElement;
+  /** Кнопки по порядку слотов: у уровней — ×1/×5/×10/MAX, у остальных — одна. */
+  buttons: HTMLButtonElement[];
   lock: HTMLElement;
 }
 
@@ -121,20 +122,34 @@ export class Shop {
     const level = el('span', { class: 'card__level' }, '');
     const effect = el('span', { class: 'card__effect' }, '');
     const cost = el('span', { class: 'card__cost' }, '');
-    const button = el('button', { class: 'card__buy', type: 'button' }, this.texts.get('shop.buy'));
     const lock = el('span', { class: 'card__lock' }, '');
 
-    button.addEventListener('click', () => {
-      const count = Math.max(1, Number(button.dataset.count ?? 1));
-      // Кнопка недоступной покупки выключена (`disabled`), а причина уже
-      // написана на карточке. Проверка здесь — защита от устаревшей карточки:
-      // состояние могло измениться между обновлениями интерфейса.
-      if (!this.game.checkBuy(def.id, count).ok) return;
-      this.options.onBuy(def.id, count);
-    });
+    // Карточка с уровнем получает четыре кнопки (×1, ×5, ×10, MAX), остальные —
+    // одну «Купить». Кнопки создаются один раз: обновление лишь меняет их
+    // доступность и цифру в `data-count`, поэтому фокус на нажатой кнопке
+    // не сбрасывается.
+    const slots = slotsOf(def);
+    const leveled = slots.length > 1;
+    const buttons: HTMLButtonElement[] = [];
+    for (const slot of slots) {
+      const button = el('button', {
+        class: 'card__buy',
+        type: 'button',
+        'data-slot': slot,
+      }, leveled ? this.slotLabel(slot) : this.texts.get('shop.buy'));
+      button.addEventListener('click', () => {
+        const count = Math.max(1, Number(button.dataset.count ?? 1));
+        // Кнопка недоступной покупки выключена (`disabled`), а причина уже
+        // написана на карточке. Проверка здесь — защита от устаревшей карточки:
+        // состояние могло измениться между обновлениями интерфейса.
+        if (!this.game.checkBuy(def.id, count).ok) return;
+        this.options.onBuy(def.id, count);
+      });
+      buttons.push(button);
+    }
 
     const name = el('h3', { class: 'card__name' }, this.cardName(def));
-    const refs: CardRefs = { root: el('article'), name, level, effect, cost, button, lock };
+    const refs: CardRefs = { root: el('article'), name, level, effect, cost, buttons, lock };
 
     const node = el('article', { class: 'card', 'data-id': def.id }, [
       el('div', { class: 'card__art' }, [icon, level]),
@@ -144,7 +159,9 @@ export class Shop {
         el('div', { class: 'card__meta' }, [effect, cost]),
         lock,
       ]),
-      el('div', { class: 'card__action' }, [button]),
+      el('div', { class: 'card__action' }, [
+        el('div', { class: 'card__buys' }, buttons),
+      ]),
     ]);
     refs.root = node;
     this.refreshCard(def, refs);
@@ -163,13 +180,25 @@ export class Shop {
     return this.game.stagedName(def.id, level);
   }
 
+  /** Подпись кнопки по слоту. Четыре ключа перечислены явно, чтобы сверка текстов видела каждую. */
+  private slotLabel(slot: BuySlot): string {
+    return slot === 'buy1'
+      ? this.texts.get('shop.buy1')
+      : slot === 'buy5'
+        ? this.texts.get('shop.buy5')
+        : slot === 'buy10'
+          ? this.texts.get('shop.buy10')
+          : this.texts.get('shop.buyMax');
+  }
+
   /**
-   * Применить текущее состояние к карточке. Вызывается часто, поэтому покупка
-   * проверяется один раз (и ещё раз — только для цены пачки), а DOM меняется
+   * Применить текущее состояние к карточке. Вызывается часто, поэтому
+   * проверка покупки — одна на карточку (`checkBuy`), а у уровней к ней
+   * ещё один вызов `buySlotState` для состояния четырёх кнопок. DOM меняется
    * лишь там, где значение стало другим.
    */
   private refreshCard(def: UpgradeDef, refs: CardRefs): void {
-    let check = this.game.checkBuy(def.id);
+    const check = this.game.checkBuy(def.id);
     const level = check.level;
     // Действие с перезарядкой (контрабанда, кризис, отмывание) не
     // «прокачивается»: у него нет максимума, иначе кнопка мигала бы между
@@ -189,31 +218,41 @@ export class Shop {
     setHidden(refs.lock, lockText.length === 0);
 
     const maxed = !repeatable && !unlimited && !def.win && level >= check.maxLevel;
-    const onCooldown = check.cooldownMs > 0;
-    // Подпись, цена и обработчик используют одно и то же количество.
-    // Для repeatable и финальной покупки пачек не существует.
-    const bulkCount = !repeatable && !def.win && !maxed && !onCooldown
-      ? Math.min(check.affordable, 10, this.game.config.maxBuyLevels)
-      : 1;
-    if (bulkCount > 1) check = this.game.checkBuy(def.id, bulkCount);
-    const count = String(Math.max(1, check.count));
-    if (refs.button.dataset.count !== count) refs.button.dataset.count = count;
     setText(refs.cost, maxed
       ? this.texts.get('shop.maxLevel')
       : formatMoney(check.cost, this.currency));
 
-    let label = this.texts.get('shop.buy');
-    if (def.win) label = this.texts.get('finale.buyButton');
-    else if (maxed) label = this.texts.get('shop.maxLevel');
-    else if (onCooldown) {
-      label = this.texts.get('shop.cooldown', { seconds: Math.ceil(check.cooldownMs / 1000) });
-    } else if (check.affordable > 1 && !repeatable) {
-      label = this.texts.get('shop.buyMax', { n: Math.min(check.affordable, 10) });
+    const leveled = slotsOf(def).length > 1;
+    if (leveled) {
+      // Уровни: кнопки фиксированы, меняется лишь доступность и цифра в
+      // `data-count`. Подпись у кнопки остаётся та, которую задали при сборке.
+      const slotState = this.game.buySlotState(def.id);
+      for (let i = 0; i < refs.buttons.length; i += 1) {
+        const button = refs.buttons[i]!;
+        const slot = slotState.slots[i]!;
+        const count = String(Math.max(1, slot.count));
+        if (button.dataset.count !== count) button.dataset.count = count;
+        if (button.disabled === slot.enabled) button.disabled = !slot.enabled;
+        const reason = slot.reason;
+        if (button.dataset.reason !== reason) button.dataset.reason = reason;
+      }
+    } else {
+      // Одноразовые покупки, действия и цель: одна кнопка, подпись зависит
+      // от состояния (перезарядка, потолок, финал).
+      const button = refs.buttons[0]!;
+      const count = String(Math.max(1, check.count));
+      if (button.dataset.count !== count) button.dataset.count = count;
+      let label = this.texts.get('shop.buy');
+      if (def.win) label = this.texts.get('finale.buyButton');
+      else if (maxed) label = this.texts.get('shop.maxLevel');
+      else if (check.cooldownMs > 0) {
+        label = this.texts.get('shop.cooldown', { seconds: Math.ceil(check.cooldownMs / 1000) });
+      }
+      setText(button, label);
+      if (button.disabled === check.ok) button.disabled = !check.ok;
+      const reason = check.reason ?? 'ok';
+      if (button.dataset.reason !== reason) button.dataset.reason = reason;
     }
-    setText(refs.button, label);
-    if (refs.button.disabled === check.ok) refs.button.disabled = !check.ok;
-    const reason = check.reason ?? 'ok';
-    if (refs.button.dataset.reason !== reason) refs.button.dataset.reason = reason;
 
     setClass(refs.root, 'card--locked', !check.unlocked);
     setClass(refs.root, 'card--maxed', maxed);

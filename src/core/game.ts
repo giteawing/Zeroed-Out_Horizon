@@ -12,9 +12,12 @@ import {
   costFor,
   eventPayout,
   grantsField,
+  isRepeatable,
   isUnlocked,
   isWinReady,
   levelOf,
+  maxBatchLevels,
+  slotsOf,
   stagedNameOf,
   unlockBlocker,
   winCostOf,
@@ -22,6 +25,7 @@ import {
 } from './economy';
 import type {
   BurstChannel,
+  BuySlot,
   Content,
   DeepReadonly,
   DerivedStats,
@@ -96,10 +100,53 @@ export interface BuyCheck {
   blocker: ReturnType<typeof unlockBlocker>;
 }
 
-/** Покупка-действие (событие с перезарядкой) или обычная прокачка. */
-export function isRepeatable(def: UpgradeDef): boolean {
-  return def.repeatable === true || (!def.win && def.cooldownSeconds !== undefined && def.type === 'oneShot');
+/**
+ * Расчёт, общи для `checkBuy`, `buy` и состояния кнопок магазина: лимиты
+ * уровня, скважин и отжимов зависят только от покупки и состояния, а не от
+ * запрашиваемого объёма. Вынесен в один метод, чтобы все три точки
+ * всегда видели один и тот же «остаток» и не могли расходиться.
+ */
+interface BuyContext {
+  def: UpgradeDef;
+  level: number;
+  derived: DerivedStats;
+  unlocked: boolean;
+  cooldownMs: number;
+  repeatable: boolean;
+  stageIndex: number;
+  stageLimit: number;
+  unlimited: boolean;
+  isDrillWell: boolean;
+  isConquestField: boolean;
+  drillRemaining: number;
+  conquestRemaining: number;
+  conquestBatchMax: number;
+  /** Максимум уровней, которые можно купить прямо сейчас (с учётом всех лимитов). */
+  available: number;
 }
+
+/** Состояние одной торговой кнопки на карточке. */
+export interface BuySlotState {
+  slot: BuySlot;
+  /** Сколько уровней купит кнопка (для MAX — то, что реально покрывает баланс). */
+  count: number;
+  cost: number;
+  enabled: boolean;
+  reason: BuyFailure | 'ok';
+}
+
+/** Состояние всех кнопок карточки: по порядку `def.slots`. */
+export interface BuySlotStateList {
+  available: number;
+  slots: BuySlotState[];
+}
+
+/**
+ * Покупка-действие (событие с перезарядкой) или обычная прокачка.
+ * Определение живёт в `economy/purchases`, здесь переиспользуется и
+ * переиспользуется назовёт им импортеры (`simulator`, магазин).
+ */
+export { isRepeatable };
 const MAX_GAMBLE_RESOLVES_PER_TICK = 20;
 
 export class Game {
@@ -399,22 +446,29 @@ export class Game {
 
   /** Проверка покупки без её совершения — для интерфейса. */
   checkBuy(id: string, count = 1): BuyCheck {
-    const def = this.content.byId.get(id);
-    if (!def) {
+    const ctx = this.buyContext(id);
+    if (!ctx) {
       return {
         ok: false, reason: 'locked', cost: 0, level: 0, maxLevel: 0,
         affordable: 0, count: 0, unlocked: false, cooldownMs: 0, blocker: null,
       };
     }
+    return this.checkFromContext(ctx, count);
+  }
+
+  /**
+   * Общий расчёт лимитов и остатка покупки. Один вызов даёт те же значения
+   * для `checkBuy`, для состояния кнопок и для исполнения — иначе «сколько
+   * осталось купить» могло бы расходиться между кнопками.
+   */
+  private buyContext(id: string): BuyContext | null {
+    const def = this.content.byId.get(id);
+    if (!def) return null;
     const level = this.level(id);
     const derived = this.derived();
     const unlocked = this.devUnlocked || isUnlocked(def, this.mutableState, derived.influence, this.config);
     const cooldownMs = this.mutableState.cooldowns[id] ?? 0;
     const repeatable = isRepeatable(def);
-    const requested = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1;
-    const wanted = repeatable || def.cooldownSeconds || def.win
-      ? 1
-      : Math.min(requested, this.config.maxBuyLevels);
     const stageIndex = derived.refineries.stages.findIndex((stage) => stage.id === def.id);
     const stageLimit = stageIndex < 0
       ? def.maxLevel
@@ -446,27 +500,72 @@ export class Game {
     if (isDrillWell) available = Math.min(available, drillRemaining);
     if (isConquestField) available = Math.min(available, conquestBatchMax);
 
-    const buyCount = repeatable ? 1 : Math.min(wanted, available);
+    return {
+      def, level, derived, unlocked, cooldownMs, repeatable, stageIndex, stageLimit,
+      unlimited, isDrillWell, isConquestField, drillRemaining, conquestRemaining,
+      conquestBatchMax, available,
+    };
+  }
+
+  /**
+   * Признак, который блокирует ВСЕ кнопки карточки независимо от запрашиваемого
+   * объёма: выиграно, заблокировано, достигнут потолок, исчерпан лимит скважин
+   * или нет свободного НПЗ. Денег для конкретной порции здесь не рассматриваем —
+   * это свойство конкретной кнопки, а не всей карточки.
+   */
+  private baseBlockReason(ctx: BuyContext): BuyFailure | null {
+    if (this.mutableState.won) return 'won';
+    if (!ctx.unlocked) return 'locked';
+    if (!ctx.repeatable && !ctx.unlimited && ctx.level >= ctx.def.maxLevel) return 'maxLevel';
+    if (ctx.isDrillWell && ctx.drillRemaining === 0) return 'yearWellLimit';
+    if (ctx.isConquestField && ctx.conquestRemaining === 0) return 'conquestWellLimit';
+    if (ctx.stageIndex >= 0 && ctx.available === 0) return 'noRefinerySlot';
+    if (ctx.cooldownMs > 0) return 'cooldown';
+    if (ctx.def.win) {
+      if (!isWinReady(this.config, this.content.upgrades, this.mutableState, this.mutableState.coins, ctx.derived.influence)) {
+        return 'locked';
+      }
+    }
+    return null;
+  }
+
+  /** Цена `count` уровней с учётом скидки «отжатия» (как в `checkBuy`). */
+  private levelCost(ctx: BuyContext, count: number): number {
+    if (ctx.def.win) return winCostOf(this.config, this.content.upgrades);
+    const raw = this.priceOfLevels(ctx.def, ctx.repeatable ? 0 : ctx.level, count, ctx.derived.exchangeRate);
+    return ctx.def.conquest ? Math.round(raw * (1 - ctx.derived.conquestCut)) : raw;
+  }
+
+  /** Число уровней, которое купит фиксированная кнопка (не MAX). */
+  private static fixedSlotCount(slot: BuySlot): number {
+    if (slot === 'buy5') return 5;
+    if (slot === 'buy10') return 10;
+    return 1;
+  }
+
+  /** Проверка покупки по уже готовому расчёту — ядро `checkBuy`. */
+  private checkFromContext(ctx: BuyContext, count: number): BuyCheck {
+    const { def, level, derived, unlocked, cooldownMs, repeatable } = ctx;
+    const requested = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1;
+    // Клипинг — только до реально оставшегося числа уровней. Лимит за покупку
+    // (`maxBuyLevels`) больше не ограничивает пачку: кнопка MAX покупает всё,
+    // что есть, а ×1/×5/×10 — фиксированные порции.
+    const buyCount = repeatable ? 1 : Math.min(requested, ctx.available);
     const showNextPrice =
-      (stageIndex >= 0 && buyCount === 0 && level < def.maxLevel) ||
-      (isDrillWell && drillRemaining === 0) ||
-      (isConquestField && conquestRemaining === 0);
+      (ctx.stageIndex >= 0 && buyCount === 0 && level < def.maxLevel) ||
+      (ctx.isDrillWell && ctx.drillRemaining === 0) ||
+      (ctx.isConquestField && ctx.conquestRemaining === 0);
     const pricedCount = showNextPrice ? 1 : buyCount;
-    const rawCost = def.win
-      ? winCostOf(this.config, this.content.upgrades)
-      : this.priceOfLevels(def, repeatable ? 0 : level, pricedCount, derived.exchangeRate);
-    // «Отжать» дешевле, чем построить: скидка растёт от влияния и ЧВК.
-    const cost = def.conquest
-      ? Math.round(rawCost * (1 - derived.conquestCut))
-      : rawCost;
+    // `levelCost` уже выбирает стартовый уровень (для действий — с нуля).
+    const cost = this.levelCost(ctx, pricedCount);
 
     let reason: BuyFailure | undefined;
     if (this.mutableState.won) reason = 'won';
     else if (!unlocked) reason = 'locked';
-    else if (!repeatable && !unlimited && level >= def.maxLevel) reason = 'maxLevel';
-    else if (isDrillWell && drillRemaining === 0) reason = 'yearWellLimit';
-    else if (isConquestField && conquestRemaining === 0) reason = 'conquestWellLimit';
-    else if (stageIndex >= 0 && available === 0) reason = 'noRefinerySlot';
+    else if (!repeatable && !ctx.unlimited && level >= def.maxLevel) reason = 'maxLevel';
+    else if (ctx.isDrillWell && ctx.drillRemaining === 0) reason = 'yearWellLimit';
+    else if (ctx.isConquestField && ctx.conquestRemaining === 0) reason = 'conquestWellLimit';
+    else if (ctx.stageIndex >= 0 && ctx.available === 0) reason = 'noRefinerySlot';
     else if (cooldownMs > 0) reason = 'cooldown';
     else if (def.win) {
       if (!isWinReady(this.config, this.content.upgrades, this.mutableState, this.mutableState.coins, derived.influence)) {
@@ -488,8 +587,8 @@ export class Game {
 
     const maxBuyCap = Math.min(
       this.config.maxBuyLevels,
-      isDrillWell ? drillRemaining : this.config.maxBuyLevels,
-      isConquestField ? conquestBatchMax : this.config.maxBuyLevels,
+      ctx.isDrillWell ? ctx.drillRemaining : this.config.maxBuyLevels,
+      ctx.isConquestField ? ctx.conquestBatchMax : this.config.maxBuyLevels,
     );
 
     return {
@@ -500,7 +599,7 @@ export class Game {
       maxLevel: def.maxLevel,
       affordable: def.win || repeatable
         ? (this.mutableState.coins >= cost ? 1 : 0)
-        : Math.min(available, affordableLevels(
+        : Math.min(ctx.available, affordableLevels(
             this.config,
             def,
             level,
@@ -515,6 +614,79 @@ export class Game {
       cooldownMs,
       blocker: unlockBlocker(def, this.mutableState, derived.influence, this.config),
     };
+  }
+
+  /**
+   * Состояние всех торговых кнопок карточки: для каждого слота — сколько
+   * уровней купит, цена и доступность. Кнопки с фиксированной порцией
+   * блокируются, если осталось меньше уровней, чем в порции, или не хватает
+   * денег. MAX покупает ровно всё, что осталось (без лимита за покупку) и
+   * блокируется, если на ВСЮ эту пачку денег не хватает: покупка «максимума»
+   * не должна превратиться в пусную пачку.
+   */
+  buySlotState(id: string): BuySlotStateList {
+    const ctx = this.buyContext(id);
+    if (!ctx) return { available: 0, slots: [] };
+    const { def } = ctx;
+    const slots: BuySlotState[] = [];
+
+    // Одноразовые покупки, действия с перезарядкой и финальная цель: одна
+    // кнопка, её состояние — как у `checkBuy` с объёмом 1.
+    if (ctx.repeatable || def.cooldownSeconds || def.win) {
+      const check = this.checkFromContext(ctx, 1);
+      slots.push({
+        slot: 'buy1',
+        count: check.count,
+        cost: check.cost,
+        enabled: check.ok,
+        reason: check.reason ?? 'ok',
+      });
+      return { available: ctx.available, slots };
+    }
+
+    const block = this.baseBlockReason(ctx);
+    for (const slot of slotsOf(def)) {
+      if (block) {
+        // Заблокирована вся карточка: кнопки выключены, цена — цена первого
+        // уровня (если он ещё покупаем) иначе ноль.
+        slots.push({
+          slot,
+          count: slot === 'buyMax' ? this.maxBatchCount(ctx) : Game.fixedSlotCount(slot),
+          cost: ctx.available > 0 ? this.levelCost(ctx, 1) : 0,
+          enabled: false,
+          reason: block,
+        });
+        continue;
+      }
+      if (slot === 'buyMax') {
+        const { count, cost } = this.maxBatch(ctx);
+        const ok = count > 0 && this.mutableState.coins >= cost;
+        slots.push({ slot, count, cost, enabled: ok, reason: ok ? 'ok' : 'noMoney' });
+        continue;
+      }
+      const want = Game.fixedSlotCount(slot);
+      if (ctx.available < want) {
+        slots.push({ slot, count: want, cost: this.levelCost(ctx, want), enabled: false, reason: 'maxLevel' });
+        continue;
+      }
+      const cost = this.levelCost(ctx, want);
+      const ok = this.mutableState.coins >= cost;
+      slots.push({ slot, count: want, cost, enabled: ok, reason: ok ? 'ok' : 'noMoney' });
+    }
+    return { available: ctx.available, slots };
+  }
+
+  /** Максимальная пачка для MAX: всё, что реально осталось. */
+  private maxBatchCount(ctx: BuyContext): number {
+    return Math.max(0, ctx.available);
+  }
+
+  /** Полная максимальная пачка и её цена (после скидки «отжатия»). */
+  private maxBatch(ctx: BuyContext): { count: number; cost: number } {
+    return maxBatchLevels(
+      this.config, ctx.def, ctx.level, ctx.available,
+      ctx.derived.exchangeRate, ctx.derived.conquestCut,
+    );
   }
 
   /** Купить покупку. count — желаемое число уровней (1..maxBuyLevels). */
