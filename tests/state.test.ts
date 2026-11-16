@@ -38,6 +38,13 @@ describe('нормализация сохранения', () => {
     expect(restored.flowControl.export).toEqual({ mode: 'fixed', value: 12.5 });
   });
 
+  it('сохраняет режим «Макс.» с меткой очерёдности заявки', () => {
+    const original = createInitialState(config, 7);
+    original.flowControl.refine = { mode: 'max', value: 45678 };
+    const restored = normalizeState(JSON.parse(serializeState(original)), config, content);
+    expect(restored.flowControl.refine).toEqual({ mode: 'max', value: 45678 });
+  });
+
   it('старый сейв получает постоянный seed цены из RNG seed', () => {
     const legacy = createInitialState(config, 987654);
     const oldState = { ...legacy } as unknown as Record<string, unknown>;

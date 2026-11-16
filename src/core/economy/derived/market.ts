@@ -20,7 +20,7 @@ import { CHANNELS } from '../definitions';
 import { refineryStatsOf } from '../refineries';
 import { hasFullCrew, productCapacityOf, wellDeclineFactor, wellsDailyTonnes, wellsTonnesPerSecond } from '../production';
 import { levelOf } from '../purchases';
-import { oilFlowsOf } from '../sales';
+import { claimOrderOf, oilFlowsOf, PRODUCT_CLAIM_ORDER } from '../sales';
 import { collectUpgradeEffects, type UpgradeEffects } from './effects';
 
 export interface MarketStats {
@@ -42,6 +42,8 @@ export interface MarketStats {
   };
   /** Физический максимум каждого направления с учётом остальных фиксированных заявок. */
   flowLimits: Record<FlowKey, number>;
+  /** Сколько направление забирает в режиме «Макс.» прямо сейчас: число в поле панели. */
+  flowClaims: Record<FlowKey, number>;
   exportCapacityByMode: Record<ExportMode, number>;
   hasPipeline: boolean;
   productStorage: number;
@@ -192,27 +194,89 @@ export function calculateMarket(
     flows.productsDomestic * productPriceDomestic +
     flows.productsExport * productPriceExport;
 
-  const fixed = state.flowControl;
-  const fixedOther = (exclude: Channel): number =>
-    (['contract', 'export', 'refine'] as Channel[])
-      .filter((channel) => channel !== exclude && fixed[channel].mode === 'fixed')
-      .reduce((sum, channel) => sum + fixed[channel].value, 0);
+  /*
+   * Направления «Логистики» делят добычу в три приёма: «фиксировано»
+   * резервирует ровно своё число, «Макс.» забирает весь свободный остаток
+   * в пределах своей мощности, «Авто» — то, что осталось после них.
+   *
+   * Заявки «Макс.» считаются в том же порядке, в каком их исполняет
+   * `routeCrude()` (см. `claimOrderOf`), иначе поле панели разойдётся
+   * с деньгами в кассе. Порядок заявок нарушает только игрок: повторное
+   * нажатие «Макс.» перехватывает объём у направлений, нажатых раньше.
+   */
+  const controls = state.flowControl;
+  const capacityOf = (channel: Channel): number =>
+    channel === 'export'
+      ? capacities.export.crude
+      : channel === 'refine'
+        ? flows.refineCapacity
+        : config.oil.channels.contract.unlimited
+          ? Number.POSITIVE_INFINITY
+          : capacities.domestic.crude;
+  const fixedSum = CHANNELS.reduce(
+    (sum, channel) => sum + (controls[channel].mode === 'fixed'
+      ? Math.max(0, controls[channel].value)
+      : 0),
+    0,
+  );
+  /** Сколько добычи осталось после фиксированных квот. */
+  let unclaimed = Math.max(0, producedPerSecond - fixedSum);
+  const claims: Record<Channel, number> = { contract: 0, export: 0, refine: 0 };
+  for (const channel of claimOrderOf(controls)) {
+    const claim = Math.min(capacityOf(channel), unclaimed);
+    claims[channel] = claim;
+    unclaimed = Math.max(0, unclaimed - claim);
+  }
+  /*
+   * Предел ручной заявки: введённое число важнее заявки «Макс.» соседа,
+   * поэтому из добычи вычитаются только чужие фиксированные квоты. После
+   * правки заявки «Макс.» пересчитываются и уступают объём — иначе игрок
+   * не смог бы передать направлению ни тонны, пока сосед стоит на максимуме.
+   */
+  const limitOf = (channel: Channel): number => {
+    const own = controls[channel].mode === 'fixed' ? Math.max(0, controls[channel].value) : 0;
+    return Math.min(capacityOf(channel), Math.max(0, producedPerSecond - (fixedSum - own)));
+  };
   const flowLimits: Record<FlowKey, number> = {
-    contract: Math.min(
-      config.oil.channels.contract.unlimited ? Number.POSITIVE_INFINITY : capacities.domestic.crude,
-      Math.max(0, producedPerSecond - fixedOther('contract')),
-    ),
-    export: Math.min(
-      capacities.export.crude,
-      Math.max(0, producedPerSecond - fixedOther('export')),
-    ),
-    refine: Math.min(
-      flows.refineCapacity,
-      Math.max(0, producedPerSecond - fixedOther('refine')),
-    ),
-    // «Логистика»: рынки нефтепродуктов настраиваются так же, как сырьё.
+    contract: limitOf('contract'),
+    export: limitOf('export'),
+    refine: limitOf('refine'),
+    // «Логистика»: рынки нефтепродуктов настраиваются так же, как сырьё, но
+    // у них своя мощность и нет общей «добычи»: предел ручной заявки считает
+    // только физическую ёмкость своего рынка.
     productDomestic: capacities.domestic.products,
     productExport: capacities.export.products,
+  };
+  /*
+   * Рынки нефтепродуктов делят не добычу, а выпуск НПЗ: пул — сколько
+   * топлива вообще уходит на рынки и склады сейчас. Заявки «Макс.» делят
+   * его в том же порядке, в каком `allocateProducts()` раздаёт тонны, чтобы
+   * поле не обещало объём, который ушёл соседу.
+   */
+  let productLeft = Math.max(
+    0,
+    flows.productsDomestic + flows.productsExport + flows.productsStored,
+  );
+  const productClaims: Record<'productExport' | 'productDomestic', number> = {
+    productExport: 0,
+    productDomestic: 0,
+  };
+  for (const channel of PRODUCT_CLAIM_ORDER) {
+    if (controls[channel].mode !== 'max') continue;
+    const room = channel === 'productExport'
+      ? capacities.export.products
+      : capacities.domestic.products;
+    const claim = Math.min(room, productLeft);
+    productClaims[channel] = claim;
+    productLeft = Math.max(0, productLeft - claim);
+  }
+  /** Сколько направление забирает сейчас в режиме «Макс.»: число в поле. */
+  const flowClaims: Record<FlowKey, number> = {
+    contract: claims.contract,
+    export: claims.export,
+    refine: claims.refine,
+    productDomestic: productClaims.productDomestic,
+    productExport: productClaims.productExport,
   };
 
   return {
@@ -233,6 +297,7 @@ export function calculateMarket(
     refineries,
     flows,
     flowLimits,
+    flowClaims,
     grossPerSecond,
   };
 }

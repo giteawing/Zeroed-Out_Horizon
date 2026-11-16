@@ -103,9 +103,12 @@ export function normalizeState(raw: unknown, config: GameConfig, content: Conten
       const setting = controls[channel];
       if (!setting || typeof setting !== 'object') continue;
       const value = num(setting.value, 0);
+      // В режиме «Макс.» `value` — метка очерёдности заявки, а не поток.
       state.flowControl[channel] = setting.mode === 'fixed' && value >= 0
         ? { mode: 'fixed', value }
-        : { mode: 'auto', value: 0 };
+        : setting.mode === 'max'
+          ? { mode: 'max', value: Math.max(0, value) }
+          : { mode: 'auto', value: 0 };
     }
   }
   // В старых сохранениях поля распределения нет: все каналы переходят в авто.

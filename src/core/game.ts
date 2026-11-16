@@ -30,6 +30,7 @@ import type {
   DeepReadonly,
   DerivedStats,
   FlowControl,
+  FlowControls,
   FlowKey,
   GameEvent,
   Well,
@@ -258,11 +259,28 @@ export class Game {
 
   /**
    * Изменить направление «Логистики»: канал сырья или рынок нефтепродуктов.
-   * Фиксированный поток нельзя задать выше физического максимума.
+   * Фиксированный поток нельзя задать выше физического максимума. Режим
+   * «Макс.» тоннажа не хранит: направление забирает весь доступный объём, а
+   * меткой времени в `value` помечает очерёдность заявки — последняя нажатая
+   * кнопка перехватывает объём у направлений, нажатых раньше.
    */
   setFlowControl(key: FlowKey, setting: FlowControl): boolean {
     if (setting.mode === 'auto') {
       this.mutableState.flowControl[key] = { mode: 'auto', value: 0 };
+    } else if (setting.mode === 'max') {
+      /*
+       * Метка очерёдности заявки: последнее нажатие «Макс.» забирает объём
+       * первым. К игровому времени добавляем +1 к самой свежей метке, иначе
+       * две заявки, сделанные в один игровой тик, остались бы равны.
+       */
+      const stamps = Object.values(this.mutableState.flowControl)
+        .filter((control) => control.mode === 'max')
+        .map((control) => control.value);
+      const newest = Math.max(0, ...stamps);
+      this.mutableState.flowControl[key] = {
+        mode: 'max',
+        value: Math.max(this.mutableState.clockMs, newest + 1),
+      };
     } else {
       if (!Number.isFinite(setting.value) || setting.value < 0) return false;
       const max = this.derived().flowLimits[key];
@@ -1167,6 +1185,23 @@ export class Game {
     );
   }
 
+  /**
+   * Заявка экспорта для партии: труба уже продала часть сырья напрямую,
+   * поэтому её объём вычитается из квоты направления. В режиме «Макс.» квоты
+   * в состоянии нет — берём текущий предел направления.
+   */
+  private exportControlForBatch(derived: DerivedStats, pipeUsedPerSecond: number): FlowControls {
+    const exportControl = this.mutableState.flowControl.export;
+    if (exportControl.mode === 'auto') return this.mutableState.flowControl;
+    const quota = exportControl.mode === 'fixed'
+      ? exportControl.value
+      : derived.flowLimits.export;
+    return {
+      ...this.mutableState.flowControl,
+      export: { mode: 'fixed', value: Math.max(0, quota - pipeUsedPerSecond) },
+    };
+  }
+
   /** Распределить партию по каналам и превратить её в деньги. */
   private shipBatch(batch: number, derived: DerivedStats, seconds = 1, pipeUsedPerSecond = 0): number {
     /*
@@ -1187,15 +1222,7 @@ export class Game {
       productDomestic: derived.productPriceDomestic,
       productExport: derived.productPriceExport,
     }, Math.max(0, derived.productCapacity - stockProducts), stockProducts,
-    this.mutableState.flowControl.export.mode === 'fixed'
-      ? {
-        ...this.mutableState.flowControl,
-        export: {
-          mode: 'fixed',
-          value: Math.max(0, this.mutableState.flowControl.export.value - pipeUsedPerSecond),
-        },
-      }
-      : this.mutableState.flowControl,
+    this.exportControlForBatch(derived, pipeUsedPerSecond),
     derived.refineries.units);
 
     // Сырьё: деньги по ценам своих каналов. За продукты платит shipProducts —

@@ -102,6 +102,7 @@ export function computeDerived(
     refineries: market.refineries,
     oilPerSecond: market.oilPerSecond,
     flowLimits: market.flowLimits,
+    flowClaims: market.flowClaims,
     sellPerSecond:
       market.flows.domestic +
       market.flows.export +

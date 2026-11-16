@@ -1,10 +1,12 @@
 /**
  * Ручное распределение сырой нефти между рынками и НПЗ.
  *
- * Фиксированный режим резервирует указанный поток. Авто отдаёт каналу
- * максимально возможный остаток с учётом физических мощностей и цены.
+ * У каждого направления три состояния. «Фиксировано» резервирует введённый
+ * поток. «Макс.» числа не хранит: направление забирает весь доступный объём,
+ * поэтому поле пересчитывается само — после покупки скважины, строительства
+ * трубы или правки соседнего направления. «Авто» получает остаток по цене.
  */
-import { el } from './dom';
+import { el, setText } from './dom';
 import type { Texts } from './texts';
 import { formatNumber } from '../core/format';
 import type { DerivedStats, FlowControl, FlowKey, GameState } from '../core/types';
@@ -15,6 +17,11 @@ interface FlowRow {
   status: HTMLElement;
   auto: HTMLButtonElement;
   max: HTMLButtonElement;
+  /**
+   * Игрок печатает и ещё не подтвердил ввод. Пока так, поле принадлежит ему:
+   * пересчёт «Макс.» не затирает набираемое значение.
+   */
+  editing: boolean;
 }
 
 /**
@@ -23,6 +30,18 @@ interface FlowRow {
  */
 const CRUDE_FLOWS: FlowKey[] = ['export', 'refine', 'contract'];
 const PRODUCT_FLOWS: FlowKey[] = ['productExport', 'productDomestic'];
+
+/**
+ * Значение для поля: без «хвоста» двоичной арифметики (37,300000000000004).
+ * Округление вверх не должно выводить число за предел направления — иначе
+ * браузер пометит собственное поле как ошибочное.
+ */
+function fieldValue(value: number, limit: number): string {
+  const digits = 4;
+  const rounded = Number(value.toFixed(digits));
+  const safe = rounded > limit ? Math.floor(value * 10 ** digits) / 10 ** digits : rounded;
+  return String(Number(Math.max(0, safe).toFixed(digits)));
+}
 
 export class FlowControlsPanel {
   readonly root: HTMLElement;
@@ -55,7 +74,8 @@ export class FlowControlsPanel {
         'data-flow-max': channel,
       }, texts.get('flows.maxButton'));
       const status = el('small', { class: 'flow-controls__status' }, '');
-      const row = el('div', { class: 'flow-controls__row' }, [
+      const row: FlowRow = { input, status, auto, max, editing: false };
+      const rowElement = el('div', { class: 'flow-controls__row' }, [
         el('label', { class: 'flow-controls__label' }, [
           el('span', {}, texts.get(`flows.${channel}`)),
           input,
@@ -63,22 +83,23 @@ export class FlowControlsPanel {
         el('div', { class: 'flow-controls__actions' }, [max, auto]),
         status,
       ]);
-      this.rows.set(channel, { input, status, auto, max });
-      max.addEventListener('click', () => {
-        const maximum = this.game.derived().flowLimits[channel];
-        if (this.game.setFlowControl(channel, { mode: 'fixed', value: maximum })) {
-          this.onChange();
-          this.update(this.game.state, this.game.derived());
-        }
+      this.rows.set(channel, row);
+      input.addEventListener('input', () => {
+        row.editing = true;
+      });
+      // Бросили поле недописанным — возвращаем в нём значение из состояния.
+      input.addEventListener('blur', () => {
+        row.editing = false;
+        this.update(this.game.state, this.game.derived());
       });
       input.addEventListener('change', () => this.setFixed(channel, input));
-      auto.addEventListener('click', () => {
-        if (this.game.setFlowControl(channel, { mode: 'auto', value: 0 })) {
-          this.onChange();
-          this.update(this.game.state, this.game.derived());
-        }
+      max.addEventListener('click', () => {
+        this.apply(channel, { mode: 'max', value: 0 });
       });
-      return row;
+      auto.addEventListener('click', () => {
+        this.apply(channel, { mode: 'auto', value: 0 });
+      });
+      return rowElement;
     };
     const body = [
       ...CRUDE_FLOWS.map((channel) => rowOf(channel)),
@@ -96,6 +117,20 @@ export class FlowControlsPanel {
   }
 
   /**
+   * Применить режим направления и перерисовать панель.
+   *
+   * Кнопка забирает поле у игрока: нажатие во время набора отменяет ввод,
+   * иначе «Макс.» оставил бы в поле старое число и не показал бы свой.
+   */
+  private apply(channel: FlowKey, setting: FlowControl): void {
+    const row = this.rows.get(channel);
+    if (row) row.editing = false;
+    if (!this.game.setFlowControl(channel, setting)) return;
+    this.onChange();
+    this.update(this.game.state, this.game.derived());
+  }
+
+  /**
    * Применить введённое в поле значение.
    *
    * Пустое поле — это «Авто», как подсказывает placeholder: раньше
@@ -104,6 +139,8 @@ export class FlowControlsPanel {
    * но с `validity.badInput` — это ошибка, а не просьба включить «Авто».
    */
   private setFixed(channel: FlowKey, input: HTMLInputElement): void {
+    const row = this.rows.get(channel);
+    if (row) row.editing = false;
     const raw = input.value.trim();
     const badInput = input.validity?.badInput === true;
     const setting: FlowControl | null = badInput
@@ -134,24 +171,28 @@ export class FlowControlsPanel {
       const row = this.rows.get(channel);
       if (!row) continue;
       const setting = state.flowControl[channel];
-      if (document.activeElement !== row.input) {
-        row.input.value = setting.mode === 'fixed' ? String(setting.value) : '';
+      const limit = derived.flowLimits[channel];
+      // «Макс.» показывает объём, который направление забирает сейчас: он
+      // меняется вместе с добычей и заявками соседей, поэтому поле нельзя
+      // замораживать числом, записанным при нажатии кнопки. Перезаписываем
+      // только то, что действительно изменилось: лишняя запись в поле
+      // сбрасывает курсор, пока игрок правит значение.
+      if (!row.editing) {
+        const next = setting.mode === 'auto'
+          ? ''
+          : fieldValue(setting.mode === 'max' ? derived.flowClaims[channel] : setting.value, limit);
+        if (row.input.value !== next) row.input.value = next;
       }
-      row.input.max = String(derived.flowLimits[channel]);
+      row.input.max = String(limit);
       row.input.disabled = state.won;
       row.auto.disabled = state.won;
       row.max.disabled = state.won;
-      row.max.setAttribute(
-        'aria-pressed',
-        setting.mode === 'fixed' && Math.abs(setting.value - derived.flowLimits[channel]) <= 1e-9
-          ? 'true'
-          : 'false',
-      );
+      row.max.setAttribute('aria-pressed', setting.mode === 'max' ? 'true' : 'false');
       row.auto.setAttribute('aria-pressed', setting.mode === 'auto' ? 'true' : 'false');
-      row.status.textContent = this.texts.get('flows.status', {
+      setText(row.status, this.texts.get('flows.status', {
         actual: formatNumber(actual[channel]),
-        maximum: formatNumber(derived.flowLimits[channel]),
-      });
+        maximum: formatNumber(limit),
+      }));
     }
   }
 }
