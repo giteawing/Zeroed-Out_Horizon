@@ -87,16 +87,23 @@ describe('магазин: обновление без лишней работы 
     expect(checkBuy.mock.calls.length).toBe(shop.cardCount + packs.length);
   });
 
-  it('у богатого игрока есть карточки с пачкой, и их цена всё ещё считается', () => {
+  it('у богатого игрока кнопки уровня имеют свои количества и цены', () => {
     const { game, shop } = setup(1e12);
     shop.setTab('production');
-    const checkBuy = vi.spyOn(game, 'checkBuy');
+    const buySlotState = vi.spyOn(game, 'buySlotState');
     shop.update();
-    const packs = checkBuy.mock.calls.filter(([, count]) => count !== undefined && count > 1);
-    expect(packs.length).toBeGreaterThan(0);
-    const [id, count] = packs[0];
-    const button = shop.root.querySelector<HTMLButtonElement>(`[data-id="${id}"] .card__buy`)!;
-    expect(button.dataset.count).toBe(String(count));
+
+    const calls = buySlotState.mock.calls.map(([id]) => id);
+    expect(calls.length).toBe(shop.cardCount);
+    expect(new Set(calls).size).toBe(calls.length);
+
+    // Хоть на одной карточке с уровнем есть кнопка MAX со счётчиком больше 1.
+    const maxButton = shop.root.querySelector<HTMLButtonElement>(
+      '.card__buy[data-slot="buyMax"]',
+    )!;
+    expect(maxButton).not.toBeNull();
+    expect(Number(maxButton.dataset.count)).toBeGreaterThan(1);
+    expect(maxButton.disabled).toBe(false);
   });
 
   it('список вкладки сортируется при её открытии, а не при каждом обновлении', () => {

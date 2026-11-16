@@ -7,6 +7,7 @@ import textsJson from '../content/texts.json';
 import upgradesJson from '../content/upgrades.json';
 import achievementsJson from '../content/achievements.json';
 import { MAX_REFINERY_DEPTH, refineryStagesOf } from './economy/refineries';
+import { buySlotsFor } from './economy/purchases';
 import type {
   AchievementDef,
   AchievementsFile,
@@ -99,7 +100,7 @@ export function loadContent(options: LoadOptions = {}): Content {
   // effect может отсутствовать у роскоши — подставляем пустой объект,
   // чтобы остальной код не проверял его на существование.
   const upgrades = ((upgradesJson as unknown as UpgradesFile).upgrades as UpgradeDef[]).map(
-    (def) => ({ ...def, effect: def.effect ?? {} }),
+    (def) => ({ ...def, effect: def.effect ?? {}, slots: buySlotsFor(def) }),
   );
   const achievements = (achievementsJson as unknown as AchievementsFile).achievements;
 

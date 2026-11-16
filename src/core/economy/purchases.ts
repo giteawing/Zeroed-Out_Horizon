@@ -2,10 +2,90 @@
  * Покупки: цены, пакетная доступность и условия разблокировки.
  * Только расчёты — состояние игры здесь не меняется.
  */
-import type { GameConfig, GameState, UnlockRequirement, UpgradeDef } from '../types';
+import type { BuySlot, GameConfig, GameState, UnlockRequirement, UpgradeDef } from '../types';
 
 export function levelOf(state: GameState, id: string): number {
   return state.levels[id] ?? 0;
+}
+
+/**
+ * Покупка-действие (событие с перезарядкой) или обычная прокачка.
+ * Перенёс из `game.ts`, чтобы правило «какие кнопки у карточки» зависело
+ * только от описания покупки и не создавало зависимость økonomi → game.
+ */
+export function isRepeatable(def: UpgradeDef): boolean {
+  return def.repeatable === true || (!def.win && def.cooldownSeconds !== undefined && def.type === 'oneShot');
+}
+
+/**
+ * Набор кнопок покупки для карточки.
+ *
+ * Карточка с уровнем (управление ростом) получает четыре кнопки — фиксированные
+ * порции и «максимум». Одноразовые покупки, действия с перезарядкой и финальная
+ * цель не имеют уровня, которым можно выбирать объём: у них одна кнопка «Купить».
+ */
+export function buySlotsFor(def: UpgradeDef): BuySlot[] {
+  const leveled = !isRepeatable(def) && def.cooldownSeconds === undefined && !def.win &&
+    (Boolean(def.unlimited) || def.maxLevel > 1);
+  return leveled ? ['buy1', 'buy5', 'buy10', 'buyMax'] : ['buy1'];
+}
+
+/** Набор кнопок: то, что загрузил контент, иначе пересчитать по описанию. */
+export function slotsOf(def: UpgradeDef): BuySlot[] {
+  return def.slots ?? buySlotsFor(def);
+}
+
+/**
+ * Точная сумма цен `count` последовательных уровней начиная с `level`
+ * (уровни `level+1 … level+count`). Без скидки «отжатия»: её накладывает
+ * движок, округляя всю сумму разом — как в `Game.checkBuy`.
+ *
+ * Считается через накопленные префиксные суммы `ownedLevelsCost`, поэтому
+ * стоимость любого отрезка — O(1) (с учётом их внутреннего кеша).
+ */
+export function rangeCost(
+  config: GameConfig,
+  def: UpgradeDef,
+  level: number,
+  count: number,
+  exchangeRate = config.exchangeRate.initial,
+): number {
+  if (count <= 0) return 0;
+  return ownedLevelsCost(config, def, level + count, exchangeRate) -
+    ownedLevelsCost(config, def, level, exchangeRate);
+}
+
+/**
+ * Максимальное число уровней, которое покупает кнопка «MAX»: столько, сколько
+ * реально осталось (`cap` — уже с учётом лимитов скважин, потолка уровня и
+ * суточного/общего лимита отжимов) и сколько покрывает баланс.
+ *
+ * Сумма цен возрастает, поэтому поиск по префиксным суммам — бинарный.
+ * Возвращает и число, и итоговую (после скидки «отжатия») цену, чтобы
+ * интерфейс печатал одну и ту же цифру, которую движок спише.
+ */
+export function maxAffordableLevels(
+  config: GameConfig,
+  def: UpgradeDef,
+  level: number,
+  coins: number,
+  exchangeRate: number,
+  cap: number,
+  conquestCut: number,
+): { count: number; cost: number } {
+  const ceiling = Math.max(0, Math.min(Math.floor(cap), Number.isFinite(coins) ? Math.floor(coins) : 0));
+  // Стоимость нуля уровней — 0, она всегда вписывается в баланс.
+  let low = 0;
+  let high = ceiling;
+  while (low < high) {
+    const mid = (low + high + 1) >> 1;
+    const raw = rangeCost(config, def, level, mid, exchangeRate);
+    const cost = def.conquest ? Math.round(raw * (1 - conquestCut)) : raw;
+    if (cost <= coins) low = mid;
+    else high = mid - 1;
+  }
+  const raw = rangeCost(config, def, level, low, exchangeRate);
+  return { count: low, cost: def.conquest ? Math.round(raw * (1 - conquestCut)) : raw };
 }
 
 /**

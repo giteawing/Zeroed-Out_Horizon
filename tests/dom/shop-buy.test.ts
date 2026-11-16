@@ -27,8 +27,10 @@ describe('магазин: пакетная покупка из реальной 
 
     const initialWells = state.wells.length;
     shop.setTab('production');
-    const button = shop.root.querySelector<HTMLButtonElement>('[data-id="t_well"] .card__buy')!;
-    expect(button.textContent).toBe(content.texts.shop.buyMax.replace('{n}', '10'));
+    const button = shop.root.querySelector<HTMLButtonElement>(
+      '[data-id="t_well"] .card__buy[data-slot="buy10"]',
+    )!;
+    expect(button.textContent).toBe(content.texts.shop.buy10);
     expect(button.dataset.count).toBe('10');
     button.click();
 
@@ -231,5 +233,80 @@ describe('безлимитные карточки и квоты в магази�
     expect(btn.dataset.reason).toBe('yearWellLimit');
     const lock = card.querySelector('.card__lock')?.textContent ?? '';
     expect(lock).toContain(texts.get('shop.buyFailYearLimit', { limit: '8 000' }).slice(0, 20));
+  });
+});
+
+describe('кнопки уровня ×1/×5/×10/MAX', () => {
+  function setup(coins: number): { content: ReturnType<typeof loadContent>; game: Game; shop: Shop } {
+    const content = loadContent();
+    const state = createInitialState(content.config, 99);
+    state.coins = coins;
+    state.totalEarned = coins;
+    const game = new Game(content, state);
+    const shop = new Shop(game, new Texts(content.texts), content.config.currency, {
+      onBuy: (id, count) => { game.buy(id, count); },
+    });
+    shop.setTab('production');
+    return { content, game, shop };
+  }
+
+  const buttonsOf = (shop: Shop, id: string): HTMLButtonElement[] =>
+    [...shop.root.querySelectorAll<HTMLButtonElement>(`[data-id="${id}"] .card__buy`)];
+
+  it('уровневая карточка показывает четыре кнопки с правильными подписями', () => {
+    const { content, shop } = setup(1e12);
+    const buttons = buttonsOf(shop, 't_well');
+    expect(buttons.map((b) => b.dataset.slot)).toEqual(['buy1', 'buy5', 'buy10', 'buyMax']);
+    expect(buttons.map((b) => b.textContent)).toEqual([
+      content.texts.shop.buy1,
+      content.texts.shop.buy5,
+      content.texts.shop.buy10,
+      content.texts.shop.buyMax,
+    ]);
+  });
+
+  it('кнопка ×5 покупает ровно 5 уровней', () => {
+    const { game, shop } = setup(1e12);
+    const button = buttonsOf(shop, 't_well').find((b) => b.dataset.slot === 'buy5')!;
+    expect(button.dataset.count).toBe('5');
+    button.click();
+    expect(game.level('t_well')).toBe(5);
+  });
+
+  it('кнопка MAX покупает столько уровней, сколько указано в data-count', () => {
+    const { game, shop } = setup(1e12);
+    const button = buttonsOf(shop, 't_well').find((b) => b.dataset.slot === 'buyMax')!;
+    const count = Number(button.dataset.count);
+    expect(count).toBeGreaterThan(1);
+    button.click();
+    expect(game.level('t_well')).toBe(count);
+  });
+
+  it('без денег все кнопки уровня выключены с причиной noMoney', () => {
+    const { shop } = setup(0);
+    for (const button of buttonsOf(shop, 't_well')) {
+      expect(button.disabled).toBe(true);
+      expect(button.dataset.reason).toBe('noMoney');
+    }
+  });
+
+  it('осталось меньше уровней — ×5 и ×10 блокируются по maxLevel, MAX покупает остаток', () => {
+    const { content, game, shop } = setup(1e12);
+    // Осталось ровно три скважины в лимите: ×5 и ×10 некуда потратить.
+    game.stateForTests().wellsDrilledThisYear =
+      content.config.oil.wells.maxDrillPerYear - 3;
+    shop.update();
+    const buttons = buttonsOf(shop, 't_well');
+    const buy1 = buttons.find((b) => b.dataset.slot === 'buy1')!;
+    const buy5 = buttons.find((b) => b.dataset.slot === 'buy5')!;
+    const buy10 = buttons.find((b) => b.dataset.slot === 'buy10')!;
+    const max = buttons.find((b) => b.dataset.slot === 'buyMax')!;
+    expect(buy1.disabled).toBe(false);
+    expect(buy5.disabled).toBe(true);
+    expect(buy5.dataset.reason).toBe('maxLevel');
+    expect(buy10.disabled).toBe(true);
+    expect(buy10.dataset.reason).toBe('maxLevel');
+    expect(Number(max.dataset.count)).toBe(3);
+    expect(max.disabled).toBe(false);
   });
 });

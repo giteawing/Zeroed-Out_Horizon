@@ -253,6 +253,12 @@ export interface UnlockRequirement {
   influence?: number;
 }
 
+/**
+ * Торговые кнопки на карточке с уровнем: фиксированные порции и «максимум».
+ * Порядок фиксирован — это порядок рендерирования в магазине.
+ */
+export type BuySlot = 'buy1' | 'buy5' | 'buy10' | 'buyMax';
+
 export interface UpgradeDef {
   id: string;
   tab: Tab;
@@ -263,7 +269,15 @@ export interface UpgradeDef {
   type: UpgradeType;
   baseCost: number;
   maxLevel: number;
-  /** Снимает ограничение на максимальный уровень (учитываются только лимиты скважин). */
+  /**
+   * Набор кнопок покупки, который получает карточка с уровнем.
+   * Заполняется при загрузке контента: `['buy1','buy5','buy10','buyMax']`
+   * для уровней с ручным выбором, `['buy1']` — для одноразовых и действий.
+   * Поле optional, потому что тесты могут строить `UpgradeDef` вручную;
+   * в таком случае набор считается через `slotsOf`.
+   */
+  slots?: BuySlot[];
+  /** Снимает ограничение на максимальный уровень (учитывается только лимиты скважин). */
   unlimited?: boolean;
   /** Индивидуальный рост цены (по умолчанию config.costGrowth). */
   costGrowth?: number;
