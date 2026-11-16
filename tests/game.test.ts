@@ -85,6 +85,42 @@ describe('непрерывная добыча и маршрутизация', ()
       .toBeLessThanOrEqual(production + 1e-6);
   });
 
+  it('«Макс.» забирает остаток добычи и не выходит за её пределы', () => {
+    const { game, state } = setup();
+    state.wells = [{ kind: 'unique', dailyTonnes: 1000 }];
+    state.levels = { t_refinery: 1, t_pipeline: 1, t_depot: 1 };
+    game.invalidate();
+    const production = game.derived().oilPerSecond;
+    const quota = production / 4;
+    expect(game.setFlowControl('contract', { mode: 'fixed', value: quota })).toBe(true);
+    expect(game.setFlowControl('export', { mode: 'max', value: 0 })).toBe(true);
+    const derived = game.derived();
+    expect(derived.flows.domestic).toBeCloseTo(quota, 6);
+    expect(derived.flows.export).toBeCloseTo(production - quota, 6);
+    expect(derived.flows.domestic + derived.flows.export + derived.flows.refined)
+      .toBeLessThanOrEqual(production + 1e-6);
+  });
+
+  it('повторное нажатие «Макс.» перехватывает объём у прежней заявки', () => {
+    const { game, state } = setup();
+    state.wells = [{ kind: 'unique', dailyTonnes: 1000 }];
+    state.levels = { t_refinery: 1, t_pipeline: 1, t_depot: 1 };
+    game.invalidate();
+    expect(game.setFlowControl('export', { mode: 'max', value: 0 })).toBe(true);
+    const exportAlone = game.derived().flows.export;
+    expect(exportAlone).toBeGreaterThan(0);
+
+    // Та же заявка, но нажатая позже: переработка забирает объём первой.
+    expect(game.setFlowControl('refine', { mode: 'max', value: 1000 })).toBe(true);
+    const derived = game.derived();
+    expect(derived.flowClaims.refine).toBeGreaterThan(0);
+    expect(derived.flows.refined).toBeGreaterThan(0);
+    expect(derived.flows.export).toBeLessThan(exportAlone);
+    const production = derived.oilPerSecond;
+    expect(derived.flows.domestic + derived.flows.export + derived.flows.refined)
+      .toBeLessThanOrEqual(production + 1e-6);
+  });
+
   it('автоматический режим сбрасывает фиксированное значение', () => {
     const { game, state } = setup();
     expect(game.setFlowControl('contract', { mode: 'fixed', value: 0 })).toBe(true);

@@ -58,7 +58,9 @@ export type ProductMarket = 'domestic' | 'export';
 
 /**
  * Предел направления с учётом ручного режима: «фиксировано» ограничивает
- * поток заданной величиной, «Авто» отдаёт всю физическую мощность рынка.
+ * поток заданной величиной, «Авто» и «Макс.» отдаёт всю физическую мощность
+ * рынка. У «Макс.» предел тот же, что у «Авто», но тонны оно забирает первым
+ * (см. `routeCrude` и `allocateProducts`).
  *
  * `capacity` задана в тех же единицах, что и результат (т/с либо тонны за
  * окно). `scale` переводит заявку из т/с в единицы результата: за окно
@@ -79,9 +81,11 @@ export function controlledLimit(
  * Раздача нефтепродуктов по рынкам с учётом «Логистики».
  *
  * Сначала исполняются фиксированные заявки: игрок сам решил, сколько тонн
- * уйдёт внутри страны и сколько на экспорт. Остаток «Авто» распределяет по
- * цене, как и раньше. Так ручная настройка не ломает автоматический режим
- * соседнего направления.
+ * уйдёт внутри страны и сколько на экспорт. Затем направления в режиме
+ * «Макс.» забирают остаток в пределах своей мощности — тоже по очереди,
+ * потому что больше одной заявки «всё, что есть» исполнить нельзя. Остаток
+ * «Авто» распределяет по цене, как и раньше. Так ручная настройка не ломает
+ * автоматический режим соседнего направления.
  */
 export function allocateProducts(
   volume: number,
@@ -100,19 +104,25 @@ export function allocateProducts(
       scale,
     );
 
-  // Фиксированные направления забирают ровно свою заявку (не больше мощности).
-  for (const market of markets) {
-    const setting = market.key === 'export' ? controls?.productExport : controls?.productDomestic;
-    if (!setting || setting.mode !== 'fixed') continue;
-    const taken = Math.min(remaining, outlet(market));
-    byMarket[market.key] = taken;
-    remaining -= taken;
+  // Сначала фиксированные заявки, потом «Макс.»: у обоих приоритет перед
+  // «Авто», но чужая квота в тоннах не перекрывает соседний рынок.
+  const withMode = (mode: FlowControl['mode']): Array<Market<ProductMarket>> =>
+    markets.filter((market) => {
+      const setting = market.key === 'export' ? controls?.productExport : controls?.productDomestic;
+      return setting?.mode === mode;
+    });
+  for (const mode of ['fixed', 'max'] as const) {
+    for (const market of withMode(mode)) {
+      const taken = Math.min(remaining, outlet(market));
+      byMarket[market.key] = taken;
+      remaining -= taken;
+    }
   }
   // «Авто» — по цене, в пределах физической мощности рынка. Раздачу остатка
   // делает общий allocateByPrice(), чтобы прогноз и отгрузка не расходились.
   const autoMarkets = markets.filter((market) => {
     const setting = market.key === 'export' ? controls?.productExport : controls?.productDomestic;
-    return !setting || setting.mode !== 'fixed';
+    return !setting || setting.mode === 'auto';
   });
   const auto = allocateByPrice(remaining, autoMarkets);
   for (const market of autoMarkets) byMarket[market.key] += auto.byMarket[market.key];
@@ -134,6 +144,37 @@ const ROUTE_CHANNELS: ReadonlyArray<{ key: CrudeRoute; channel: Channel }> = [
   { key: 'refine', channel: 'refine' },
   { key: 'domestic', channel: 'contract' },
 ];
+
+/**
+ * Порядок, в котором направления забирают сырьё: сначала свои квоты, затем
+ * заявки «Макс.» делят остаток. Тот же порядок показывает панель «Логистика»
+ * в поле «максимум», иначе экран и деньги разъедутся.
+ */
+export const CLAIM_ORDER: Channel[] = ROUTE_CHANNELS.map(({ channel }) => channel);
+
+/**
+ * Порядок, в котором рынки нефтепродуктов получают тонны: сначала экспорт,
+ * затем внутренний рынок — так их передают `allocateProducts()` оба вызова
+ * (прогноз `oilFlowsOf()` и отгрузка `shipProducts()`).
+ */
+export const PRODUCT_CLAIM_ORDER: Array<'productExport' | 'productDomestic'> = [
+  'productExport',
+  'productDomestic',
+];
+
+/**
+ * Очерёдность заявок «Макс.»: последняя нажатая кнопка забирает остаток
+ * первой, остальные — в порядке `CLAIM_ORDER`. Без этого «Макс.» на
+ * соседнем направлении не перехватил бы объём у старой заявки, и кнопка
+ * молча дала бы ноль, хотя направление способно принять больше.
+ */
+export function claimOrderOf(controls: FlowControls): Channel[] {
+  return CLAIM_ORDER
+    .map((channel, index) => ({ channel, index }))
+    .filter(({ channel }) => controls[channel].mode === 'max')
+    .sort((a, b) => controls[b.channel].value - controls[a.channel].value || a.index - b.index)
+    .map(({ channel }) => channel);
+}
 
 /** Сколько сырья и продуктов готовы принять рынки за рассчитываемый интервал. */
 interface CrudeDemand {
@@ -180,10 +221,11 @@ function refineryCapacityFor(units: readonly RefineryUnit[], maxCrude: number, o
 }
 
 /**
- * Сначала исполняет фиксированные заявки. Автоматические каналы сравниваются
- * по предельной выручке: для следующего НПЗ это его собственная глубина ×
- * цена лучшего ещё свободного рынка продуктов. После заполнения завода или
- * рынка сравнение повторяется; работа на склад всегда последняя.
+ * Сначала исполняются фиксированные заявки, затем направления в режиме
+ * «Макс.» забирают остаток в пределах своей мощности. Автоматические каналы
+ * сравниваются по предельной выручке: для следующего НПЗ это его собственная
+ * глубина × цена лучшего ещё свободного рынка продуктов. После заполнения
+ * завода или рынка сравнение повторяется; работа на склад всегда последняя.
  * При равной цене порядок: экспорт, НПЗ, внутренний рынок.
  */
 function routeCrude(
@@ -244,15 +286,32 @@ function routeCrude(
   };
 
   const automatic: CrudeRoute[] = [];
-  for (const { key, channel } of ROUTE_CHANNELS) {
-    const setting = controls?.[channel];
-    if (!setting || setting.mode !== 'fixed') {
-      automatic.push(key);
+  const maxed: Array<{ key: CrudeRoute; channel: Channel }> = [];
+  for (const route of ROUTE_CHANNELS) {
+    const setting = controls?.[route.channel];
+    if (!setting || setting.mode === 'auto') {
+      automatic.push(route.key);
+      continue;
+    }
+    if (setting.mode === 'max') {
+      maxed.push(route);
       continue;
     }
     const limit = Math.max(0, Number.isFinite(setting.value) ? setting.value * scale : 0);
-    if (key === 'refine') takeRefinery(limit);
-    else takeCrude(key, limit);
+    if (route.key === 'refine') takeRefinery(limit);
+    else takeCrude(route.key, limit);
+  }
+  // «Макс.» забирает всё, что осталось после чужих квот, в пределах своей
+  // физической мощности (`left[key]`). Значение не хранится в состоянии,
+  // поэтому заявка не устаревает после покупки скважины. Очерёдность та же,
+  // что показывает панель: последнее нажатие «Макс.» — первое в очереди.
+  if (controls && maxed.length > 1) {
+    const order = new Map(claimOrderOf(controls).map((channel, index) => [channel, index]));
+    maxed.sort((a, b) => (order.get(a.channel) ?? 0) - (order.get(b.channel) ?? 0));
+  }
+  for (const { key } of maxed) {
+    if (key === 'refine') takeRefinery(Number.POSITIVE_INFINITY);
+    else takeCrude(key, Number.POSITIVE_INFINITY);
   }
 
   while (remaining > 0) {

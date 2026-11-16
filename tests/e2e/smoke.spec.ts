@@ -32,7 +32,7 @@ interface Snapshot {
   totalPurchases: number;
   playtimeMs: number;
   savedAtWallMs: number;
-  flowControl: Record<'contract' | 'export' | 'refine', { mode: 'auto' | 'fixed'; value: number }>;
+  flowControl: Record<'contract' | 'export' | 'refine', { mode: 'auto' | 'fixed' | 'max'; value: number }>;
 }
 
 /** Состояние игры в памяти страницы. */
