@@ -16,7 +16,7 @@ import {
   isUnlocked,
   isWinReady,
   levelOf,
-  maxAffordableLevels,
+  maxBatchLevels,
   slotsOf,
   stagedNameOf,
   unlockBlocker,
@@ -621,8 +621,9 @@ export class Game {
    * Состояние всех торговых кнопок карточки: для каждого слота — сколько
    * уровней купит, цена и доступность. Кнопки с фиксированной порцией
    * блокируются, если осталось меньше уровней, чем в порции, или не хватает
-   * денег; MAX покупает столько уровней, сколько реально покрывает баланс
-   * (не выше `maxBuyLevels` за одну покупку).
+   * денег. MAX покупает ровно максимальную возможную пачку (не больше
+   * `maxBuyLevels` за покупку) и блокируется, если на ВСЮ эту пачку денег
+   * не хватает: покупка «максимума» не должна превратиться в пусную пачку.
    */
   buySlotState(id: string): BuySlotStateList {
     const ctx = this.buyContext(id);
@@ -651,7 +652,7 @@ export class Game {
         // уровня (если он ещё покупаем) иначе ноль.
         slots.push({
           slot,
-          count: slot === 'buyMax' ? ctx.available : Game.fixedSlotCount(slot),
+          count: slot === 'buyMax' ? this.maxBatchCount(ctx) : Game.fixedSlotCount(slot),
           cost: ctx.available > 0 ? this.levelCost(ctx, 1) : 0,
           enabled: false,
           reason: block,
@@ -659,12 +660,9 @@ export class Game {
         continue;
       }
       if (slot === 'buyMax') {
-        const cap = Math.min(ctx.available, this.config.maxBuyLevels);
-        const { count, cost } = maxAffordableLevels(
-          this.config, def, ctx.level, this.mutableState.coins,
-          ctx.derived.exchangeRate, cap, ctx.derived.conquestCut,
-        );
-        slots.push({ slot, count, cost, enabled: count > 0, reason: count > 0 ? 'ok' : 'noMoney' });
+        const { count, cost } = this.maxBatch(ctx);
+        const ok = count > 0 && this.mutableState.coins >= cost;
+        slots.push({ slot, count, cost, enabled: ok, reason: ok ? 'ok' : 'noMoney' });
         continue;
       }
       const want = Game.fixedSlotCount(slot);
@@ -677,6 +675,19 @@ export class Game {
       slots.push({ slot, count: want, cost, enabled: ok, reason: ok ? 'ok' : 'noMoney' });
     }
     return { available: ctx.available, slots };
+  }
+
+  /** Максимальная пачка для MAX: всё, что осталось, но не больше maxBuyLevels. */
+  private maxBatchCount(ctx: BuyContext): number {
+    return Math.max(0, Math.min(ctx.available, this.config.maxBuyLevels));
+  }
+
+  /** Полная максимальная пачка и её цена (после скидки «отжатия»). */
+  private maxBatch(ctx: BuyContext): { count: number; cost: number } {
+    return maxBatchLevels(
+      this.config, ctx.def, ctx.level, ctx.available,
+      ctx.derived.exchangeRate, ctx.derived.conquestCut, this.config.maxBuyLevels,
+    );
   }
 
   /** Купить покупку. count — желаемое число уровней (1..maxBuyLevels). */

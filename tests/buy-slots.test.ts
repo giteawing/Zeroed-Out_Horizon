@@ -8,7 +8,7 @@ import { Game } from '../src/core/game';
 import { createInitialState } from '../src/core/state';
 import {
   buySlotsFor,
-  maxAffordableLevels,
+  maxBatchLevels,
   rangeCost,
   slotsOf,
 } from '../src/core/economy/purchases';
@@ -33,7 +33,7 @@ function gameWith(coins: number): Game {
 }
 
 describe('набор кнопок покупки', () => {
-  it('уровневая карточка получает четыре кнопки, остальные — одну', () => {
+  it('уровневая карточка с потолком получает четыре кнопки, остальные — одну', () => {
     expect(buySlotsFor(leveledDef())).toEqual(['buy1', 'buy5', 'buy10', 'buyMax']);
     // Одноразовая покупка-действие без уровня (с перезарядкой).
     const action = content.upgrades.find((u) => u.repeatable === true)!;
@@ -41,6 +41,23 @@ describe('набор кнопок покупки', () => {
     // Финальная цель.
     const win = content.upgrades.find((u) => u.win)!;
     expect(buySlotsFor(win)).toEqual(['buy1']);
+  });
+
+  it('безлимитная карточка получает ×1/×5/×10, но без MAX', () => {
+    // Безлимитных скважин/месторождений нет чёткого потолка: «MAX» невозможен.
+    const unlimited = content.upgrades.filter((u) => u.unlimited && !u.repeatable && !u.win);
+    expect(unlimited.length).toBeGreaterThan(0);
+    for (const def of unlimited) {
+      expect(buySlotsFor(def)).toEqual(['buy1', 'buy5', 'buy10']);
+    }
+  });
+
+  it('одноразовая карточка-копия продаётся только по одной: одна кнопка «Купить»', () => {
+    // Одноразовая покупка, у которой нет уровня и нет перезарядки.
+    const oneShot = content.upgrades.find((u) =>
+      u.maxLevel === 1 && !u.unlimited && !u.repeatable && !u.win && u.cooldownSeconds === undefined);
+    expect(oneShot).toBeDefined();
+    expect(buySlotsFor(oneShot!)).toEqual(['buy1']);
   });
 
   it('slotsOf берёт загруженный набор, а без него пересчитывает', () => {
@@ -63,29 +80,28 @@ describe('точная цена отрезка уровней', () => {
   });
 });
 
-describe('максимальная доступная пачка', () => {
-  it('накапливает уровни до баланса и не превышает лимит за покупку', () => {
+describe('максимальная пачка MAX', () => {
+  it('даёт ровно максимально возможное число уровней, не выше лимита за покупку', () => {
     const def = leveledDef();
     const game = gameWith(1e18);
-    const { count, cost } = maxAffordableLevels(
-      content.config, def, 0, game.stateForTests().coins,
-      game.derived().exchangeRate, content.config.maxBuyLevels, 0,
+    const { count, cost } = maxBatchLevels(
+      content.config, def, 0, content.config.maxBuyLevels,
+      game.derived().exchangeRate, 0, content.config.maxBuyLevels,
     );
     expect(count).toBe(content.config.maxBuyLevels);
     // Стоимость ровно стольких уровней.
     expect(cost).toBe(rangeCost(content.config, def, 0, count, game.derived().exchangeRate));
   });
 
-  it('списывает пачку, которую покрывает баланс, и не выше', () => {
+  it('не превышает лимит за покупку, даже если осталось больше уровней', () => {
     const def = leveledDef();
-    const one = gameWith(1e18).checkBuy(def.id, 1).cost;
-    const game = gameWith(one);
-    const { count, cost } = maxAffordableLevels(
-      content.config, def, 0, game.stateForTests().coins,
-      game.derived().exchangeRate, content.config.maxBuyLevels, 0,
+    const game = gameWith(1e18);
+    // Осталось 40 уровней, лимит за покупку — 25.
+    const { count } = maxBatchLevels(
+      content.config, def, 0, 40,
+      game.derived().exchangeRate, 0, content.config.maxBuyLevels,
     );
-    expect(count).toBe(1);
-    expect(cost).toBe(one);
+    expect(count).toBe(content.config.maxBuyLevels);
   });
 });
 
@@ -102,7 +118,7 @@ describe('состояние кнопок Game.buySlotState', () => {
     }
   });
 
-  it('если хватает только на один уровень, кнопки ×5 и ×10 блокируются по деньгам', () => {
+  it('если хватает только на один уровень, MAX блокируется по деньгам', () => {
     const def = leveledDef();
     const one = gameWith(1e18).checkBuy(def.id, 1).cost;
     const game = gameWith(one);
@@ -113,9 +129,10 @@ describe('состояние кнопок Game.buySlotState', () => {
     expect(buy5!.reason).toBe('noMoney');
     expect(buy10!.enabled).toBe(false);
     expect(buy10!.reason).toBe('noMoney');
-    // MAX покупает ровно один уровень — столько, сколько покрывает баланс.
-    expect(max!.count).toBe(1);
-    expect(max!.enabled).toBe(true);
+    // MAX покупает ровно максимальную пачку, но на неё денег не хватает.
+    expect(max!.count).toBe(content.config.maxBuyLevels);
+    expect(max!.enabled).toBe(false);
+    expect(max!.reason).toBe('noMoney');
   });
 
   it('если осталось меньше уровней, чем в порции, кнопка блокируется по уровню', () => {
@@ -131,8 +148,22 @@ describe('состояние кнопок Game.buySlotState', () => {
     expect(buy5!.reason).toBe('maxLevel');
     expect(buy10!.enabled).toBe(false);
     expect(buy10!.reason).toBe('maxLevel');
+    // MAX берёт всё, что осталось (меньше лимита за покупку).
     expect(max!.count).toBe(3);
     expect(max!.enabled).toBe(true);
+  });
+
+  it('MAX блокируется, если на всю максимальную пачку денег не хватает', () => {
+    const def = leveledDef();
+    const game = gameWith(1e18);
+    const fullBatch = game.buySlotState(def.id).slots.find((s) => s.slot === 'buyMax')!;
+    // Поставим ровно на 1 монету меньше стоимости полной пачки.
+    const broke = gameWith(fullBatch.cost - 1);
+    const state = broke.buySlotState(def.id);
+    const max = state.slots.find((s) => s.slot === 'buyMax')!;
+    expect(max.count).toBe(fullBatch.count);
+    expect(max.enabled).toBe(false);
+    expect(max.reason).toBe('noMoney');
   });
 
   it('MAX покупает столько уровней, сколько указано в состоянии, и это срабатывает', () => {

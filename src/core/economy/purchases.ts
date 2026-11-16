@@ -20,14 +20,19 @@ export function isRepeatable(def: UpgradeDef): boolean {
 /**
  * Набор кнопок покупки для карточки.
  *
- * Карточка с уровнем (управление ростом) получает четыре кнопки — фиксированные
- * порции и «максимум». Одноразовые покупки, действия с перезарядкой и финальная
- * цель не имеют уровня, которым можно выбирать объём: у них одна кнопка «Купить».
+ * Карточка с уровнем (управление ростом) получает фиксированные порции.
+ * Кнопка «MAX» есть только там, где есть чёткий потолок уровня: безлимитные
+ * карточки (скважины, отжатые месторождения) покупаются без максимума, а
+ * одноразовые покупки, действия с перезарядкой и финальная цель не имеют
+ * уровня, которым можно выбирать объём — у них одна кнопка «Купить».
  */
 export function buySlotsFor(def: UpgradeDef): BuySlot[] {
   const leveled = !isRepeatable(def) && def.cooldownSeconds === undefined && !def.win &&
     (Boolean(def.unlimited) || def.maxLevel > 1);
-  return leveled ? ['buy1', 'buy5', 'buy10', 'buyMax'] : ['buy1'];
+  if (!leveled) return ['buy1'];
+  return def.unlimited
+    ? ['buy1', 'buy5', 'buy10']
+    : ['buy1', 'buy5', 'buy10', 'buyMax'];
 }
 
 /** Набор кнопок: то, что загрузил контент, иначе пересчитать по описанию. */
@@ -56,36 +61,27 @@ export function rangeCost(
 }
 
 /**
- * Максимальное число уровней, которое покупает кнопка «MAX»: столько, сколько
- * реально осталось (`cap` — уже с учётом лимитов скважин, потолка уровня и
- * суточного/общего лимита отжимов) и сколько покрывает баланс.
+ * Полная максимальная партия, которую покупает кнопка «MAX»: всё, что реально
+ * осталось (`cap` — уже с учётом лимитов скважин, потолка уровня и
+ * суточного/общего лимита отжимов) и не больше `maxBuyLevels` за одну покупку.
  *
- * Сумма цен возрастает, поэтому поиск по префиксным суммам — бинарный.
+ * Кнопка активна только если хватает денег на ВСЮ эту пачку — иначе покупка
+ * «максимума» была бы наполовину пусной, а кнопка должна блокироваться.
  * Возвращает и число, и итоговую (после скидки «отжатия») цену, чтобы
  * интерфейс печатал одну и ту же цифру, которую движок спише.
  */
-export function maxAffordableLevels(
+export function maxBatchLevels(
   config: GameConfig,
   def: UpgradeDef,
   level: number,
-  coins: number,
-  exchangeRate: number,
   cap: number,
+  exchangeRate: number,
   conquestCut: number,
+  maxBuy: number,
 ): { count: number; cost: number } {
-  const ceiling = Math.max(0, Math.min(Math.floor(cap), Number.isFinite(coins) ? Math.floor(coins) : 0));
-  // Стоимость нуля уровней — 0, она всегда вписывается в баланс.
-  let low = 0;
-  let high = ceiling;
-  while (low < high) {
-    const mid = (low + high + 1) >> 1;
-    const raw = rangeCost(config, def, level, mid, exchangeRate);
-    const cost = def.conquest ? Math.round(raw * (1 - conquestCut)) : raw;
-    if (cost <= coins) low = mid;
-    else high = mid - 1;
-  }
-  const raw = rangeCost(config, def, level, low, exchangeRate);
-  return { count: low, cost: def.conquest ? Math.round(raw * (1 - conquestCut)) : raw };
+  const count = Math.max(0, Math.min(Math.floor(cap), Math.floor(maxBuy)));
+  const raw = rangeCost(config, def, level, count, exchangeRate);
+  return { count, cost: def.conquest ? Math.round(raw * (1 - conquestCut)) : raw };
 }
 
 /**

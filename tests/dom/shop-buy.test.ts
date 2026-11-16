@@ -253,15 +253,14 @@ describe('кнопки уровня ×1/×5/×10/MAX', () => {
   const buttonsOf = (shop: Shop, id: string): HTMLButtonElement[] =>
     [...shop.root.querySelectorAll<HTMLButtonElement>(`[data-id="${id}"] .card__buy`)];
 
-  it('уровневая карточка показывает четыре кнопки с правильными подписями', () => {
+  it('безлимитная карточка показывает три кнопки ×1/×5/×10 без MAX', () => {
     const { content, shop } = setup(1e12);
     const buttons = buttonsOf(shop, 't_well');
-    expect(buttons.map((b) => b.dataset.slot)).toEqual(['buy1', 'buy5', 'buy10', 'buyMax']);
+    expect(buttons.map((b) => b.dataset.slot)).toEqual(['buy1', 'buy5', 'buy10']);
     expect(buttons.map((b) => b.textContent)).toEqual([
       content.texts.shop.buy1,
       content.texts.shop.buy5,
       content.texts.shop.buy10,
-      content.texts.shop.buyMax,
     ]);
   });
 
@@ -273,15 +272,6 @@ describe('кнопки уровня ×1/×5/×10/MAX', () => {
     expect(game.level('t_well')).toBe(5);
   });
 
-  it('кнопка MAX покупает столько уровней, сколько указано в data-count', () => {
-    const { game, shop } = setup(1e12);
-    const button = buttonsOf(shop, 't_well').find((b) => b.dataset.slot === 'buyMax')!;
-    const count = Number(button.dataset.count);
-    expect(count).toBeGreaterThan(1);
-    button.click();
-    expect(game.level('t_well')).toBe(count);
-  });
-
   it('без денег все кнопки уровня выключены с причиной noMoney', () => {
     const { shop } = setup(0);
     for (const button of buttonsOf(shop, 't_well')) {
@@ -290,7 +280,7 @@ describe('кнопки уровня ×1/×5/×10/MAX', () => {
     }
   });
 
-  it('осталось меньше уровней — ×5 и ×10 блокируются по maxLevel, MAX покупает остаток', () => {
+  it('осталось меньше уровней — ×5 и ×10 блокируются по maxLevel', () => {
     const { content, game, shop } = setup(1e12);
     // Осталось ровно три скважины в лимите: ×5 и ×10 некуда потратить.
     game.stateForTests().wellsDrilledThisYear =
@@ -300,13 +290,46 @@ describe('кнопки уровня ×1/×5/×10/MAX', () => {
     const buy1 = buttons.find((b) => b.dataset.slot === 'buy1')!;
     const buy5 = buttons.find((b) => b.dataset.slot === 'buy5')!;
     const buy10 = buttons.find((b) => b.dataset.slot === 'buy10')!;
-    const max = buttons.find((b) => b.dataset.slot === 'buyMax')!;
     expect(buy1.disabled).toBe(false);
     expect(buy5.disabled).toBe(true);
     expect(buy5.dataset.reason).toBe('maxLevel');
     expect(buy10.disabled).toBe(true);
     expect(buy10.dataset.reason).toBe('maxLevel');
-    expect(Number(max.dataset.count)).toBe(3);
-    expect(max.disabled).toBe(false);
+  });
+
+  it('карточка с потолком показывает четыре кнопки, включая MAX', () => {
+    const { content, shop } = setup(1e12);
+    const buttons = buttonsOf(shop, 't_gasplant');
+    expect(buttons.map((b) => b.dataset.slot)).toEqual(['buy1', 'buy5', 'buy10', 'buyMax']);
+    expect(buttons.map((b) => b.textContent)).toEqual([
+      content.texts.shop.buy1,
+      content.texts.shop.buy5,
+      content.texts.shop.buy10,
+      content.texts.shop.buyMax,
+    ]);
+  });
+
+  it('кнопка MAX покупает ровно максимальную пачку из data-count', () => {
+    const { game, shop } = setup(1e12);
+    const button = buttonsOf(shop, 't_gasplant').find((b) => b.dataset.slot === 'buyMax')!;
+    const count = Number(button.dataset.count);
+    expect(count).toBeGreaterThan(1);
+    button.click();
+    expect(game.level('t_gasplant')).toBe(count);
+  });
+
+  it('MAX блокируется, если на всю максимальную пачку денег не хватает', () => {
+    const { game, shop } = setup(1e12);
+    const button = buttonsOf(shop, 't_gasplant').find((b) => b.dataset.slot === 'buyMax')!;
+    const fullCost = Number(button.dataset.count);
+    expect(fullCost).toBeGreaterThan(1);
+    // Поставим баланс ровно на 1 меньше стоимости полной пачки.
+    const cost = game.checkBuy('t_gasplant', fullCost).cost;
+    game.stateForTests().coins = cost - 1;
+    shop.update();
+    const updated = buttonsOf(shop, 't_gasplant').find((b) => b.dataset.slot === 'buyMax')!;
+    expect(Number(updated.dataset.count)).toBe(fullCost);
+    expect(updated.disabled).toBe(true);
+    expect(updated.dataset.reason).toBe('noMoney');
   });
 });
