@@ -25,10 +25,10 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@playwright/test": "1.65.0",
+    "@playwright/test": "1.65.1",
     "@resvg/resvg-js": "^2.6.2",
     "@types/node": "^26.6.6",
-    "eslint": "10.14.0",
+    "eslint": "10.15.0",
     "happy-dom": "^21.0.4",
     "tsx": "^4.23.15",
     "typescript": "5.9.3",
